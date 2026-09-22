@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/components/gallery/GalleryTile.jsx"
+        ],
+        "createdAt": "2026-09-08T10:06:25.385Z",
+        "reason": "model: decorative back-face <img> in the 3D flip uses a real dynamic src={item.src} with alt=\"\" by design; not a placeholder"
+      }
+    ]
+  }
+}

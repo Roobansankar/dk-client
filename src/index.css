@@ -1,0 +1,713 @@
+@import 'tailwindcss';
+
+/* Make `dark:` utilities follow the app's explicit theme toggle. ThemeContext
+   always writes data-theme="light" | "dark" onto <html> (never absent), so the
+   variant keys off that attribute rather than the OS `prefers-color-scheme`. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ==========================================================================
+   DK StyleHub — visual foundation
+   Restrained, editorial, modern, unisex.
+
+   No brand palette or logo has been provided (see PRODUCT.md > Evidence on
+   Hand), so the color system here is a neutral warm-gray scale only — no
+   invented brand hue, no gradients. Motion is deliberately minimal.
+   Serif display + sans text carries the editorial contrast.
+   ========================================================================== */
+
+@theme {
+  /* -- Type families ------------------------------------------------------
+     Modern professional single-family: Manrope everywhere. */
+  --font-sans:
+    'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-serif:
+    'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* -- Fluid type scale -------------------------------------------------
+     Normalized readable scale: 16px minimum body on mobile, 17px on
+     laptop. Small text never below 14px. Headings fluid but capped so
+     mobile never overflows and laptop stays balanced. */
+  --text-eyebrow: 0.75rem;
+  --text-eyebrow--line-height: 1.5;
+  --text-eyebrow--letter-spacing: 0.14em;
+
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.6;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.6;
+  --text-base: 1rem;
+  --text-base--line-height: 1.65;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.6;
+  --text-xl: clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
+  --text-xl--line-height: 1.4;
+  --text-2xl: clamp(1.5rem, 1.35rem + 0.75vw, 1.875rem);
+  --text-2xl--line-height: 1.3;
+  --text-3xl: clamp(1.75rem, 1.5rem + 1.25vw, 2.5rem);
+  --text-3xl--line-height: 1.2;
+  --text-4xl: clamp(2rem, 1.7rem + 1.5vw, 3rem);
+  --text-4xl--line-height: 1.15;
+  --text-5xl: clamp(2.5rem, 1.9rem + 3vw, 3.75rem);
+  --text-5xl--line-height: 1.08;
+
+  /* -- Palette: warm ivory light system — no brand hue, no gradients ---
+     paper           dominant page background (warm ivory / cream)
+     surface         lifted warm near-white for cards, navbar, drawer
+     surface-sunken  soft warm-gray secondary panels
+     ink             deep charcoal (not pure black) — strong text, Booking CTA
+     ink-soft        charcoal body text
+     muted           warm gray for captions / eyebrows (AA on paper & surface)
+  */
+  --color-paper: #f7f3ea;
+  --color-surface: #fffdf8;
+  --color-surface-sunken: #eee7d8;
+  --color-ink: #201e1b;
+  --color-ink-soft: #4a4740;
+  --color-muted: #6d6858;
+  --color-line: #e4ddce;
+  --color-line-strong: #d0c7b3;
+  --color-inverse: #f7f3ea;
+  --color-inverse-surface: #201e1b;
+  --color-focus: #201e1b;
+
+  /* Fixed near-black for the hero photo scrim — intentionally NOT flipped in
+     dark mode, since it always sits over a dark photograph. */
+  --color-scrim: #17150f;
+
+  /* Restrained warm accent — used sparingly (rating marks, small emphasis). */
+  --color-accent: #9a7b53;
+
+  /* -- Spacing rhythm & layout -------------------------------------- */
+  --spacing-gutter: clamp(0.75rem, 3vw, 1.5rem);
+  /* Per-side vertical padding for one section edge (see .section-y below).
+     Two adjacent sections each contribute one side of this to the boundary
+     between them, so the *visible* section-to-section gap is roughly double
+     this value — tuned so that combined gap lands at ~56px on mobile
+     (~390px), ~78–93px on tablet (~768–1024px), and ~109–120px on desktop
+     (~1280px+), matching the site's intended spacing rhythm without any
+     component/JSX changes: every section already shares this one token. */
+  --spacing-section: clamp(1.5rem, 1rem + 3vw, 3.75rem);
+  --container-page: 80rem;
+  --container-text: 42rem;
+
+  /* -- Radius (minimal) ------------------------------------------- */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+
+  /* -- Motion (subtle) ------------------------------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Dark mode — an authored re-tone of the same neutral system (not an inversion);
+   still no brand hue, no gradient. The theme is toggled with [data-theme] on
+   <html>, set before first paint by the inline script in index.html, so a single
+   attribute selector covers every case (explicit choice + system default). */
+:root[data-theme='dark'] {
+    --color-paper: #141311;
+    --color-surface: #1b1a18;
+    --color-surface-sunken: #211f1c;
+    --color-ink: #f2f0ec;
+    --color-ink-soft: #c6c3bb;
+    --color-muted: #928e84;
+    --color-line: #302d29;
+    --color-line-strong: #423e38;
+    --color-inverse: #1b1a18;
+    --color-inverse-surface: #f2f0ec;
+    --color-focus: #f2f0ec;
+    --color-accent: #c9a878;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  :root {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  html {
+    /* Native smooth-scroll stays OFF: Lenis (lib/scroll.js, GSAP-driven)
+       owns wheel smoothness. Leaving `smooth` here would double-animate
+       every scroll and break instant route-change jumps. */
+    scroll-behavior: auto;
+    scroll-padding-top: 6.5rem;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100svh;
+    background-color: var(--color-paper);
+    /* Barely-there paper grain — must never affect readability. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    color: var(--color-ink-soft);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.65;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Laptop and up: 17px base for comfortable reading distance. Mobile
+     stays 16px so content fits without zooming. */
+  @media (min-width: 64rem) {
+    body {
+      font-size: 1.0625rem;
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    color: var(--color-ink);
+    letter-spacing: -0.011em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: var(--text-5xl);
+  }
+  h2 {
+    font-size: var(--text-3xl);
+  }
+  h3 {
+    font-size: var(--text-2xl);
+    line-height: 1.2;
+  }
+  h4 {
+    font-size: var(--text-xl);
+    line-height: 1.3;
+  }
+
+  p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  strong,
+  b {
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  small {
+    font-size: var(--text-sm);
+  }
+
+  a {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--color-line-strong);
+    text-underline-offset: 0.18em;
+    transition: text-decoration-color var(--default-transition-duration)
+      var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    a:hover {
+      text-decoration-color: currentColor;
+    }
+  }
+
+  :where(button, [role='button']) {
+    cursor: pointer;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+
+  ::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+  }
+
+  img,
+  picture,
+  svg,
+  video,
+  canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--color-line);
+    margin: 0;
+  }
+
+  /* -- Focus: one visible, consistent style (WCAG 2.2 AA) ------------- */
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* -- Selection ---------------------------------------------------- */
+  ::selection {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  /* -- Reduced motion is the safe default ------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   Foundation primitives (CSS utility classes — not React components)
+   Just the load-bearing layout + button/eyebrow foundations.
+   ========================================================================== */
+
+@layer components {
+  /* Page container: centered, gutter-padded, editorial max width. */
+  .container-page {
+    width: 100%;
+    max-width: var(--container-page);
+    margin-inline: auto;
+    padding-inline: var(--spacing-gutter);
+  }
+
+  /* Homepage only: a slightly narrower gutter than the site-wide default
+     (same clamp shape, ~20% smaller at every breakpoint) so homepage
+     sections get a little more usable width. Scoped under `.home-page`
+     (see routes/Home.jsx) rather than changing `--spacing-gutter` itself,
+     so every other page (Services, Products, Gallery, Contact, account…)
+     keeps the standard container-page padding unchanged. */
+  .home-page .container-page {
+    padding-inline: clamp(0.75rem, 3vw, 1.25rem);
+  }
+
+  /* Vertical rhythm between homepage sections. */
+  .section-y {
+    padding-block: var(--spacing-section);
+  }
+
+  /* Constrained reading measure for body copy blocks. */
+  .measure {
+    max-width: var(--container-text);
+  }
+
+  /* Small uppercase label above headings. */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: var(--text-eyebrow);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  /* Hairline surface card. */
+  .surface {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+  }
+
+  /* -- Button foundations --------------------------------------------- */
+  .btn {
+    --_bg: var(--color-ink);
+    --_border: var(--color-ink);
+    --_fg: var(--color-paper);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.875rem;
+    padding-inline: 1.75rem;
+    font-family: var(--font-sans);
+    font-size: var(--text-eyebrow);
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: var(--_bg);
+    color: var(--_fg);
+    border: 1px solid var(--_border);
+    border-radius: var(--radius-sm);
+    transition:
+      background-color var(--default-transition-duration) var(--ease-standard),
+      border-color var(--default-transition-duration) var(--ease-standard),
+      color var(--default-transition-duration) var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .btn:hover {
+      --_bg: var(--color-ink-soft);
+      --_border: var(--color-ink-soft);
+    }
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .btn-outline {
+    --_bg: transparent;
+    --_border: var(--color-line-strong);
+    --_fg: var(--color-ink);
+  }
+
+  @media (hover: hover) {
+    .btn-outline:hover {
+      --_bg: var(--color-surface-sunken);
+      --_border: var(--color-ink);
+      --_fg: var(--color-ink);
+    }
+  }
+
+  .btn-ghost {
+    --_bg: transparent;
+    --_border: transparent;
+    --_fg: var(--color-ink);
+    padding-inline: 0.75rem;
+  }
+
+  @media (hover: hover) {
+    .btn-ghost:hover {
+      --_bg: var(--color-surface-sunken);
+      --_border: var(--color-surface-sunken);
+    }
+  }
+
+  /* Light outline button for use over dark photography (hero secondary CTA,
+     transparent navbar). */
+  .btn-on-dark {
+    --_bg: transparent;
+    --_border: rgba(255, 255, 255, 0.55);
+    --_fg: #fff;
+  }
+
+  @media (hover: hover) {
+    .btn-on-dark:hover {
+      --_bg: rgba(255, 255, 255, 0.14);
+      --_border: #fff;
+      --_fg: #fff;
+    }
+  }
+
+  /* Solid light button — primary CTA over dark photography (hero). The
+     background stays light in both themes, so the label must stay dark. */
+  .btn-solid-light {
+    --_bg: #fdfbf6;
+    --_border: #fdfbf6;
+    --_fg: #201e1b;
+  }
+
+  @media (hover: hover) {
+    .btn-solid-light:hover {
+      --_bg: #fff;
+      --_border: #fff;
+      --_fg: #201e1b;
+    }
+  }
+}
+
+/* ==========================================================================
+   Textures — barely-there editorial paper. Notice the atmosphere, not the
+   texture. Layered on top of the body grain for specific pages.
+   ========================================================================== */
+
+.texture-lines {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Cpath d='M0 6.5h7' stroke='%23201e1b' stroke-opacity='0.028' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* Dark mode: same hairline texture, drawn in the light ink token so it stays
+   just-visible on the dark paper instead of vanishing. */
+:root[data-theme='dark'] .texture-lines {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Cpath d='M0 6.5h7' stroke='%23f2f0ec' stroke-opacity='0.035' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* ==========================================================================
+   Chromeless horizontal scroller (homepage reviews). The row still scrolls
+   with wheel, trackpad, touch and keyboard — only the scrollbar furniture is
+   hidden, per the editorial visual language.
+   ========================================================================== */
+
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+/* ==========================================================================
+   Gallery — Section 1 perspective wheel.
+   Soft horizontal edge fade so the auto-scrolling images resolve into the page
+   surface instead of hard-cutting at the viewport edge. Prefixed for Safari.
+   The 3D transforms themselves are applied per-frame in GalleryWheel.jsx.
+   ========================================================================== */
+
+.gallery-wheel-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+}
+
+/* ==========================================================================
+   Homepage product showcase — large, soft organic shapes set behind the cards.
+   Muted sage + warm gold, heavily blurred; purely atmospheric. Not a new
+   palette: they are re-toned (not hidden) in dark mode the same way the rest
+   of the system is, and the section itself clips overflow so they can never
+   push out a horizontal scrollbar. Size / position come from inline styles on
+   each span.
+   ========================================================================== */
+
+.product-deco .deco {
+  position: absolute;
+  border-radius: 46% 54% 57% 43% / 52% 44% 56% 48%;
+  filter: blur(64px);
+}
+.product-deco .deco-sage {
+  background-color: #b7c9a6;
+  opacity: 0.45;
+}
+.product-deco .deco-gold {
+  background-color: #e6d1a4;
+  opacity: 0.42;
+}
+
+:root[data-theme='dark'] .product-deco .deco-sage {
+  background-color: #7f9a68;
+  opacity: 0.16;
+}
+:root[data-theme='dark'] .product-deco .deco-gold {
+  background-color: #c2a066;
+  opacity: 0.15;
+}
+
+/* ==========================================================================
+   Homepage — Team / Reviews light-mode contrast swap.
+
+   In LIGHT MODE only, the "Meet the Team" section runs on the studio's dark
+   editorial ground (light type) and "Reviews" takes the inverse — a light band
+   with dark type. Dark mode is deliberately untouched: every rule here is gated
+   to `:root:not([data-theme='dark'])`, and both sections already present their
+   intended dark-mode look, so nothing about markup, layout or dark mode changes.
+   ========================================================================== */
+
+/* Team → dark ground + light type. Re-tone the section's design tokens to the
+   dark palette (mirrors :root[data-theme='dark'] above); `bg-paper`, `text-ink`,
+   `text-ink-soft`, the `.eyebrow` (muted) and the hairline borders all follow
+   automatically, so no markup changes. */
+:root:not([data-theme='dark']) #team {
+  --color-paper: #141311;
+  --color-surface: #1b1a18;
+  --color-surface-sunken: #211f1c;
+  --color-ink: #f2f0ec;
+  --color-ink-soft: #c6c3bb;
+  --color-muted: #928e84;
+  --color-line: #302d29;
+  --color-line-strong: #423e38;
+  --color-accent: #c9a878;
+}
+
+/* Reviews → light ground + dark type. The section hard-codes a white-on-dark
+   treatment, so remap `white` to the ink colour within it and drop the
+   near-black `bg-scrim` to paper. `--color-accent` (the star marks) is left
+   alone so the rating colour is unchanged. */
+:root:not([data-theme='dark']) #reviews {
+  --color-white: #201e1b;
+  background-color: var(--color-paper);
+}
+/* Lift the review cards so they still read as panels on the light ground
+   (the 3%-white fill and 12%-white border become nearly invisible once
+   `white` is dark-on-light). */
+:root:not([data-theme='dark']) #reviews figure {
+  background-color: var(--color-surface);
+  border-color: var(--color-line);
+}
+
+/* Services page banner — below `lg` the CTA sits in normal flow on the page's
+   own (theme-aware) background and should look like any other `.btn`. At
+   `lg` and up it moves onto the fixed light photograph (see Hero.jsx for the
+   same rationale: a photo's tones don't follow the theme), where `.btn`'s
+   default `ink`/`paper` fill would invert in dark mode to a pale fill on a
+   near-white border — nearly invisible against the banner. Pin it to its
+   light-theme colours there only, gated to the same `lg` breakpoint (64rem)
+   the overlay itself uses. */
+@media (min-width: 64rem) {
+  .services-banner .btn {
+    --_bg: #201e1b;
+    --_border: #201e1b;
+    --_fg: #f7f3ea;
+  }
+  @media (hover: hover) {
+    .services-banner .btn:hover {
+      --_bg: #4a4740;
+      --_border: #4a4740;
+    }
+  }
+}
+
+/* ==========================================================================
+   Product card — hover motion.
+
+   Shared by the /products collection grid (components/ui/ProductCard.jsx) and
+   the homepage "Our products" showcase (components/sections/ProductShowcase.jsx)
+   so both cards speak one hover language while keeping their own dimensions,
+   borders and copy.
+
+   One continuous gesture, not a stack of separate effects: the card lifts a
+   few pixels into a soft elevation (handled per-card in JSX), the photograph
+   takes a slow cinematic zoom with a faint upward parallax, the frame's
+   hairline firms up, and a single low-opacity light sweep crosses the image
+   once on hover-in. Transform + opacity only; hover-out runs the same curve
+   back. The global prefers-reduced-motion block near the top of this file
+   already zeroes every duration — the explicit reset below also drops the
+   end-state transform so reduced motion means no zoom at all, not an instant
+   jump to the zoomed frame.
+   ========================================================================== */
+
+.product-media img {
+  transform: translate3d(0, 0, 0);
+  transition: transform 620ms var(--ease-standard);
+  will-change: transform;
+}
+/* Hover-only pointers (desktop). On touch, tapping a card navigates — the
+   photo must not lurch on the way out, matching the card-level `hover:`
+   utilities, which Tailwind already gates the same way. */
+@media (hover: hover) {
+  .group:hover .product-media img {
+    transform: translate3d(0, -2%, 0) scale(1.062);
+  }
+  .group:hover .product-media::after {
+    animation: product-media-sweep 900ms var(--ease-standard);
+  }
+}
+
+/* Soft diagonal light pass — parked off-frame, plays once per hover-in. */
+.product-media::after {
+  content: '';
+  position: absolute;
+  inset: -25% -45%;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-70%, 0, 0);
+  background: linear-gradient(
+    74deg,
+    transparent 43%,
+    rgb(255 255 255 / 0.1) 50%,
+    transparent 57%
+  );
+}
+:root[data-theme='dark'] .product-media::after {
+  background: linear-gradient(
+    74deg,
+    transparent 43%,
+    rgb(255 255 255 / 0.055) 50%,
+    transparent 57%
+  );
+}
+@keyframes product-media-sweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(-70%, 0, 0);
+  }
+  28% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(70%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-media img,
+  .group:hover .product-media img {
+    transform: none;
+  }
+  .group:hover .product-media::after {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   Mobile nav drawer — slide-in from the right + backdrop fade.
+   Enter animation only (the drawer unmounts on close). Transform + opacity
+   only; the global reduced-motion block above already zeroes durations.
+   ========================================================================== */
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes drawer-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.drawer-panel {
+  animation: drawer-in 280ms var(--ease-standard);
+}
+.drawer-backdrop {
+  animation: drawer-backdrop-in 200ms var(--ease-standard);
+}
