@@ -3,25 +3,35 @@ import { Trash2, Video as VideoIcon } from 'lucide-react'
 import { Button, cn } from './ui'
 import { resolveMediaUrl } from '../../lib/env'
 
-// No size cap, by design — matches config('salon.video_uploads') on the
-// backend, which only validates format; App\Support\VideoUploader compresses
-// whatever comes through regardless of original size.
+// Application-level ceiling, mirroring the backend's
+// config('salon.video_uploads.max_kb') (default 25600 KB = 25 MB — see
+// Store/UpdateVideoRequest). Checked here first so an oversized file gets
+// an instant message without uploading anything; the server re-validates
+// and its message (shown via `error`) is the final word.
+const MAX_MB = Number(import.meta.env.VITE_VIDEO_MAX_MB || 25)
+const MAX_BYTES = MAX_MB * 1024 * 1024
 const ACCEPT = '.mp4,.mov,.webm,.mkv,.avi,video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo'
 
 /**
  * Single-video picker with local preview — mirrors ImageInput's shape, just
- * a <video> instead of an <img> and no client-side size check (video has no
- * app-level size cap; see ACCEPT's docblock). Emits { file, remove }.
+ * a <video> instead of an <img>. Emits { file, remove }.
  */
 export function VideoInput({ currentUrl, posterUrl, onChange, error, label = 'Video', hint }) {
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(null)
   const [removed, setRemoved] = useState(false)
+  const [localError, setLocalError] = useState(null)
 
   const shownUrl = removed ? null : preview || resolveMediaUrl(currentUrl)
 
   function pick(file) {
+    setLocalError(null)
     if (!file) return
+    if (file.size > MAX_BYTES) {
+      setLocalError(`Video must be under ${MAX_MB} MB — this file is ${(file.size / 1024 / 1024).toFixed(1)} MB. Compress it or choose a shorter clip.`)
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     setRemoved(false)
     setPreview(URL.createObjectURL(file))
     onChange({ file, remove: false })
@@ -41,7 +51,7 @@ export function VideoInput({ currentUrl, posterUrl, onChange, error, label = 'Vi
         <div
           className={cn(
             'flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-dashed border-[var(--color-line-strong)] bg-[var(--color-surface-sunken)]',
-            error && 'border-[var(--color-danger)]',
+            (error || localError) && 'border-[var(--color-danger)]',
           )}
         >
           {shownUrl ? (
@@ -79,11 +89,11 @@ export function VideoInput({ currentUrl, posterUrl, onChange, error, label = 'Vi
               </Button>
             )}
           </div>
-          {error ? (
-            <p className="text-xs text-[var(--color-danger)]">{error}</p>
+          {localError || error ? (
+            <p className="text-xs text-[var(--color-danger)]">{localError || error}</p>
           ) : (
             <p className="text-xs text-[var(--color-faint)]">
-              {hint || 'MP4, MOV, WebM, MKV or AVI · compressed automatically'}
+              {hint || `MP4, MOV, WebM, MKV or AVI · up to ${MAX_MB} MB · compressed automatically`}
             </p>
           )}
         </div>

@@ -187,6 +187,78 @@ const unwrapData = (json) =>
   json && typeof json === 'object' && 'data' in json ? json.data : json
 
 /**
+ * Multipart upload with progress — `fetch` cannot report upload progress,
+ * so this uses XHR (same auth/URL/error shape as `request` above).
+ * `onProgress({ loaded, total, percent })` fires as bytes are sent;
+ * `percent` is 0–100, or null when the total isn't known. Rejects with
+ * ApiError (or an AbortError when `signal` aborts, which callers ignore
+ * like any other cancellation).
+ */
+function xhrUpload(path, formData, { onProgress, signal } = {}) {
+  const admin = isAdminPath(path)
+  const url = new URL(
+    `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`,
+    window.location.origin,
+  ).toString()
+  const token = admin ? tokenStore.get() : customerTokenStore.get()
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.setRequestHeader('Accept', 'application/json')
+    // Never set Content-Type here — the browser must add the multipart
+    // boundary itself, or Laravel won't parse the body.
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    if (signal) {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'))
+        return
+      }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (!onProgress) return
+      onProgress({
+        loaded: event.loaded,
+        total: event.lengthComputable ? event.total : null,
+        percent: event.lengthComputable && event.total > 0
+          ? Math.round((event.loaded / event.total) * 100)
+          : null,
+      })
+    }
+    xhr.onload = () => {
+      if (xhr.status === 204) {
+        resolve(null)
+        return
+      }
+      let json = null
+      try {
+        json = xhr.responseText ? JSON.parse(xhr.responseText) : null
+      } catch {
+        /* non-JSON response — json stays null */
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        if (xhr.status === 401) (admin ? onAdminUnauthorized : onCustomerUnauthorized)()
+        reject(
+          new ApiError(json?.message || `Request failed (${xhr.status}).`, {
+            status: xhr.status,
+            errors: json?.errors ?? null,
+          }),
+        )
+        return
+      }
+      resolve(json)
+    }
+    xhr.onerror = () => reject(new ApiError(NETWORK_MESSAGE, { network: true }))
+    xhr.ontimeout = () => reject(new ApiError(NETWORK_MESSAGE, { network: true }))
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
+    xhr.send(formData)
+  })
+}
+
+/**
  * Keep `data`/`meta`/`links` (and any `->additional()` extras) for admin list
  * views that need pagination metadata.
  */
@@ -217,6 +289,18 @@ export const api = {
   putForm: (path, formData) => {
     formData.append('_method', 'PUT')
     return request('POST', path, { body: formData }).then(unwrapMeta)
+  },
+
+  /**
+   * Multipart upload with live progress for large files (e.g. admin video
+   * uploads). Same result shape as postForm/putForm; `onProgress` receives
+   * `{ loaded, total, percent }` (percent null when unknown).
+   */
+  postFormProgress: (path, formData, onProgress, opts) =>
+    xhrUpload(path, formData, { ...opts, onProgress }).then(unwrapMeta),
+  putFormProgress: (path, formData, onProgress, opts) => {
+    formData.append('_method', 'PUT')
+    return xhrUpload(path, formData, { ...opts, onProgress }).then(unwrapMeta)
   },
 
   /** Download a binary file (PDF, etc.) and trigger a save in the browser. */

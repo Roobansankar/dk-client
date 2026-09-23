@@ -200,6 +200,10 @@ function VideoFormModal({ mode, video, onClose, onSaved }) {
     status: video?.status ?? true,
   })
   const [file, setFile] = useState({ file: null, remove: false })
+  // Upload percent (0–100, null when the total isn't known), or null when
+  // no upload is in flight. Reset on failure so a retry starts clean; on
+  // success the modal closes via onSaved.
+  const [progress, setProgress] = useState(null)
 
   const { mutate, pending, fieldErrors } = useMutation(
     () => {
@@ -207,9 +211,19 @@ function VideoFormModal({ mode, video, onClose, onSaved }) {
       fd.append('title', form.title ?? '')
       fd.append('status', form.status ? '1' : '0')
       if (file.file) fd.append('video', file.file)
-      return mode === 'create'
-        ? api.postForm('/admin/videos', fd)
-        : api.putForm(`/admin/videos/${video.id}`, fd)
+      // XHR upload so the bar below can track real byte progress —
+      // `fetch` (api.postForm/putForm) can't report it. 100% means the
+      // bytes are sent; the server may still be compressing until the
+      // response arrives and the modal closes.
+      const onProgress = file.file ? ({ percent }) => setProgress(percent ?? 0) : undefined
+      setProgress(file.file ? 0 : null)
+      const send = mode === 'create'
+        ? api.postFormProgress('/admin/videos', fd, onProgress)
+        : api.putFormProgress(`/admin/videos/${video.id}`, fd, onProgress)
+      return send.catch((err) => {
+        setProgress(null)
+        throw err
+      })
     },
     {
       successMessage:
@@ -255,6 +269,27 @@ function VideoFormModal({ mode, video, onClose, onSaved }) {
           error={fieldErrors.video}
           onChange={setFile}
         />
+        {progress != null && (
+          <div role="status" aria-live="polite">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-xs text-[var(--color-ink-soft)]">
+                {progress >= 100 ? 'Processing video…' : 'Uploading video…'}
+              </p>
+              <p className="text-xs font-medium tabular-nums text-[var(--color-ink)]">
+                {progress >= 100 ? '' : `${progress}%`}
+              </p>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--color-surface-sunken)]">
+              <div
+                className={cn(
+                  'h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-150',
+                  progress >= 100 && 'animate-pulse',
+                )}
+                style={{ width: `${Math.min(100, Math.max(progress, 4))}%` }}
+              />
+            </div>
+          </div>
+        )}
         <Field label="Title" error={fieldErrors.title}>
           <TextInput
             value={form.title}

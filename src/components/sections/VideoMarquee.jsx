@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react'
 import Container from '../layout/Container'
 import { useHomepageVideos } from '../../context/VideoContext'
 import { Skeleton } from '../StateViews'
 
 /**
- * Homepage "Video" section — three rows of Instagram-format (4:5) video
- * cards, alternating scroll direction (row 1 left→right, row 2 right→left,
- * row 3 left→right), placed just above Booking. Cards never autoplay — each
- * shows its poster at rest and only plays via the visitor's own click on
- * the native controls. Built entirely from
- * `GET /api/videos` — no hardcoded/fake videos; if fewer clips exist than a
- * row needs to feel full, the available set is repeated (never duplicated
- * in the database, just re-rendered) to fill it, exactly like the /gallery
- * page's GalleryWheel repeats its image set.
+ * Homepage "Video" section — up to 10 clips in two marquee rows of 5
+ * (row 1: videos 1–5 scrolling left→right, row 2: videos 6–10 scrolling
+ * right→left), placed just above Booking. Built entirely from
+ * `GET /api/videos` — no hardcoded/fake videos. When fewer clips exist the
+ * layout adjusts: 1–5 clips render a single row, 6–9 fill the second row
+ * with what exists; a row shorter than a full viewport repeats its own set
+ * (never duplicated in the database, just re-rendered) to fill the loop,
+ * exactly like the /gallery page's GalleryWheel repeats its image set.
  *
  * Movement reuses GalleryWheel's proven technique (see
  * components/gallery/GalleryWheel.jsx) rather than a new animation system:
@@ -23,8 +24,17 @@ import { Skeleton } from '../StateViews'
  * reused verbatim as a shared component — GalleryWheel is coupled to the
  * lightbox/3D-wheel treatment that belongs only to the Gallery page; this
  * is the same core loop, flattened (no rotateY/translateZ) and
- * direction-aware for three independent rows instead of one.
+ * direction-aware for two independent rows instead of one.
+ *
+ * Cards never autoplay — each shows its poster at rest with a play affordance.
+ * Clicking (or Enter/Space on) a card opens the player overlay, which
+ * autoplays that clip with native controls; arrows step through the shown
+ * set. Closing unmounts the player, so playback always stops.
  */
+
+/** Homepage never shows more than this many clips: two rows of five. */
+const MAX_VIDEOS = 10
+const PER_ROW = 5
 
 const SPEED_PX_PER_SEC = 34
 
@@ -128,42 +138,65 @@ function useMarqueeRow(direction) {
   return { viewportRef, trackRef }
 }
 
-/** One row: `items` repeated to a sensible minimum, then doubled for the seamless loop. */
-function MarqueeRow({ items, direction, rowIndex }) {
+/**
+ * One row: its own slice of the shown set, repeated to a sensible minimum,
+ * then doubled for the seamless loop. The doubled second half is hidden
+ * from assistive tech / tab order — it is a pixel-identical loop filler.
+ */
+function MarqueeRow({ items, direction, rowIndex, onPlay }) {
   const { viewportRef, trackRef } = useMarqueeRow(direction)
 
   const cells = useMemo(() => {
     const minCount = Math.max(10, items.length * 3)
     const base = Array.from({ length: minCount }, (_, i) => items[i % items.length])
-    return [...base, ...base].map((item, index) => ({ item, key: `${rowIndex}-${item.id}-${index}` }))
+    return [...base, ...base].map((item, index) => ({
+      item,
+      key: `${rowIndex}-${item.id}-${index}`,
+      // Second (loop-filler) half: presentational duplicate.
+      duplicate: index >= base.length,
+    }))
   }, [items, rowIndex])
 
   return (
-    <div
-      ref={viewportRef}
-      aria-hidden={rowIndex !== 0}
-      className="relative w-full overflow-hidden"
-    >
+    <div ref={viewportRef} className="relative w-full overflow-hidden">
       <div
         ref={trackRef}
         className="flex w-max items-stretch gap-4 will-change-transform sm:gap-5"
       >
-        {cells.map(({ item, key }) => (
+        {cells.map(({ item, key, duplicate }) => (
           <div
             key={key}
+            aria-hidden={duplicate || undefined}
             className="aspect-[4/5] w-[clamp(150px,24vw,240px)] shrink-0 overflow-hidden rounded-2xl border border-line bg-scrim sm:w-[clamp(200px,20vw,280px)]"
           >
-            {/* No autoplay — the poster is the resting state; native controls
-                let the visitor start playback themselves. */}
-            <video
-              src={item.src}
-              poster={item.poster || undefined}
-              className="h-full w-full object-cover"
-              controls
-              loop
-              playsInline
-              preload="metadata"
-            />
+            {/* Poster-only preview — playback happens in the player overlay,
+                so the scrolling row stays light (metadata preload only). */}
+            <button
+              type="button"
+              onClick={() => onPlay(item)}
+              tabIndex={duplicate ? -1 : undefined}
+              aria-label={item.title ? `Play video: ${item.title}` : 'Play studio video'}
+              className="group relative block h-full w-full cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <video
+                src={item.src}
+                poster={item.poster || undefined}
+                className="h-full w-full object-cover"
+                playsInline
+                preload="metadata"
+                muted
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 grid place-items-center bg-scrim/0 transition-colors duration-300 group-hover:bg-scrim/25"
+              >
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-white/90 text-ink shadow-[0_8px_24px_rgb(0_0_0/0.35)] transition-transform duration-300 group-hover:scale-110">
+                  <Play size={20} className="ml-0.5 fill-current" />
+                </span>
+              </span>
+            </button>
           </div>
         ))}
       </div>
@@ -171,13 +204,186 @@ function MarqueeRow({ items, direction, rowIndex }) {
   )
 }
 
-// Row 1 left→right, row 2 right→left, row 3 left→right.
-const ROW_DIRECTIONS = ['ltr', 'rtl', 'ltr']
+/**
+ * Player overlay — mirrors components/gallery/Lightbox.jsx behaviour:
+ * portal on body, Escape/backdrop/close-button closes, ← / → step through
+ * the shown clips, background scroll locked while open, focus moved in and
+ * restored on close. Unmounting the <video> on close (or on step) always
+ * stops playback — nothing keeps playing behind the page.
+ */
+function VideoPlayer({ videos, index, onClose, onIndexChange }) {
+  const dialogRef = useRef(null)
+  const closeRef = useRef(null)
+
+  const open = index != null && videos[index] != null
+  const video = open ? videos[index] : null
+  const atStart = index === 0
+  const atEnd = index === videos.length - 1
+
+  const goPrev = useCallback(() => {
+    if (index != null && index > 0) onIndexChange(index - 1)
+  }, [index, onIndexChange])
+
+  const goNext = useCallback(() => {
+    if (index != null && index < videos.length - 1) onIndexChange(index + 1)
+  }, [index, videos.length, onIndexChange])
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    const previouslyFocused = document.activeElement
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeRef.current?.focus()
+
+    const onKeyDown = (event) => {
+      switch (event.key) {
+        case 'Escape':
+          event.preventDefault()
+          onClose()
+          break
+        case 'ArrowLeft':
+          event.preventDefault()
+          goPrev()
+          break
+        case 'ArrowRight':
+          event.preventDefault()
+          goNext()
+          break
+        case 'Tab': {
+          const focusables = dialogRef.current?.querySelectorAll('button:not([disabled])')
+          if (!focusables?.length) {
+            event.preventDefault()
+            break
+          }
+          const first = focusables[0]
+          const last = focusables[focusables.length - 1]
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault()
+            last.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault()
+            first.focus()
+          }
+          break
+        }
+        default:
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus()
+    }
+  }, [open, onClose, goPrev, goNext])
+
+  if (!open) return null
+
+  const navButton =
+    'absolute top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full ' +
+    'bg-white/90 text-ink shadow-[0_8px_24px_rgb(0_0_0/0.35)] transition-transform duration-200 hover:scale-105 ' +
+    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ' +
+    'focus-visible:outline-white disabled:pointer-events-none disabled:opacity-25 ' +
+    'sm:h-14 sm:w-14'
+
+  return createPortal(
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={video.title ? `Playing video: ${video.title}` : 'Playing studio video'}
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim/95 px-12 py-12 sm:px-20 sm:py-16"
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        onClick={onClose}
+        aria-label="Close video"
+        className="absolute right-3 top-3 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-ink shadow-[0_8px_24px_rgb(0_0_0/0.35)] transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:right-5 sm:top-5"
+      >
+        <X size={20} aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          goPrev()
+        }}
+        disabled={atStart}
+        aria-label="Previous video"
+        className={`${navButton} left-1 sm:left-4`}
+      >
+        <ChevronLeft size={26} aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          goNext()
+        }}
+        disabled={atEnd}
+        aria-label="Next video"
+        className={`${navButton} right-1 sm:right-4`}
+      >
+        <ChevronRight size={26} aria-hidden="true" />
+      </button>
+
+      <figure
+        onClick={(event) => event.stopPropagation()}
+        className="m-0 flex max-h-full w-full max-w-4xl flex-col items-center"
+      >
+        <video
+          key={video.src}
+          src={video.src}
+          poster={video.poster || undefined}
+          className="max-h-[78svh] w-auto max-w-full rounded-2xl bg-black object-contain shadow-[0_32px_80px_rgb(0_0_0/0.5)]"
+          controls
+          autoPlay
+          loop
+          playsInline
+          preload="auto"
+        />
+        {video.title && (
+          <figcaption className="mt-3 max-w-prose text-center text-sm font-medium text-white">
+            {video.title}
+          </figcaption>
+        )}
+      </figure>
+    </div>,
+    document.body,
+  )
+}
+
+// Row 1 left→right, row 2 right→left.
+const ROW_DIRECTIONS = ['ltr', 'rtl']
 
 export default function VideoMarquee() {
   const { items, loading, error } = useHomepageVideos()
+  const [playerIndex, setPlayerIndex] = useState(null)
 
-  if (!loading && items.length === 0 && !error) return null
+  // The homepage set: first 10 active clips in admin order, split into
+  // rows of 5. Fewer than 5 → one row; 6–9 → a shorter second row.
+  const shown = useMemo(() => items.slice(0, MAX_VIDEOS), [items])
+  const rows = useMemo(() => {
+    const out = []
+    for (let i = 0; i < shown.length; i += PER_ROW) out.push(shown.slice(i, i + PER_ROW))
+    return out
+  }, [shown])
+
+  const openPlayer = useCallback(
+    (item) => {
+      const at = shown.findIndex((v) => v.id === item.id)
+      if (at >= 0) setPlayerIndex(at)
+    },
+    [shown],
+  )
+
+  if (!loading && shown.length === 0 && !error) return null
 
   return (
     <section className="relative overflow-hidden border-t border-line bg-paper py-[var(--spacing-section)]">
@@ -192,7 +398,7 @@ export default function VideoMarquee() {
         <div className="mt-10 flex flex-col gap-4 sm:mt-14 sm:gap-5">
           {ROW_DIRECTIONS.map((_, i) => (
             <div key={i} className="container-page flex gap-4 sm:gap-5">
-              {Array.from({ length: 5 }).map((__, j) => (
+              {Array.from({ length: PER_ROW }).map((__, j) => (
                 <Skeleton
                   key={j}
                   className="aspect-[4/5] w-[clamp(150px,24vw,240px)] shrink-0 rounded-2xl sm:w-[clamp(200px,20vw,280px)]"
@@ -209,11 +415,24 @@ export default function VideoMarquee() {
         </Container>
       ) : (
         <div className="mt-10 flex flex-col gap-4 sm:mt-14 sm:gap-5">
-          {ROW_DIRECTIONS.map((direction, i) => (
-            <MarqueeRow key={i} items={items} direction={direction} rowIndex={i} />
+          {rows.map((rowItems, i) => (
+            <MarqueeRow
+              key={i}
+              items={rowItems}
+              direction={ROW_DIRECTIONS[i % ROW_DIRECTIONS.length]}
+              rowIndex={i}
+              onPlay={openPlayer}
+            />
           ))}
         </div>
       )}
+
+      <VideoPlayer
+        videos={shown}
+        index={playerIndex}
+        onClose={() => setPlayerIndex(null)}
+        onIndexChange={setPlayerIndex}
+      />
     </section>
   )
 }
