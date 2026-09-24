@@ -205,6 +205,7 @@ export default function AppointmentsPage() {
               rows={data}
               loading={loading}
               refetching={refetching}
+              serialFrom={meta?.from ?? 1}
               onRowClick={(r) => setSelectedId(r.id)}
               empty={
                 <EmptyState

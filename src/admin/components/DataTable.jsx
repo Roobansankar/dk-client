@@ -13,6 +13,8 @@ const colVisibility = (col) =>
 /**
  * Presentational table. `columns` = [{ key, header, cell, align, width, hideBelow }].
  * `rowKey` maps a row to a stable key. Renders its own loading/empty slots.
+ * A leading S.No column is rendered by default (`showSerial`); pass
+ * `serialFrom={meta?.from ?? 1}` so numbering continues across pages.
  */
 export function DataTable({
   columns,
@@ -22,8 +24,10 @@ export function DataTable({
   empty,
   onRowClick,
   refetching,
+  showSerial = true,
+  serialFrom = 1,
 }) {
-  if (loading) return <TableSkeleton columns={columns} />
+  if (loading) return <TableSkeleton columns={columns} showSerial={showSerial} />
   if (!rows?.length) return empty ?? null
 
   return (
@@ -36,6 +40,14 @@ export function DataTable({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-[var(--color-line)] text-left">
+            {showSerial && (
+              <th
+                className="w-14 whitespace-nowrap px-3 py-3 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-faint)] tabular-nums"
+                aria-label="Serial number"
+              >
+                S.No
+              </th>
+            )}
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -51,7 +63,7 @@ export function DataTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row, i) => (
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -61,6 +73,11 @@ export function DataTable({
                   'cursor-pointer hover:bg-[var(--color-surface-hover)] focus-within:bg-[var(--color-surface-hover)]',
               )}
             >
+              {showSerial && (
+                <td className="px-3 py-3.5 align-middle font-medium text-[var(--color-muted)] tabular-nums">
+                  {serialFrom + i}
+                </td>
+              )}
               {columns.map((col) => (
                 <td
                   key={col.key}
@@ -80,12 +97,17 @@ export function DataTable({
   )
 }
 
-function TableSkeleton({ columns, rows = 6 }) {
+function TableSkeleton({ columns, showSerial = true, rows = 6 }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-[var(--color-line)] text-left">
+            {showSerial && (
+              <th className="w-14 whitespace-nowrap px-3 py-3 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-faint)] tabular-nums">
+                S.No
+              </th>
+            )}
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -102,6 +124,18 @@ function TableSkeleton({ columns, rows = 6 }) {
         <tbody aria-hidden="true">
           {Array.from({ length: rows }).map((_, r) => (
             <tr key={r} className="border-b border-[var(--color-line)] last:border-0">
+              {showSerial && (
+                <td className="px-3 py-3.5">
+                  <span
+                    className="block h-3 rounded-full bg-[var(--color-surface-sunken)]"
+                    style={{
+                      width: '1.5rem',
+                      animation: 'skeleton 1.4s ease-in-out infinite',
+                      animationDelay: `${r * 60}ms`,
+                    }}
+                  />
+                </td>
+              )}
               {columns.map((col, c) => (
                 <td key={col.key} className={cn('px-3 py-3.5', colVisibility(col))}>
                   <span

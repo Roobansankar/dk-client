@@ -4,6 +4,8 @@ import {
   CalendarDays,
   CalendarPlus,
   ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   Eye,
   EyeOff,
   History,
@@ -79,16 +81,42 @@ const ADMIN_NAV = [
   { to: '/admin/settings', label: 'Settings', icon: Settings, perm: 'settings.view' },
 ]
 
+const SIDEBAR_KEY = 'dk-admin-sidebar'
+
 export function AppShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === 'collapsed'
+    } catch {
+      return false
+    }
+  })
   const closeMobile = () => setMobileOpen(false)
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(SIDEBAR_KEY, next ? 'collapsed' : 'expanded')
+      } catch {
+        /* private mode — state still works in memory */
+      }
+      return next
+    })
+  }
 
   return (
-    <div className="min-h-svh bg-[var(--color-paper)] lg:grid lg:grid-cols-[15.75rem_1fr]">
+    <div className="min-h-svh bg-[var(--color-paper)] lg:grid lg:grid-cols-[auto_1fr]">
       {/* Desktop sidebar — outer cell carries the surface so it never seams on scroll */}
       <div className="hidden border-r border-[var(--color-line)] bg-[var(--color-surface)] lg:block">
-        <aside className="sticky top-0 flex h-svh flex-col">
-          <Sidebar />
+        <aside
+          className={cn(
+            'sidebar-rail sticky top-0 flex h-svh flex-col overflow-hidden',
+            collapsed ? 'w-[4.25rem]' : 'w-[15.75rem]',
+          )}
+          data-collapsed={collapsed}
+        >
+          <Sidebar collapsed={collapsed} />
         </aside>
       </div>
 
@@ -116,8 +144,12 @@ export function AppShell({ children }) {
       )}
 
       <div className="flex min-w-0 flex-col">
-        <Topbar onMenu={() => setMobileOpen(true)} />
-        <main className="mx-auto w-full max-w-[var(--container-page)] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+        <Topbar
+          onMenu={() => setMobileOpen(true)}
+          collapsed={collapsed}
+          onToggleCollapse={toggleCollapsed}
+        />
+        <main className="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>
@@ -125,7 +157,7 @@ export function AppShell({ children }) {
   )
 }
 
-function Sidebar({ onNavigate }) {
+function Sidebar({ collapsed = false, onNavigate }) {
   const { can, isSuperadmin } = useAuth()
   const allowed = NAV.filter((item) => item.section || !item.perm || can(item.perm))
   // Drop a section header when the current role can see none of its links.
@@ -135,54 +167,83 @@ function Sidebar({ onNavigate }) {
 
   return (
     <>
-      <div className="flex h-16 items-center gap-2.5 border-b border-[var(--color-line)] px-5">
-        <span className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-ink)] text-xs font-semibold tracking-[0.04em] text-[var(--color-inverse)]">
+      <div
+        className={cn(
+          'flex h-16 items-center gap-2.5 border-b border-[var(--color-line)]',
+          collapsed ? 'justify-center px-0' : 'px-5',
+        )}
+      >
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent-soft)] text-xs font-bold tracking-[0.04em] text-[var(--color-accent)]"
+          title="DK StyleHub Admin"
+        >
           DK
         </span>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold tracking-[-0.01em] text-[var(--color-ink)]">
-            DK StyleHub
-          </p>
-          <p className="text-[0.6875rem] uppercase tracking-[0.16em] text-[var(--color-faint)]">
-            Admin
-          </p>
-        </div>
+        {!collapsed && (
+          <div className="sidebar-label leading-tight">
+            <p className="text-sm font-bold tracking-[-0.01em] text-[var(--color-ink)]">
+              DK StyleHub
+            </p>
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-[var(--color-faint)]">
+              Admin
+            </p>
+          </div>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav
+        className={cn('flex-1 overflow-y-auto py-4', collapsed ? 'px-2' : 'px-3')}
+        aria-label="Admin sections"
+        aria-expanded={!collapsed}
+      >
         {visible.map((item, i) =>
           item.section ? (
-            <p
-              key={`s-${i}`}
-              className="px-2 pb-1.5 pt-4 text-[0.625rem] font-semibold uppercase tracking-[0.14em] text-[var(--color-faint)] first:pt-0"
-            >
-              {item.section}
-            </p>
+            collapsed ? (
+              <div
+                key={`s-${i}`}
+                aria-hidden="true"
+                className="mx-2 my-3 border-t border-[var(--color-line)] first:mt-0"
+              />
+            ) : (
+              <p
+                key={`s-${i}`}
+                className="sidebar-label px-2 pb-1.5 pt-4 text-[0.625rem] font-bold uppercase tracking-[0.14em] text-[var(--color-faint)] first:pt-0"
+              >
+                {item.section}
+              </p>
+            )
           ) : (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               onClick={onNavigate}
+              title={collapsed ? item.label : undefined}
+              aria-label={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  'group mb-0.5 flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-2 text-sm transition-colors',
+                  'group relative mb-0.5 flex items-center gap-2.5 rounded-[var(--radius-md)] py-2 text-sm font-medium transition-colors',
+                  collapsed ? 'justify-center px-0' : 'px-2',
                   isActive
-                    ? 'bg-[var(--color-accent-soft)] font-medium text-[var(--color-ink)]'
+                    ? 'bg-[var(--color-accent-soft)] font-semibold text-[var(--color-ink)]'
                     : 'text-[var(--color-ink-soft)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-ink)]',
                 )
               }
             >
               {({ isActive }) => (
                 <>
+                  {isActive && !collapsed && (
+                    <span aria-hidden="true" className="sidebar-active-bar" />
+                  )}
                   <item.icon
-                    size={16}
+                    size={17}
+                    strokeWidth={isActive ? 2.25 : 2}
                     className={cn(
                       'shrink-0',
-                      isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-faint)]',
+                      isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-faint)] group-hover:text-[var(--color-ink-soft)]',
                     )}
                   />
-                  {item.label}
+                  {!collapsed && <span className="sidebar-label">{item.label}</span>}
                 </>
               )}
             </NavLink>
@@ -190,8 +251,8 @@ function Sidebar({ onNavigate }) {
         )}
       </nav>
 
-      {isSuperadmin && (
-        <p className="border-t border-[var(--color-line)] px-5 py-3 text-[0.6875rem] text-[var(--color-faint)]">
+      {isSuperadmin && !collapsed && (
+        <p className="sidebar-label border-t border-[var(--color-line)] px-5 py-3 text-[0.6875rem] font-medium text-[var(--color-faint)]">
           Signed in as superadmin — full access
         </p>
       )}
@@ -199,16 +260,27 @@ function Sidebar({ onNavigate }) {
   )
 }
 
-function Topbar({ onMenu }) {
+function Topbar({ onMenu, collapsed, onToggleCollapse }) {
   return (
     <header className="sticky top-0 z-[var(--z-sticky)] flex h-16 items-center justify-between gap-3 border-b border-[var(--color-line)] bg-[var(--color-surface)] px-4 sm:px-6 lg:px-10">
-      <button
-        onClick={onMenu}
-        aria-label="Open menu"
-        className="btn-ghost -ml-2 rounded-[var(--radius-md)] p-2 text-[var(--color-ink-soft)] lg:hidden"
-      >
-        <Menu size={18} />
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onMenu}
+          aria-label="Open menu"
+          className="btn-ghost -ml-2 rounded-[var(--radius-md)] p-2 text-[var(--color-ink-soft)] lg:hidden"
+        >
+          <Menu size={18} />
+        </button>
+        <button
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
+          className="btn-ghost hidden rounded-[var(--radius-md)] p-2 text-[var(--color-ink-soft)] lg:inline-flex"
+        >
+          {collapsed ? <ChevronsRight size={17} /> : <ChevronsLeft size={17} />}
+        </button>
+      </div>
 
       <div className="hidden lg:block" />
 

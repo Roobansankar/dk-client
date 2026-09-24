@@ -47,10 +47,10 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-4 pb-24">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <span className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-ink)] text-sm font-semibold tracking-[0.04em] text-[var(--color-inverse)]">
+            <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent-soft)] text-sm font-bold tracking-[0.04em] text-[var(--color-accent)]">
               DK
             </span>
-            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
+            <h1 className="text-2xl font-bold tracking-[-0.025em] text-[var(--color-ink)]">
               DK StyleHub Admin
             </h1>
             <p className="mt-1.5 text-sm text-[var(--color-muted)]">

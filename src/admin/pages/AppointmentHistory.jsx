@@ -345,6 +345,7 @@ export default function AppointmentHistoryPage() {
               rows={data}
               loading={loading}
               refetching={refetching}
+              serialFrom={meta?.from ?? 1}
               onRowClick={(r) => setSelectedId(r.id)}
               empty={
                 <EmptyState

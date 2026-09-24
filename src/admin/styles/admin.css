@@ -1,5 +1,9 @@
+/* Inter for the whole admin area (login + every page). Served from Google
+   Fonts with system-ui fallback, so offline dev still renders cleanly. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 /* ==========================================================================
-   DK StyleHub — Admin design system
+DK StyleHub — Admin design system
    ------------------------------------------------------------------------
    Everything here is scoped under `.admin-app` (the wrapper AdminApp renders
    itself in) rather than `:root`/bare elements. The admin area shares one
@@ -20,7 +24,7 @@
 
 .admin-app {
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -176,9 +180,11 @@
 .admin-app h1, .admin-app h2, .admin-app h3, .admin-app h4 {
   font-family: var(--font-sans);
   color: var(--color-ink);
-  font-weight: 600;
-  letter-spacing: -0.011em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
+
+.admin-app h1 { letter-spacing: -0.025em; }
 
 .admin-app ::selection {
   background-color: color-mix(in oklab, var(--color-accent) 22%, transparent);
@@ -242,7 +248,7 @@
   padding-inline: 0.95rem;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   /* Reclaimed explicitly: the public site's `.btn` (same class name, its own
@@ -404,6 +410,32 @@
   color: var(--color-accent);
 }
 .admin-app .chip:disabled { opacity: 0.5; pointer-events: none; }
+
+/* Sidebar collapse ------------------------------------------------------
+   The rail animates width; labels/sections fade out so the collapse feels
+   deliberate rather than a snap. `aria-expanded` on the nav carries state. */
+.admin-app .sidebar-rail {
+  transition: width 220ms var(--ease-standard);
+}
+.admin-app .sidebar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 150ms var(--ease-standard);
+}
+.admin-app .sidebar-rail[data-collapsed='true'] .sidebar-label {
+  opacity: 0;
+  width: 0;
+}
+.admin-app .sidebar-active-bar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent);
+}
 
 /* Motion — a few small authored entrances, exponential ease-out. */
 @keyframes toast-in {

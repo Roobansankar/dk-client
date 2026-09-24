@@ -198,6 +198,7 @@ export default function UsersPage() {
               rows={data}
               loading={loading}
               refetching={refetching}
+              serialFrom={meta?.from ?? 1}
               empty={
                 <EmptyState
                   icon={UsersIcon}
