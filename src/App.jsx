@@ -5,6 +5,7 @@ import Home from './routes/Home'
 import Services from './routes/Services'
 import Products from './routes/Products'
 import ProductDetail from './routes/ProductDetail'
+import ComboDetail from './routes/ComboDetail'
 import Cart from './routes/Cart'
 import Checkout from './routes/Checkout'
 import Gallery from './routes/Gallery'
@@ -53,6 +54,7 @@ function PublicShell() {
                         <Route path="services" element={<Services />} />
                         <Route path="products" element={<Products />} />
                         <Route path="products/:slug" element={<ProductDetail />} />
+                        <Route path="combos/:slug" element={<ComboDetail />} />
                         <Route path="cart" element={<Cart />} />
                         <Route
                           path="checkout"

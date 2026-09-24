@@ -92,12 +92,27 @@ export default function ComboCard({ combo }) {
   return (
     <article className="flex h-full flex-col rounded-2xl border border-line bg-surface p-5 sm:p-6">
       <div className="flex gap-4">
-        <ProductImage
-          src={combo.image}
-          alt={combo.name}
-          ratio="aspect-square"
-          className="w-20 shrink-0 rounded-xl sm:w-24"
-        />
+        {combo.slug ? (
+          <Link
+            to={`/combos/${combo.slug}`}
+            className="shrink-0 no-underline"
+            aria-label={`View ${combo.name}`}
+          >
+            <ProductImage
+              src={combo.image}
+              alt={combo.name}
+              ratio="aspect-square"
+              className="w-20 rounded-xl sm:w-24"
+            />
+          </Link>
+        ) : (
+          <ProductImage
+            src={combo.image}
+            alt={combo.name}
+            ratio="aspect-square"
+            className="w-20 shrink-0 rounded-xl sm:w-24"
+          />
+        )}
 
         <div className="min-w-0">
           <p className="text-[0.62rem] font-medium uppercase tracking-[0.18em] text-accent">
@@ -105,7 +120,16 @@ export default function ComboCard({ combo }) {
           </p>
 
           <h3 className="mt-1 font-serif text-xl leading-snug text-ink">
-            {combo.name}
+            {combo.slug ? (
+              <Link
+                to={`/combos/${combo.slug}`}
+                className="no-underline transition-colors hover:text-accent"
+              >
+                {combo.name}
+              </Link>
+            ) : (
+              combo.name
+            )}
           </h3>
 
           {combo.description && (
@@ -276,6 +300,16 @@ export default function ComboCard({ combo }) {
               View cart
             </Link>
           </p>
+        )}
+
+        {combo.slug && (
+          <Link
+            to={`/combos/${combo.slug}`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink"
+          >
+            View combo details
+            <ArrowRight size={14} aria-hidden="true" />
+          </Link>
         )}
       </div>
     </article>
