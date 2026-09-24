@@ -53,6 +53,33 @@ export function useCartPricing(lines) {
           }
         }
 
+        // Stock enforcement (display-level; the server re-checks at checkout
+        // and again atomically after payment).
+        const stock = product.stock
+        if (stock != null && stock <= 0) {
+          return {
+            ...line,
+            name: product.name,
+            image: product.image ?? line.image,
+            unitPrice: null,
+            stock: 0,
+            unavailable: 'This product is out of stock.',
+          }
+        }
+        if (stock != null && line.quantity > stock) {
+          const unitOver = withTax(product.sellingPrice, product.taxPercent)
+          return {
+            ...line,
+            name: product.name,
+            image: product.image ?? line.image,
+            unitPrice: unitOver.total,
+            unitBase: unitOver.base,
+            unitTax: unitOver.tax,
+            stock,
+            unavailable: `Only ${stock} available — lower the quantity to continue.`,
+          }
+        }
+
         const unit = withTax(product.sellingPrice, product.taxPercent)
 
         return {
@@ -62,6 +89,7 @@ export function useCartPricing(lines) {
           unitPrice: unit.total,
           unitBase: unit.base,
           unitTax: unit.tax,
+          stock: stock ?? null,
           unavailable: null,
         }
       }
@@ -110,6 +138,37 @@ export function useCartPricing(lines) {
 
       const unit = withTax(comboBasePrice(combo, selected), combo.taxPercent)
 
+      // Every selected product consumes `quantity` units — the scarcest one caps it.
+      const knownStocks = selected
+        .map((item) => item.stock)
+        .filter((s) => s != null)
+      const minStock = knownStocks.length ? Math.min(...knownStocks) : null
+      const outOfStockItem = selected.find((item) => item.stock != null && item.stock <= 0)
+      if (outOfStockItem) {
+        return {
+          ...line,
+          name: combo.name,
+          image: combo.image ?? line.image,
+          selected,
+          unitPrice: null,
+          stock: 0,
+          unavailable: `“${outOfStockItem.name || 'A selected product'}” is out of stock.`,
+        }
+      }
+      if (minStock != null && line.quantity > minStock) {
+        return {
+          ...line,
+          name: combo.name,
+          image: combo.image ?? line.image,
+          selected,
+          unitPrice: unit.total,
+          unitBase: unit.base,
+          unitTax: unit.tax,
+          stock: minStock,
+          unavailable: `Only ${minStock} available — lower the quantity to continue.`,
+        }
+      }
+
       return {
         ...line,
         name: combo.name,
@@ -118,6 +177,7 @@ export function useCartPricing(lines) {
         unitPrice: broken ? null : unit.total,
         unitBase: broken ? null : unit.base,
         unitTax: broken ? null : unit.tax,
+        stock: minStock,
         unavailable: broken
           ? 'One or more selected products are no longer available.'
           : null,

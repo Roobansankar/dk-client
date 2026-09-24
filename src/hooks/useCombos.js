@@ -25,6 +25,7 @@ function transform(rows) {
       image: resolveMediaUrl(item.image_url),
       price: item.price ?? 0,
       sellingPrice: item.selling_price ?? null,
+      stock: item.stock_quantity == null ? null : Number(item.stock_quantity),
       available: Boolean(item.available),
     })),
   }))

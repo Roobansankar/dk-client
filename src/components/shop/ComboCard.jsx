@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import ProductImage from '../ui/ProductImage'
 import QuantityStepper from './QuantityStepper'
 import { useCart } from '../../context/CartContext'
-import { comboLine } from '../../lib/cart'
+import { clampQtyToStock, MAX_QUANTITY, comboLine } from '../../lib/cart'
 import { formatInr } from '../../data/services'
 import { comboBasePrice, taxLabel, withTax } from '../../lib/pricing'
 
@@ -26,7 +26,7 @@ export default function ComboCard({ combo }) {
   const navigate = useNavigate()
   const { add, setBuyNow } = useCart()
 
-  const available = combo.items.filter((item) => item.available)
+  const available = combo.items.filter((item) => item.available && !(item.stock != null && item.stock <= 0))
 
   const [selected, setSelected] = useState(
     () => new Set(available.map((i) => i.productId)),
@@ -45,6 +45,12 @@ export default function ComboCard({ combo }) {
   const tax = taxLabel(combo.taxPercent)
 
   const empty = chosen.length === 0
+
+  // Every chosen product consumes `quantity` units — the scarcest caps it.
+  const chosenStocks = chosen.map((i) => i.stock).filter((s) => s != null)
+  const maxQty =
+    chosenStocks.length > 0 ? Math.min(MAX_QUANTITY, Math.min(...chosenStocks)) : MAX_QUANTITY
+  const clampedQty = Math.min(Math.max(1, quantity), Math.max(1, maxQty))
 
   const toggle = (productId) => {
     setAdded(false)
@@ -66,7 +72,7 @@ export default function ComboCard({ combo }) {
     comboLine(
       combo,
       chosen.map((i) => i.productId),
-      quantity,
+      clampedQty,
     )
 
   const addToCart = () => {
@@ -122,8 +128,10 @@ export default function ComboCard({ combo }) {
         <ul className="mt-2 divide-y divide-line">
           {combo.items.map((item) => {
             const id = `${uid}-${item.productId}`
+            const outOfStock = item.stock != null && item.stock <= 0
+            const selectable = item.available && !outOfStock
             const checked =
-              item.available && selected.has(item.productId)
+              selectable && selected.has(item.productId)
 
             return (
               <li key={item.productId}>
@@ -131,7 +139,7 @@ export default function ComboCard({ combo }) {
                   htmlFor={id}
                   className={clsx(
                     'flex items-center gap-3 py-2.5 text-sm',
-                    item.available
+                    selectable
                       ? 'cursor-pointer'
                       : 'cursor-not-allowed opacity-55',
                   )}
@@ -141,7 +149,7 @@ export default function ComboCard({ combo }) {
                     type="checkbox"
                     className="peer sr-only"
                     checked={checked}
-                    disabled={!item.available}
+                    disabled={!selectable}
                     onChange={() => toggle(item.productId)}
                   />
 
@@ -161,7 +169,7 @@ export default function ComboCard({ combo }) {
                     {item.name}
                   </span>
 
-                  {item.available ? (
+                  {selectable ? (
                     <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
                       {item.sellingPrice != null &&
                         item.sellingPrice > item.price && (
@@ -176,7 +184,7 @@ export default function ComboCard({ combo }) {
                     </span>
                   ) : (
                     <span className="shrink-0 text-[0.65rem] uppercase tracking-[0.12em] text-muted">
-                      Unavailable
+                      {outOfStock ? 'Out of stock' : 'Unavailable'}
                     </span>
                   )}
                 </label>
@@ -189,10 +197,11 @@ export default function ComboCard({ combo }) {
       <div className="mt-auto pt-5">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
           <QuantityStepper
-            value={quantity}
+            value={clampedQty}
+            max={Math.max(1, maxQty)}
             onChange={(n) => {
               setAdded(false)
-              setQuantity(Math.max(1, n))
+              setQuantity(clampQtyToStock(n, maxQty))
             }}
             disabled={empty}
           />
@@ -206,13 +215,13 @@ export default function ComboCard({ combo }) {
             </p>
 
             <p className="text-lg font-medium tabular-nums text-ink">
-              {formatInr(unit.total * quantity)}
+              {formatInr(unit.total * clampedQty)}
             </p>
 
             {tax && !empty && (
               <p className="mt-0.5 text-xs tabular-nums text-muted">
-                {formatInr(unit.base * quantity)} + {tax}{' '}
-                ({formatInr(unit.tax * quantity)})
+                {formatInr(unit.base * clampedQty)} + {tax}{' '}
+                ({formatInr(unit.tax * clampedQty)})
               </p>
             )}
 
@@ -227,6 +236,12 @@ export default function ComboCard({ combo }) {
         {empty && (
           <p role="status" className="mt-3 text-sm text-ink-soft">
             Select at least one product to continue.
+          </p>
+        )}
+
+        {!empty && chosenStocks.length > 0 && (
+          <p className="mt-3 text-sm text-ink-soft tabular-nums">
+            Only {Math.min(...chosenStocks)} of this selection available.
           </p>
         )}
 

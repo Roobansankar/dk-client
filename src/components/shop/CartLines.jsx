@@ -80,6 +80,7 @@ export default function CartLines({ lines, errors = {}, onQuantity, onRemove, di
                 {onQuantity ? (
                   <QuantityStepper
                     value={line.quantity}
+                    max={line.stock ?? undefined}
                     onChange={(n) => onQuantity(line.key, n)}
                     disabled={disabled}
                   />

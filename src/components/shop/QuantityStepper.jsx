@@ -2,10 +2,11 @@ import { Minus, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { MAX_QUANTITY } from '../../lib/cart'
 
-/** Compact − n + control, clamped to 1…MAX_QUANTITY. */
-export default function QuantityStepper({ value, onChange, label = 'Quantity', className, disabled }) {
+/** Compact − n + control, clamped to 1…min(MAX_QUANTITY, max). */
+export default function QuantityStepper({ value, onChange, max = MAX_QUANTITY, label = 'Quantity', className, disabled }) {
   const btn =
     'inline-flex h-9 w-9 items-center justify-center text-ink-soft transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+  const limit = Math.max(1, Math.min(MAX_QUANTITY, Math.floor(Number(max) || MAX_QUANTITY)))
 
   return (
     <div
@@ -32,7 +33,7 @@ export default function QuantityStepper({ value, onChange, label = 'Quantity', c
         type="button"
         className={btn}
         onClick={() => onChange(value + 1)}
-        disabled={disabled || value >= MAX_QUANTITY}
+        disabled={disabled || value >= limit}
         aria-label="Increase quantity"
       >
         <Plus size={14} aria-hidden="true" />

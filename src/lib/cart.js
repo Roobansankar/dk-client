@@ -10,6 +10,13 @@ export const MAX_LINES = 50
 
 export const clampQty = (n) => Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(n) || 1)))
 
+/** Clamp a requested quantity to 1…min(MAX_QUANTITY, stock) when stock is known. */
+export const clampQtyToStock = (n, stock) => {
+  const base = clampQty(n)
+  if (stock == null) return base
+  return Math.min(base, Math.max(0, Math.floor(Number(stock))))
+}
+
 /** Build a cart line. Identical selections share a key, so they merge. */
 export function productLine(product, quantity = 1) {
   return {

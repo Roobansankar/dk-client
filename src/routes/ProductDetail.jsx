@@ -9,7 +9,7 @@ import { useProductCatalogue } from '../context/ProductsContext'
 import { formatInr } from '../data/services'
 import QuantityStepper from '../components/shop/QuantityStepper'
 import { useCart } from '../context/CartContext'
-import { productLine } from '../lib/cart'
+import { clampQtyToStock, MAX_QUANTITY, productLine } from '../lib/cart'
 import { taxLabel, withTax } from '../lib/pricing'
 
 const PRODUCTS = '/products'
@@ -96,7 +96,7 @@ export default function ProductDetail() {
   const { slug } = useParams()
   const { items, loading } = useProductCatalogue()
   const navigate = useNavigate()
-  const { add, setBuyNow } = useCart()
+  const { add, setBuyNow, lines } = useCart()
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
 
@@ -148,11 +148,32 @@ export default function ProductDetail() {
       : null
   const title = baseName(product)
 
+  // Live stock from GET /api/products (null = unknown, e.g. catalogue error).
+  const stock = product.stock
+  const outOfStock = stock != null && stock <= 0
+  const maxQty = stock != null ? Math.min(MAX_QUANTITY, Math.max(0, stock)) : MAX_QUANTITY
+  // Quantity already sitting in the cart counts against the same stock.
+  const inCart = lines.find((l) => l.key === `p-${product.id}`)?.quantity ?? 0
+  const remaining = stock != null ? Math.max(0, stock - inCart) : null
+  const effectiveMax = remaining != null ? Math.min(MAX_QUANTITY, remaining) : MAX_QUANTITY
+  const clampedQty = Math.min(Math.max(1, quantity), Math.max(1, effectiveMax))
+  const overStock = remaining != null && quantity > remaining
+  const canBuy = product.sellingPrice != null && !outOfStock && remaining !== 0
+
+  const availability =
+    outOfStock
+      ? 'Out of stock'
+      : remaining === 0
+        ? `All ${stock} in your cart`
+        : stock != null
+          ? `Only ${stock} available${inCart > 0 ? ` (${remaining} left after your cart)` : ''}`
+          : 'Confirmed in the studio'
+
   const info = [
     product.size && ['Size', product.size],
     product.category && ['Category', product.category],
     tax && ['Taxes', `${tax} included in the price`],
-    ['Availability', 'Confirmed in the studio'],
+    ['Availability', availability],
   ].filter(Boolean)
 
   return (
@@ -279,43 +300,93 @@ export default function ProductDetail() {
 
               {product.sellingPrice != null ? (
                 <div className="mt-9">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <QuantityStepper
-                      value={quantity}
-                      onChange={(n) => {
-                        setAdded(false)
-                        setQuantity(Math.max(1, n))
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      onClick={() => {
-                        add(productLine(product, quantity))
-                        setAdded(true)
-                      }}
-                    >
-                      Add to cart
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        setBuyNow(productLine(product, quantity))
-                        navigate('/checkout/now')
-                      }}
-                    >
-                      Buy now
-                      <ArrowRight size={15} aria-hidden="true" />
-                    </button>
-                  </div>
-                  {added && (
-                    <p role="status" className="mt-3 text-sm text-ink-soft">
-                      Added to your cart.{' '}
-                      <Link to="/cart" className="text-ink underline underline-offset-4">
-                        View cart
-                      </Link>
+                  {outOfStock ? (
+                    <p role="alert" className="border-l-2 border-ink pl-3 text-sm text-ink">
+                      This product is out of stock right now. Ask the studio and
+                      we’ll set one aside when it’s back.
                     </p>
+                  ) : remaining === 0 ? (
+                    <>
+                      <p role="status" className="border-l-2 border-ink pl-3 text-sm text-ink">
+                        You’ve added all {stock} to your cart.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <Link to="/cart" className="btn no-underline">
+                          View cart
+                          <ArrowRight size={15} aria-hidden="true" />
+                        </Link>
+                      </div>
+                      <p className="mt-3 text-sm text-ink-soft">
+                        Adjust the quantity in your cart if you need fewer.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <QuantityStepper
+                          value={clampedQty}
+                          max={Math.max(1, effectiveMax)}
+                          onChange={(n) => {
+                            setAdded(false)
+                            setQuantity(clampQtyToStock(n, effectiveMax))
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          disabled={!canBuy}
+                          onClick={() => {
+                            add(productLine(product, clampedQty))
+                            setAdded(true)
+                          }}
+                        >
+                          Add to cart
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={!canBuy}
+                          onClick={() => {
+                            setBuyNow(productLine(product, clampQtyToStock(clampedQty, maxQty)))
+                            navigate('/checkout/now')
+                          }}
+                        >
+                          Buy now
+                          <ArrowRight size={15} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {overStock ? (
+                        <p role="alert" className="mt-3 text-sm text-ink">
+                          Only {remaining} more can be added
+                          {inCart > 0 ? ` (you already have ${inCart} in your cart)` : ''} —{' '}
+                          {stock} in stock.
+                        </p>
+                      ) : (
+                        stock != null && (
+                          <p className="mt-3 text-sm text-ink-soft tabular-nums">
+                            {stock} in stock
+                            {clampedQty >= effectiveMax && effectiveMax < MAX_QUANTITY
+                              ? ' — that’s all of it'
+                              : ''}
+                            .
+                          </p>
+                        )
+                      )}
+                    </>
+                  )}
+                  {(added || inCart > 0) && remaining !== 0 && (
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <p role="status" className="text-sm text-ink-soft">
+                        {added ? 'Added to your cart.' : `${inCart} in your cart.`}{' '}
+                        <Link to="/cart" className="text-ink underline underline-offset-4">
+                          View cart
+                        </Link>
+                      </p>
+                      <Link to="/cart" className="btn btn-outline no-underline">
+                        View cart
+                        <ArrowRight size={15} aria-hidden="true" />
+                      </Link>
+                    </div>
                   )}
                   <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
                     <Link

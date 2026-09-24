@@ -8,9 +8,11 @@ import { withTax } from '../lib/pricing'
  * unavailable or empty — callers render their own loading/error/empty state
  * from `loading`/`error`/`items.length` (see Products.jsx, ProductShowcase.jsx).
  *
- * Normalised to:
- *   { id, slug, name, category?, size?, family?, description, blurb, info?,
- *     image, mrp, sellingPrice, taxPercent, price, gstInclusive, range?, audience? }
+  * Normalised to:
+  *   { id, slug, name, category?, size?, family?, description, blurb, info?,
+  *     image, mrp, sellingPrice, taxPercent, price, stock, gstInclusive, range?, audience? }
+  *
+  * `stock` is the live `stock_quantity` from the API (units available).
  *
  * `sellingPrice` is the pre-tax selling price; `price` is what the customer
  * pays per unit (selling price + product tax %), matching checkout.
@@ -77,6 +79,7 @@ function transform(rows) {
           ? null
           : withTax(row.selling_price, row.tax_percent).total,
       gstInclusive: row.gst_inclusive ?? null,
+      stock: row.stock_quantity == null ? null : Number(row.stock_quantity),
       featured: Boolean(row.is_featured),
       range: undefined,
       audience: undefined,
