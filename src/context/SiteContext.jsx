@@ -64,7 +64,10 @@ function mergeSettings(raw) {
 }
 
 export function SiteProvider({ children }) {
-  const { data } = useApiResource('/site-settings', { transform: mergeSettings })
+  const { data } = useApiResource('/site-settings', {
+    transform: mergeSettings,
+    revalidateOnFocus: true,
+  })
 
   return <SiteContext.Provider value={data ?? UNAVAILABLE}>{children}</SiteContext.Provider>
 }

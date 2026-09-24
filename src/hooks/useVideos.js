@@ -20,7 +20,10 @@ function transform(rows) {
 }
 
 export function useVideos() {
-  const { data, loading, error } = useApiResource('/videos', { transform })
+  const { data, loading, error } = useApiResource('/videos', {
+    transform,
+    revalidateOnFocus: true,
+  })
 
   return { items: data ?? [], loading, error }
 }

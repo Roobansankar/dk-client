@@ -20,7 +20,10 @@ function transform(rows) {
 const StylistsContext = createContext({ stylists: EMPTY, loading: true, error: null })
 
 export function StylistsProvider({ children }) {
-  const { data, loading, error } = useApiResource('/stylists', { transform })
+  const { data, loading, error } = useApiResource('/stylists', {
+    transform,
+    revalidateOnFocus: true,
+  })
   return (
     <StylistsContext.Provider value={{ stylists: data ?? EMPTY, loading, error }}>
       {children}
