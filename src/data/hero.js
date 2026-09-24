@@ -14,8 +14,7 @@
  * @property {{ src: string, alt: string }} image  full-bleed background photo
  */
 
-import studioWide from '../assets/images/new-design/opt/studio-wide.jpg'
-
+import studioTwo from '../assets/images/Studio-2.webp'
 /** @type {Hero} */
 export const hero = {
   eyebrow: 'Beauty · Style · Experience',
@@ -23,7 +22,7 @@ export const hero = {
   bodyLead: 'Beauty begins the moment you decide to be ',
   bodyEmphasis: 'yourself.',
   image: {
-    src: studioWide,
+    src: studioTwo,
     alt: 'The DK StyleHub studio floor — marble flooring, styling stations and warm daylight',
   },
 }

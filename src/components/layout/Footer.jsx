@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Globe, MessageCircle } from 'lucide-react'
 import Container from './Container'
 import { useSite } from '../../context/SiteContext'
+import siteLogo from '../../assets/images/logo.webp'
 
 /**
  * Site footer — the dark editorial foundation: a brand + contact + social
@@ -89,12 +90,17 @@ export default function Footer() {
         <div className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-12">
           {/* Brand + contact */}
           <div className="sm:col-span-2 lg:col-span-5 lg:pr-10">
-            <Link
-              to="/"
-              className="text-sm font-semibold uppercase tracking-[0.3em] text-white no-underline transition-opacity hover:opacity-80"
-            >
-              {site.name}
-            </Link>
+<Link
+  to="/"
+  aria-label="DK StyleHub"
+  className="inline-flex items-center no-underline transition-opacity hover:opacity-80"
+>
+  <img
+    src={siteLogo}
+    alt="DK StyleHub"
+    className="h-10 w-auto object-contain"
+  />
+</Link>
 
             {site.address ? (
               <p className="mt-6 max-w-xs whitespace-pre-line text-sm leading-relaxed text-white/55">
@@ -106,32 +112,33 @@ export default function Footer() {
               </p>
             )}
 
-            <div className="mt-8 flex flex-wrap gap-x-12 gap-y-6">
-              {site.phone && (
-                <div>
-                  <p className={HEAD}>Phone</p>
-                  <a href={site.phone.href} className={`${LINK} mt-3 block`}>
-                    {site.phone.display}
-                  </a>
-                </div>
-              )}
-              {site.email && (
-                <div>
-                  <p className={HEAD}>Email</p>
-                  <a href={`mailto:${site.email}`} className={`${LINK} mt-3 block`}>
-                    {site.email}
-                  </a>
-                </div>
-              )}
-              {site.hours && (
-                <div>
-                  <p className={HEAD}>Hours</p>
-                  <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-white/60">
-                    {site.hours}
-                  </p>
-                </div>
-              )}
-            </div>
+<div className="mt-8 flex flex-wrap gap-x-12 gap-y-6">
+  {site.phone && (
+    <div>
+      <p className={HEAD}>Phone</p>
+
+      <a href={site.phone.href} className={`${LINK} mt-3 block`}>
+        {site.phone.display}
+      </a>
+
+      <a
+        href="mailto:info@dkstylehub.com"
+        className={`${LINK} mt-2 block`}
+      >
+        info@dkstylehub.com
+      </a>
+    </div>
+  )}
+
+  {site.hours && (
+    <div>
+      <p className={HEAD}>Hours</p>
+      <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-white/60">
+        {site.hours}
+      </p>
+    </div>
+  )}
+</div>
 
             {site.socials.length > 0 && (
               <div className="mt-8">

@@ -8,6 +8,7 @@ import AccountMenu from './AccountMenu'
 import SearchOverlay from './SearchOverlay'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
+import siteLogo from '../../assets/images/logo.webp'
 
 /**
  * Primary navigation.
@@ -164,16 +165,17 @@ export default function Navbar() {
       )}
     >
       <Container className="flex h-16 items-center justify-between gap-4 md:h-24">
-        <Link
-          to="/"
-          className={clsx(
-            'whitespace-nowrap font-sans text-xs font-semibold uppercase tracking-[0.18em] no-underline text-ink sm:text-sm sm:tracking-[0.3em]',
-            // White (over the hero) only from `lg` up — the mobile + tablet bar is solid.
-            onDark && 'lg:text-white lg:[text-shadow:0_1px_10px_rgb(0_0_0/0.4)]',
-          )}
-        >
-          DK StyleHub
-        </Link>
+<Link
+  to="/"
+  aria-label="DK StyleHub"
+  className="flex shrink-0 items-center"
+>
+  <img
+    src={siteLogo}
+    alt="DK StyleHub"
+    className="h-10 w-auto object-contain md:h-12"
+  />
+</Link>
 
         {/* Desktop navigation */}
         <nav
@@ -348,9 +350,18 @@ export default function Navbar() {
             className="drawer-panel absolute inset-y-0 right-0 flex w-full max-w-xs flex-col bg-surface shadow-xl"
           >
             <div className="flex h-16 items-center justify-between px-6">
-              <span className="font-sans text-sm font-semibold uppercase tracking-[0.3em] text-ink">
-                DK StyleHub
-              </span>
+<Link
+  to="/"
+  aria-label="DK StyleHub"
+  className="flex items-center"
+  onClick={() => setMenuOpen(false)}
+>
+  <img
+    src={siteLogo}
+    alt="DK StyleHub"
+    className="h-9 w-auto object-contain"
+  />
+</Link>
 
               <button
                 type="button"
