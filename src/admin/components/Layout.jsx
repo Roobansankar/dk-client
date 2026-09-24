@@ -9,6 +9,7 @@ import {
   History,
   Images,
   KeyRound,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -19,6 +20,7 @@ import {
   Scissors,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   SlidersHorizontal,
   Sun,
   Tags,
@@ -50,10 +52,14 @@ const NAV = [
   { section: 'Payments & Reports' },
   { to: '/admin/payments', label: 'Payments & Completed', icon: ReceiptText, perm: 'payments.view' },
 
+  { section: 'Shop' },
+  { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, perm: 'orders.view' },
+
   { section: 'Catalogue' },
   { to: '/admin/services/female', label: 'Female Services', icon: Scissors, perm: 'services.view' },
   { to: '/admin/services/male', label: 'Male Services', icon: Scissors, perm: 'services.view' },
   { to: '/admin/products', label: 'Products', icon: Package, perm: 'products.view' },
+  { to: '/admin/combos', label: 'Combos', icon: Layers, perm: 'products.view' },
   { to: '/admin/pricing-plans', label: 'Pricing Plans', icon: Tags, perm: 'pricing.view' },
 
   { section: 'Studio' },

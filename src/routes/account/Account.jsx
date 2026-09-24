@@ -8,6 +8,8 @@ import { ApiError } from '../../lib/api'
 import { formatTime12h, studioDateRelation, studioNow } from '../../lib/time'
 import { formatInr } from '../../data/services'
 import { useAccountAppointments } from '../../hooks/useAccountAppointments'
+import { useAccountOrders } from '../../hooks/useAccountOrders'
+import AccountOrders from '../../components/account/AccountOrders'
 import { Skeleton } from '../../components/StateViews'
 
 const BOOKING = { pathname: '/', hash: '#booking' }
@@ -629,6 +631,7 @@ function PasswordSection() {
 export default function Account() {
   const { user, logout } = useAuth()
   const appointments = useAccountAppointments()
+  const orders = useAccountOrders()
 
   return (
     <>
@@ -646,6 +649,9 @@ export default function Account() {
           <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="order-2 lg:order-1 lg:col-span-7">
               <AppointmentsPanel appointments={appointments} />
+              <div className="mt-12">
+                <AccountOrders orders={orders} />
+              </div>
             </div>
 
             <div className="order-1 lg:order-2 lg:col-span-5">

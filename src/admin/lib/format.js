@@ -7,6 +7,17 @@ const inr = new Intl.NumberFormat('en-IN', {
 export const formatPrice = (value) =>
   value === null || value === undefined || value === '' ? '—' : inr.format(Number(value))
 
+const inrPaise = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+})
+
+/** ₹ with paise only when present — product/combo prices and taxes can be fractional. */
+export const formatMoney = (value) =>
+  value === null || value === undefined || value === '' ? '—' : inrPaise.format(Number(value))
+
 export const formatDuration = (min) => {
   if (!min) return '—'
   if (min < 60) return `${min} min`

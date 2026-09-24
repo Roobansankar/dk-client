@@ -3,6 +3,7 @@ import { Star } from 'lucide-react'
 import clsx from 'clsx'
 import ProductImage from './ProductImage'
 import { formatInr } from '../../data/services'
+import { taxLabel } from '../../lib/pricing'
 
 /** Whole-number saving, e.g. 800 → 720 ⇒ 10. */
 function discountPct(mrp, price) {
@@ -56,7 +57,7 @@ export default function ProductCard({ product, className }) {
     ? name.replace(/\s*[—–-]\s*[\d.].*$/, '').trim() || name
     : name
 
-  const price = family ? (product.priceFrom ?? product.sellingPrice) : product.sellingPrice
+  const price = family ? (product.priceFrom ?? product.price) : product.price
   const hasPrice = price != null
   const mrp = family ? null : product.mrp
   const onSale = hasPrice && mrp != null && mrp > price
@@ -122,14 +123,12 @@ export default function ProductCard({ product, className }) {
           </p>
         )}
 
-        {(family && size) || product.gstInclusive != null ? (
+        {(family && size) || (hasPrice && taxLabel(product.taxPercent)) ? (
           <p className="mt-1 text-[0.64rem] uppercase tracking-[0.1em] text-muted">
             {[
               family && size ? size : null,
-              product.gstInclusive != null
-                ? product.gstInclusive
-                  ? 'incl. GST'
-                  : '+ GST'
+              hasPrice && taxLabel(product.taxPercent)
+                ? `incl. ${taxLabel(product.taxPercent)}`
                 : null,
             ]
               .filter(Boolean)

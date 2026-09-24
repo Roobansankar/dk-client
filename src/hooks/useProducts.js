@@ -1,5 +1,6 @@
 import { useApiResource } from './useApi'
 import { resolveMediaUrl } from '../lib/env'
+import { withTax } from '../lib/pricing'
 
 /**
  * Retail range for the /products page, from `GET /api/products` (active
@@ -9,7 +10,10 @@ import { resolveMediaUrl } from '../lib/env'
  *
  * Normalised to:
  *   { id, slug, name, category?, size?, family?, description, blurb, info?,
- *     image, mrp, sellingPrice, gstInclusive, range?, audience? }
+ *     image, mrp, sellingPrice, taxPercent, price, gstInclusive, range?, audience? }
+ *
+ * `sellingPrice` is the pre-tax selling price; `price` is what the customer
+ * pays per unit (selling price + product tax %), matching checkout.
  *
  * `size` is parsed from a trailing "— 250 ml" in the name when present, and
  * `family` groups the size variants of one product; both degrade to
@@ -67,6 +71,11 @@ function transform(rows) {
       image: resolveMediaUrl(row.image_url),
       mrp: row.mrp ?? null,
       sellingPrice: row.selling_price ?? null,
+      taxPercent: Number(row.tax_percent ?? 0),
+      price:
+        row.selling_price == null
+          ? null
+          : withTax(row.selling_price, row.tax_percent).total,
       gstInclusive: row.gst_inclusive ?? null,
       featured: Boolean(row.is_featured),
       range: undefined,

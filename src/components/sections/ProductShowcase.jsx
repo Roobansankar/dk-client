@@ -76,7 +76,7 @@ function ProductShowcaseCard({ product }) {
   const { slug, name, description, blurb, image } = product
   const label = product.category || 'The collection'
   const copy = description || blurb || ''
-  const hasPrice = product.sellingPrice != null
+  const hasPrice = product.price != null
   const displayName = cleanName(name)
 
   return (
@@ -113,7 +113,7 @@ function ProductShowcaseCard({ product }) {
           </h3>
           {hasPrice ? (
             <span className="shrink-0 text-sm font-medium tabular-nums text-ink">
-              {formatInr(product.sellingPrice)}
+              {formatInr(product.price)}
             </span>
           ) : (
             <span className="shrink-0 text-[0.62rem] uppercase tracking-[0.14em] text-muted">

@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../components/layout/Container'
@@ -7,6 +7,10 @@ import ProductImage from '../components/ui/ProductImage'
 import { sizeRank } from '../hooks/useProducts'
 import { useProductCatalogue } from '../context/ProductsContext'
 import { formatInr } from '../data/services'
+import QuantityStepper from '../components/shop/QuantityStepper'
+import { useCart } from '../context/CartContext'
+import { productLine } from '../lib/cart'
+import { taxLabel, withTax } from '../lib/pricing'
 
 const PRODUCTS = '/products'
 const CONTACT = '/contact'
@@ -83,14 +87,26 @@ function NotFound() {
 
 /**
  * Product detail route (/products/:slug). A premium two-column composition —
- * large photography left, product information right — with no cart or checkout;
- * the only action is a studio enquiry. Data comes from `useProducts()` (API or
- * demo fallback), matched by slug. Size variants that share a `family` are
+ * large photography left, product information right — with Add to Cart /
+ * Buy Now for priced products, plus a studio enquiry. Data comes from
+ * `useProducts()`, matched by slug. Size variants that share a `family` are
  * cross-linked as a subtle selector.
  */
 export default function ProductDetail() {
   const { slug } = useParams()
   const { items, loading } = useProductCatalogue()
+  const navigate = useNavigate()
+  const { add, setBuyNow } = useCart()
+  const [quantity, setQuantity] = useState(1)
+  const [added, setAdded] = useState(false)
+
+  // Switching size variant keeps this component mounted — start fresh.
+  const [lastSlug, setLastSlug] = useState(slug)
+  if (slug !== lastSlug) {
+    setLastSlug(slug)
+    setQuantity(1)
+    setAdded(false)
+  }
 
   const product = useMemo(
     () => items.find((p) => p.slug === slug) || null,
@@ -121,19 +137,21 @@ export default function ProductDetail() {
   if (!product) return <NotFound />
 
   const onSale =
-    product.sellingPrice != null &&
+    product.price != null &&
     product.mrp != null &&
-    product.mrp > product.sellingPrice
-  const pct = onSale ? discountPct(product.mrp, product.sellingPrice) : 0
+    product.mrp > product.price
+  const pct = onSale ? discountPct(product.mrp, product.price) : 0
+  const tax = taxLabel(product.taxPercent)
+  const breakdown =
+    tax && product.sellingPrice != null
+      ? withTax(product.sellingPrice, product.taxPercent)
+      : null
   const title = baseName(product)
 
   const info = [
     product.size && ['Size', product.size],
     product.category && ['Category', product.category],
-    product.gstInclusive != null && [
-      'GST',
-      product.gstInclusive ? 'Included in the price' : 'Added at the studio',
-    ],
+    tax && ['Taxes', `${tax} included in the price`],
     ['Availability', 'Confirmed in the studio'],
   ].filter(Boolean)
 
@@ -189,10 +207,10 @@ export default function ProductDetail() {
 
               {/* Price */}
               <div className="mt-8 border-t border-line pt-6">
-                {product.sellingPrice != null ? (
+                {product.price != null ? (
                   <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 tabular-nums">
                     <span className="text-2xl font-medium text-ink">
-                      {formatInr(product.sellingPrice)}
+                      {formatInr(product.price)}
                     </span>
                     {onSale && (
                       <span className="text-base text-muted line-through">
@@ -210,11 +228,9 @@ export default function ProductDetail() {
                     Priced in the studio
                   </p>
                 )}
-                {product.gstInclusive != null && (
-                  <p className="mt-1.5 text-[0.68rem] uppercase tracking-[0.14em] text-muted">
-                    {product.gstInclusive
-                      ? 'Price includes GST'
-                      : 'GST added at the studio'}
+                {breakdown && (
+                  <p className="mt-1.5 text-[0.68rem] uppercase tracking-[0.14em] tabular-nums text-muted">
+                    {formatInr(breakdown.base)} + {tax} ({formatInr(breakdown.tax)})
                   </p>
                 )}
               </div>
@@ -261,22 +277,76 @@ export default function ProductDetail() {
                 ))}
               </dl>
 
-              {/* Enquiry — no cart, no checkout */}
-              <div className="mt-9 flex flex-wrap items-center gap-4">
-                <Link
-                  to={CONTACT}
-                  className="btn no-underline"
-                  state={{ product: product.name }}
-                >
-                  Ask about this product
-                  <ArrowRight size={15} aria-hidden="true" />
-                </Link>
-                <BackLink />
-              </div>
-              <p className="mt-4 text-xs leading-relaxed text-muted">
-                DK StyleHub is a studio, not a shop — products are bought in
-                person. Message us and we’ll set one aside.
-              </p>
+              {product.sellingPrice != null ? (
+                <div className="mt-9">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <QuantityStepper
+                      value={quantity}
+                      onChange={(n) => {
+                        setAdded(false)
+                        setQuantity(Math.max(1, n))
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => {
+                        add(productLine(product, quantity))
+                        setAdded(true)
+                      }}
+                    >
+                      Add to cart
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        setBuyNow(productLine(product, quantity))
+                        navigate('/checkout/now')
+                      }}
+                    >
+                      Buy now
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </button>
+                  </div>
+                  {added && (
+                    <p role="status" className="mt-3 text-sm text-ink-soft">
+                      Added to your cart.{' '}
+                      <Link to="/cart" className="text-ink underline underline-offset-4">
+                        View cart
+                      </Link>
+                    </p>
+                  )}
+                  <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <Link
+                      to={CONTACT}
+                      state={{ product: product.name }}
+                      className="text-sm text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink"
+                    >
+                      Ask about this product
+                    </Link>
+                    <BackLink />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Unpriced — enquiry only */}
+                  <div className="mt-9 flex flex-wrap items-center gap-4">
+                    <Link
+                      to={CONTACT}
+                      className="btn no-underline"
+                      state={{ product: product.name }}
+                    >
+                      Ask about this product
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </Link>
+                    <BackLink />
+                  </div>
+                  <p className="mt-4 text-xs leading-relaxed text-muted">
+                    Message us and we’ll set one aside.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </Container>

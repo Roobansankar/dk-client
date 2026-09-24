@@ -7,6 +7,7 @@ import { useCatalogue } from '../../context/CatalogueContext'
 import { useSite } from '../../context/SiteContext'
 import { useStylists } from '../../context/StylistsContext'
 import { useAuth } from '../../context/AuthContext'
+import { usePricingPlanList } from '../../context/PricingPlansContext'
 import BookingAuthGate from '../account/BookingAuthGate'
 import {
   bookingGenders,
@@ -59,6 +60,8 @@ const EMPTY = {
   stylist: '',
   date: '',
   time: '',
+  // Selected pricing plan (display only — never part of the appointment payload).
+  package: '',
 }
 
 /** Every field the studio needs before the trust/review step — all required. */
@@ -138,6 +141,8 @@ export default function Booking() {
   const { stylists, loading: stylistsLoading } = useStylists()
   const noRoster = !stylistsLoading && stylists.length === 0
   const { user: authUser, status: authStatus } = useAuth()
+  // Active pricing plans from the shared app-wide fetch — no extra request.
+  const { plans } = usePricingPlanList()
 
   const [form, setForm] = useState(() => {
     const prefill = state?.prefill
@@ -237,6 +242,7 @@ export default function Booking() {
     [categories, form.gender, form.category],
   )
   const selectedService = services.find((s) => String(s.id) === String(form.service))
+  const selectedPackage = plans.find((p) => String(p.id) === String(form.package))
 
   // `{ value, label }` option list for the Category <OptionTiles> below —
   // same source data as `categoryOptions`, just reshaped once. `bookingGenders`
@@ -690,6 +696,11 @@ export default function Booking() {
                   <SummaryRow label="Service">
                     {selectedService?.name || '—'}
                   </SummaryRow>
+                  {selectedPackage && (
+                    <SummaryRow label="Package">
+                      {selectedPackage.name} · {formatInr(selectedPackage.price)}
+                    </SummaryRow>
+                  )}
                   <SummaryRow label="Stylist">
                     {stylistName || '—'}
                   </SummaryRow>
@@ -866,9 +877,19 @@ export default function Booking() {
                           services={services}
                           formatPrice={formatInr}
                           invalid={Boolean(fieldErrors.service)}
+                          packages={plans}
+                          packageValue={form.package}
+                          // Packages are informational only — choosing one sets
+                          // `form.package` and never touches service or time.
+                          onPackageChange={updateValue('package')}
                         />
                       )}
                     </div>
+                    {selectedPackage && !form.service && (
+                      <p className="mt-1.5 text-xs text-muted">
+                        Also choose the service for this visit — appointments are booked per service.
+                      </p>
+                    )}
                     {fieldErrors.service && (
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.service}</p>
                     )}

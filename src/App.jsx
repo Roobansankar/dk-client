@@ -5,6 +5,8 @@ import Home from './routes/Home'
 import Services from './routes/Services'
 import Products from './routes/Products'
 import ProductDetail from './routes/ProductDetail'
+import Cart from './routes/Cart'
+import Checkout from './routes/Checkout'
 import Gallery from './routes/Gallery'
 import Contact from './routes/Contact'
 import Terms from './routes/Terms'
@@ -17,6 +19,7 @@ import ResetPassword from './routes/account/ResetPassword'
 import GoogleCallback from './routes/account/GoogleCallback'
 import Account from './routes/account/Account'
 import RequireCustomer from './routes/account/RequireCustomer'
+import OrderDetail from './routes/account/OrderDetail'
 import { ThemeProvider } from './context/ThemeContext'
 import { SiteProvider } from './context/SiteContext'
 import { AuthProvider } from './context/AuthContext'
@@ -27,6 +30,7 @@ import { GalleryProvider } from './context/GalleryContext'
 import { VideoProvider } from './context/VideoContext'
 import { PricingPlansProvider } from './context/PricingPlansContext'
 import { ReviewsProvider } from './context/ReviewsContext'
+import { CartProvider } from './context/CartContext'
 
 // Code-split: public visitors never download the admin bundle (JS or CSS),
 // and the admin area never mounts the public site's data providers below.
@@ -39,6 +43,7 @@ function PublicShell() {
         <CatalogueProvider>
           <StylistsProvider>
             <ProductsProvider>
+              <CartProvider>
               <VideoProvider>
                 <PricingPlansProvider>
                   <ReviewsProvider>
@@ -48,6 +53,23 @@ function PublicShell() {
                         <Route path="services" element={<Services />} />
                         <Route path="products" element={<Products />} />
                         <Route path="products/:slug" element={<ProductDetail />} />
+                        <Route path="cart" element={<Cart />} />
+                        <Route
+                          path="checkout"
+                          element={
+                            <RequireCustomer>
+                              <Checkout />
+                            </RequireCustomer>
+                          }
+                        />
+                        <Route
+                          path="checkout/now"
+                          element={
+                            <RequireCustomer>
+                              <Checkout buyNowMode />
+                            </RequireCustomer>
+                          }
+                        />
                         <Route
                           path="gallery"
                           element={
@@ -72,6 +94,14 @@ function PublicShell() {
                             </RequireCustomer>
                           }
                         />
+                        <Route
+                          path="account/orders/:id"
+                          element={
+                            <RequireCustomer>
+                              <OrderDetail />
+                            </RequireCustomer>
+                          }
+                        />
                         {/* About lives on the homepage; keep /about working as a link target. */}
                         <Route
                           path="about"
@@ -83,6 +113,7 @@ function PublicShell() {
                   </ReviewsProvider>
                 </PricingPlansProvider>
               </VideoProvider>
+              </CartProvider>
             </ProductsProvider>
           </StylistsProvider>
         </CatalogueProvider>

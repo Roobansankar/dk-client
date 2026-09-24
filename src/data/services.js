@@ -43,8 +43,21 @@ const inrFormatter = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 0,
 })
 
-/** Format an INR amount, e.g. 1200 -> "₹1,200". */
-export const formatInr = (amount) => inrFormatter.format(amount)
+const inrPaiseFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/**
+ * Format an INR amount, e.g. 1200 -> "₹1,200". Paise are shown only when
+ * present (1102.5 -> "₹1,102.50"), so tax-inclusive prices aren't rounded.
+ */
+export const formatInr = (amount) =>
+  Number.isInteger(Math.round(Number(amount) * 100) / 100)
+    ? inrFormatter.format(amount)
+    : inrPaiseFormatter.format(amount)
 
 /** @type {ServiceCategory[]} */
 export const serviceCategories = [

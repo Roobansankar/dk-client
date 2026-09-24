@@ -13,6 +13,8 @@ import PaymentsPage from './pages/Payments'
 import OfflineAppointmentNewPage from './pages/OfflineAppointmentNew'
 import ServicesPage from './pages/Services'
 import ProductsPage from './pages/Products'
+import CombosPage from './pages/Combos'
+import OrdersPage from './pages/Orders'
 import StylistsPage from './pages/Stylists'
 import PricingPlansPage from './pages/PricingPlans'
 import GalleryPage from './pages/Gallery'
@@ -126,6 +128,22 @@ function AdminRoutes() {
           element={
             <RequirePermission perm="products.view">
               <ProductsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="combos"
+          element={
+            <RequirePermission perm="products.view">
+              <CombosPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="orders"
+          element={
+            <RequirePermission perm="orders.view">
+              <OrdersPage />
             </RequirePermission>
           }
         />

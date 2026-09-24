@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ArrowRight, ChevronDown, Menu, Search, X } from 'lucide-react'
+import { ArrowRight, ChevronDown, Menu, Search, ShoppingBag, X } from 'lucide-react'
 import clsx from 'clsx'
 import Container from './Container'
 import ThemeToggle from '../ThemeToggle'
 import AccountMenu from './AccountMenu'
 import SearchOverlay from './SearchOverlay'
 import { useAuth } from '../../context/AuthContext'
+import { useCart } from '../../context/CartContext'
 
 /**
  * Primary navigation.
@@ -37,6 +38,7 @@ export default function Navbar() {
   const isHome = location.pathname === '/'
 
   const { status: authStatus, user } = useAuth()
+  const { count: cartCount } = useCart()
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -268,6 +270,28 @@ export default function Navbar() {
           >
             <Search size={18} aria-hidden="true" />
           </button>
+
+          <Link
+            to="/cart"
+            aria-label={cartCount > 0 ? `Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}` : 'Cart'}
+            title="Cart"
+            className={clsx(
+              'relative -mx-1 inline-flex h-10 w-10 items-center justify-center rounded-full no-underline transition-colors',
+              'text-ink-soft hover:bg-surface-sunken hover:text-ink',
+              onDark &&
+                'lg:text-white lg:[text-shadow:0_1px_10px_rgb(0_0_0/0.4)] lg:hover:bg-white/10 lg:hover:text-white',
+            )}
+          >
+            <ShoppingBag size={18} aria-hidden="true" />
+            {cartCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.6rem] font-semibold tabular-nums text-white [text-shadow:none]"
+              >
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            )}
+          </Link>
 
           <ThemeToggle onDark={onDark} />
 

@@ -8,9 +8,12 @@ import FilterSelect from '../components/ui/FilterSelect'
 import ProductCard from '../components/ui/ProductCard'
 import ProductImage from '../components/ui/ProductImage'
 import { Notice } from '../components/StateViews'
+import ComboCard from '../components/shop/ComboCard'
+import { useCombos } from '../hooks/useCombos'
 import { sizeRank } from '../hooks/useProducts'
 import { useProductCatalogue } from '../context/ProductsContext'
 import { formatInr } from '../data/services'
+import { taxLabel } from '../lib/pricing'
 import {
   productRanges,
   productAudiences,
@@ -58,7 +61,7 @@ function collapseFamilies(list) {
     const rep = ordered[Math.min(1, ordered.length - 1)] // 2nd smallest reads as the "default"
     const first = ordered[0].size
     const last = ordered[ordered.length - 1].size
-    const prices = variants.map((v) => v.sellingPrice).filter((n) => n != null)
+    const prices = variants.map((v) => v.price).filter((n) => n != null)
     return {
       ...rep,
       sizeLabel: first && last ? `${first} – ${last}` : rep.size,
@@ -114,13 +117,48 @@ function CollectionSkeleton() {
   )
 }
 
+/* -- Combos ------------------------------------------------------------- */
+/** Combo products — pick any of the included products at their combo prices. */
+function CombosSection() {
+  const { combos, loading, error } = useCombos()
+
+  if (loading) return null
+  if (error) {
+    return (
+      <Notice className="mt-16 max-w-2xl">
+        We couldn’t load the combos just now. Please refresh to try again.
+      </Notice>
+    )
+  }
+  if (combos.length === 0) return null
+
+  return (
+    <section className="mt-16 sm:mt-20">
+      <div className="mb-8 flex items-baseline justify-between gap-4 border-t border-line pt-5 sm:mb-10">
+        <p className="font-serif text-xl text-ink sm:text-2xl">Combos</p>
+        <span className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-muted tabular-nums">
+          {combos.length} {combos.length === 1 ? 'combo' : 'combos'}
+        </span>
+      </div>
+      <ul className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {combos.map((combo) => (
+          <li key={combo.id} className="flex">
+            <ComboCard combo={combo} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 /* -- Featured product moment ------------------------------------------- */
 function FeaturedProduct({ product }) {
   const onSale =
-    product.sellingPrice != null &&
+    product.price != null &&
     product.mrp != null &&
-    product.mrp > product.sellingPrice
-  const pct = onSale ? discountPct(product.mrp, product.sellingPrice) : 0
+    product.mrp > product.price
+  const pct = onSale ? discountPct(product.mrp, product.price) : 0
+  const tax = taxLabel(product.taxPercent)
   const meta = [product.category, product.size].filter(Boolean).join(' · ')
   const title = product.size
     ? product.name.replace(/\s*[—–-]\s*[\d.].*$/, '').trim() || product.name
@@ -155,10 +193,10 @@ function FeaturedProduct({ product }) {
               {product.info || product.description}
             </p>
 
-            {product.sellingPrice != null && (
+            {product.price != null && (
               <p className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-base tabular-nums">
                 <span className="font-medium text-ink">
-                  {formatInr(product.sellingPrice)}
+                  {formatInr(product.price)}
                 </span>
                 {onSale && (
                   <span className="text-sm text-muted line-through">
@@ -170,9 +208,9 @@ function FeaturedProduct({ product }) {
                     Save {pct}%
                   </span>
                 )}
-                {product.gstInclusive != null && (
+                {tax && (
                   <span className="text-[0.6rem] uppercase tracking-[0.14em] text-muted">
-                    {product.gstInclusive ? 'incl. GST' : '+ GST'}
+                    incl. {tax}
                   </span>
                 )}
               </p>
@@ -197,11 +235,11 @@ function FeaturedProduct({ product }) {
  * a campaign hero, a layered brand statement, a full-bleed line, the collection
  * as a 3-up card grid, a featured product moment, and a closing spread.
  *
- * DK StyleHub is a studio, not a shop: no cart, checkout or purchasing. Products
- * come from `useProducts()` — `GET /api/products` (real MRP / selling price /
- * GST), falling back to the curated demo range in src/data/products.js. Cards
- * link through to /products/:slug. The range / audience filters only appear for
- * values present in the data.
+ * Products come from `useProducts()` — `GET /api/products` (real MRP / selling
+ * price / tax). Cards link through to /products/:slug, where they can be added
+ * to the cart; combo products (`GET /api/combos`) are listed after the
+ * collection with their own product picker. The range / audience filters only
+ * appear for values present in the data.
  */
 export default function Products() {
   const { items, loading, error, reload } = useProductCatalogue()
@@ -421,6 +459,8 @@ export default function Products() {
               ))}
             </div>
           )}
+
+          <CombosSection />
 
           <p className="mt-20 border-t border-line pt-8 text-sm text-ink-soft">
             Prices and availability are confirmed in the studio.{' '}
