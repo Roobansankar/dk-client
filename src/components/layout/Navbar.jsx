@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ArrowRight, ChevronDown, Menu, Search, ShoppingBag, X } from 'lucide-react'
+import { ArrowRight, ChevronDown, Handbag, Menu, Search, X } from 'lucide-react'
 import clsx from 'clsx'
 import Container from './Container'
 import ThemeToggle from '../ThemeToggle'
@@ -26,11 +26,11 @@ const NAV_ITEMS = [
 ]
 
 const SERVICE_GENDER_ITEMS = [
-  { label: 'Men', to: '/services?gender=men' },
-  { label: 'Women', to: '/services?gender=women' },
+  { label: 'Men', to: '/services/men' },
+  { label: 'Women', to: '/services/women' },
 ]
 
-const BOOKING = { pathname: '/', hash: '#booking' }
+const BOOKING = '/booking'
 
 const SCROLL_THRESHOLD = 16
 
@@ -284,7 +284,7 @@ export default function Navbar() {
                 'lg:text-white lg:[text-shadow:0_1px_10px_rgb(0_0_0/0.4)] lg:hover:bg-white/10 lg:hover:text-white',
             )}
           >
-            <ShoppingBag size={18} aria-hidden="true" />
+            <Handbag size={18} aria-hidden="true" />
             {cartCount > 0 && (
               <span
                 aria-hidden="true"

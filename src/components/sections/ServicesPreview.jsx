@@ -1,13 +1,9 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, ImageOff } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../layout/Container'
 import { useCatalogue } from '../../context/CatalogueContext'
 import { Skeleton } from '../StateViews'
-import hairStyling from '../../assets/images/new-design/opt/service-hair-styling.jpg'
-import hairColour from '../../assets/images/new-design/opt/service-hair-colour.jpg'
-import skinFacial from '../../assets/images/new-design/opt/service-skin-facial.jpg'
-import bridalBeauty from '../../assets/images/new-design/opt/service-bridal.jpg'
 import studioImage from '../../assets/images/new-design/opt/studio.jpg'
 
 /**
@@ -27,16 +23,14 @@ import studioImage from '../../assets/images/new-design/opt/studio.jpg'
  *
  * The four grid tiles are the LIVE catalogue (first four categories from
  * `useCatalogue()`) — no static/demo categories are ever substituted. Their
- * name and in-page link always come from the catalogue; only the photography
- * is local: a category's own `image` wins when present, otherwise a curated
- * showcase photo paired by position. While the catalogue is loading the tiles
- * show as skeletons; if it's empty or failed, only the text panel and the
- * evergreen "Designed for your beauty" studio tile render (both of those are
- * fixed marketing content, not service data).
+ * name and in-page link always come from the catalogue; only the
+ * admin-uploaded `image` is shown as photography — categories without an
+ * upload render a neutral placeholder tile, never a static stock photo.
+ * While the catalogue is loading the tiles show as skeletons; if it's empty
+ * or failed, only the text panel and the evergreen "Designed for your beauty"
+ * studio tile render (both of those are fixed marketing content, not service
+ * data).
  */
-
-/** Curated showcase photography, paired with the live categories by position. */
-const SHOWCASE_IMAGES = [hairStyling, hairColour, skinFacial, bridalBeauty]
 
 /** Static brand reassurances shown under the panel copy — not service data. */
 const FEATURES = [
@@ -72,67 +66,91 @@ function DiamondMark({ variant }) {
   )
 }
 
-/**
- * One full-bleed image tile with a dark scrim, a corner number + rule, a
- * bottom-left eyebrow/title and a circular ↗ action arrow. The whole tile is a
- * single link; the number and eyebrow are decorative, so the link's name is
- * the title.
+/** One tile: admin-uploaded photo with dark scrim, or a neutral placeholder
+ *  when the category has no uploaded image yet — never a static stock photo.
+ *  (The `wide` studio strip below is fixed brand marketing, not service data,
+ *  so it keeps its own photo.)
  *
- * The aspect ratio lives on the LINK (not the image): this grid's rows use
- * CSS Grid's default cross-axis stretch, so a tile can end up taller than its
- * own aspect-ratio height would naturally give it (e.g. the wide studio strip
- * when the text panel beside it runs long, or the catalogue returns fewer
- * than 4 categories). The image is absolutely positioned and fills 100% of
- * whatever height the link ends up with, so there is never a bare `bg-scrim`
- * gap below the photo — see design-references/service-references.png.
+ *  The aspect ratio lives on the LINK (not the image): this grid's rows use
+ *  CSS Grid's default cross-axis stretch, so a tile can end up taller than its
+ *  own aspect-ratio height would naturally give it (e.g. the wide studio strip
+ *  when the text panel beside it runs long, or the catalogue returns fewer
+ *  than 4 categories). The image is absolutely positioned and fills 100% of
+ *  whatever height the link ends up with, so there is never a bare `bg-scrim`
+ *  gap below the photo — see design-references/service-references.png.
  *
- * The arrow is a ~40px light disc with a thin diagonal ↗ glyph — one clean
- * editorial style for every tile (the `wide` studio strip only scales its
- * type). It sits over dark photography in both themes, so the light-on-dark
- * treatment stays legible either way; the link carries a white focus ring.
+ *  The arrow is a ~40px light disc with a thin diagonal ↗ glyph — one clean
+ *  editorial style for every tile (the `wide` studio strip only scales its
+ *  type). It sits over dark photography in both themes, so the light-on-dark
+ *  treatment stays legible either way; the link carries a white focus ring.
+ *  Placeholder tiles use ink-on-sunken styling instead since there is no dark
+ *  photo behind them.
  */
 function ShowcaseTile({ to, image, index, eyebrow, title, wide = false }) {
   return (
     <Link
       to={to}
       className={clsx(
-        'group relative block overflow-hidden bg-scrim no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+        'group relative block overflow-hidden no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+        image
+          ? 'bg-scrim focus-visible:outline-white'
+          : 'border border-line bg-surface-sunken focus-visible:outline-ink',
         wide
           ? 'aspect-[4/3] sm:aspect-[16/7] xl:aspect-[21/6]'
           : 'aspect-[4/3] sm:aspect-[3/2]',
       )}
     >
-      <img
-        src={image}
-        alt=""
-        loading="lazy"
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-      />
-      <span
-        aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-t from-scrim/85 via-scrim/30 to-scrim/10"
-      />
+      {image ? (
+        <img
+          src={image}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+        />
+      ) : (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-muted">
+            <ImageOff size={19} aria-hidden="true" />
+          </span>
+          <span className="max-w-[14rem] text-xs leading-relaxed text-muted">
+            Photo coming soon
+          </span>
+        </span>
+      )}
+      {image && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-t from-scrim/85 via-scrim/30 to-scrim/10"
+        />
+      )}
 
       {/* Corner number + short rule */}
       <span
         aria-hidden="true"
-        className="absolute left-5 top-5 text-[0.7rem] font-medium tabular-nums tracking-[0.1em] text-white/85 [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]"
+        className={clsx(
+          'absolute left-5 top-5 text-[0.7rem] font-medium tabular-nums tracking-[0.1em]',
+          image ? 'text-white/85 [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]' : 'text-muted',
+        )}
       >
         {pad(index)}
-        <span className="mt-1.5 block h-px w-7 bg-white/45" />
+        <span className={clsx('mt-1.5 block h-px w-7', image ? 'bg-white/45' : 'bg-line-strong')} />
       </span>
 
       <span className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3">
         <span className="block min-w-0">
           <span
             aria-hidden="true"
-            className="block truncate text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-white/75 [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]"
+            className={clsx(
+              'block truncate text-[0.62rem] font-semibold uppercase tracking-[0.16em]',
+              image ? 'text-white/75 [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]' : 'text-muted',
+            )}
           >
             {eyebrow}
           </span>
           <span
             className={clsx(
-              'mt-2 block font-serif text-white [text-shadow:0_2px_18px_rgb(0_0_0/0.55)]',
+              'mt-2 block font-serif',
+              image ? 'text-white [text-shadow:0_2px_18px_rgb(0_0_0/0.55)]' : 'text-ink',
               wide ? 'text-xl sm:text-[1.7rem]' : 'text-xl sm:text-[1.35rem]',
             )}
           >
@@ -141,7 +159,12 @@ function ShowcaseTile({ to, image, index, eyebrow, title, wide = false }) {
         </span>
         <span
           aria-hidden="true"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/90 text-[#1c1a15] backdrop-blur-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:bg-white"
+          className={clsx(
+            'grid h-10 w-10 shrink-0 place-items-center rounded-full backdrop-blur-sm transition duration-200 group-hover:-translate-y-0.5',
+            image
+              ? 'bg-white/90 text-[#1c1a15] group-hover:bg-white'
+              : 'border border-line bg-surface text-ink-soft group-hover:bg-surface-hover',
+          )}
         >
           <ArrowUpRight size={17} strokeWidth={1.75} aria-hidden="true" />
         </span>
@@ -219,7 +242,7 @@ export default function ServicesPreview() {
                     <ShowcaseTile
                       key={category.id}
                       to={`/services#${category.id}`}
-                      image={category.image || SHOWCASE_IMAGES[i] || SHOWCASE_IMAGES[0]}
+                      image={category.image || null}
                       index={i + 1}
                       eyebrow={category.name}
                       title={category.name}

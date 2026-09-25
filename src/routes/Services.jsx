@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowRight, ImageOff } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../components/layout/Container'
 import SegmentedFilter from '../components/ui/SegmentedFilter'
@@ -9,14 +9,8 @@ import { formatInr } from '../data/services'
 import { useCatalogue } from '../context/CatalogueContext'
 import { CardSkeletonGrid, Notice } from '../components/StateViews'
 import serviceBanner from '../assets/images/service-banner.png'
-import hairImage from '../assets/images/new-design/opt/service-hair-styling.jpg'
-import colourImage from '../assets/images/new-design/opt/service-hair-colour.jpg'
-import skinImage from '../assets/images/new-design/opt/service-skin-facial.jpg'
-import bridalImage from '../assets/images/new-design/opt/service-bridal.jpg'
-import loungeImage from '../assets/images/new-design/opt/lounge.jpg'
-import studioImage from '../assets/images/new-design/opt/studio.jpg'
 
-const BOOKING = { pathname: '/', hash: '#booking' }
+const BOOKING = '/booking'
 const pad = (n) => String(n).padStart(2, '0')
 
 // `lg` (64rem/1024px) — matches Tailwind's default breakpoint used
@@ -62,39 +56,6 @@ const TYPE_FILTERS = [
   { value: 'hair', label: 'Hair' },
   { value: 'skin', label: 'Skin' },
 ]
-
-/**
- * Curated local photography for each category — no external URLs. Matched by
- * keyword against the live category slug / name, with a positional fallback so
- * every category always gets a relevant salon image.
- */
-const IMAGE_RULES = [
-  [/colou?r|highlight|balayage|tint|toner/i, colourImage],
-  [/brid|make-?up|occasion|party|glam/i, bridalImage],
-  [/skin|facial|clean-?up|glow|derma|peel/i, skinImage],
-  [/massage|relax|scalp|therap/i, loungeImage],
-  [/treatment|keratin|smooth|repair|spa|nourish/i, skinImage],
-  [/hair|cut|styl|beard|blow|wash|braid|updo/i, hairImage],
-]
-
-const FALLBACK_IMAGES = [
-  hairImage,
-  colourImage,
-  skinImage,
-  bridalImage,
-  loungeImage,
-  studioImage,
-]
-
-function categoryImage(category, index) {
-  const hay = `${category.id} ${category.name}`
-
-  for (const [re, image] of IMAGE_RULES) {
-    if (re.test(hay)) return image
-  }
-
-  return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]
-}
 
 function advanceNote(service) {
   const amount = Number(service.advanceAmount) || 0
@@ -183,7 +144,8 @@ function ServiceRow({ category, service }) {
   )
 }
 
-/** One catalogue category: a large image and a hairline service list, sides
+/** One catalogue category: the admin-uploaded photo (or a neutral
+ *  placeholder when none uploaded) and a hairline service list, sides
  *  alternating down the page for an asymmetric editorial rhythm. */
 function CategoryBlock({ category, index }) {
   const imageRight = index % 2 === 1
@@ -197,21 +159,49 @@ function CategoryBlock({ category, index }) {
             imageRight ? 'lg:col-start-8' : 'lg:col-start-1',
           )}
         >
-          <img
-            src={categoryImage(category, index)}
-            alt=""
-            loading="lazy"
-            className="aspect-[4/5] w-full object-cover"
-          />
+          {category.image ? (
+            <img
+              src={category.image}
+              alt={`${category.name} — salon work photo`}
+              loading="lazy"
+              className="aspect-[4/5] w-full object-cover"
+            />
+          ) : (
+            <div
+              role="img"
+              aria-label={`${category.name} — photo coming soon`}
+              className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 bg-surface-sunken px-6 text-center"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-muted">
+                <ImageOff size={20} aria-hidden="true" />
+              </span>
+              <p className="text-sm font-medium text-ink-soft">{category.name}</p>
+              <p className="max-w-[16rem] text-xs leading-relaxed text-muted">
+                Photo coming soon — add one from Admin → Services.
+              </p>
+            </div>
+          )}
 
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-scrim/55 to-transparent"
-          />
+          {category.image && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-scrim/55 to-transparent"
+            />
+          )}
 
-          <figcaption className="absolute left-5 top-5 flex items-center gap-2 text-[0.65rem] font-medium uppercase tracking-[0.2em] text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.55)]">
+          <figcaption
+            className={clsx(
+              'absolute left-5 top-5 flex items-center gap-2 text-[0.65rem] font-medium uppercase tracking-[0.2em]',
+              category.image
+                ? 'text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.55)]'
+                : 'text-muted',
+            )}
+          >
             <span className="tabular-nums">{pad(index + 1)}</span>
-            <span aria-hidden="true" className="h-px w-6 bg-white/50" />
+            <span
+              aria-hidden="true"
+              className={clsx('h-px w-6', category.image ? 'bg-white/50' : 'bg-line-strong')}
+            />
             <span>{category.name}</span>
           </figcaption>
         </figure>
@@ -248,35 +238,32 @@ function CategoryBlock({ category, index }) {
 }
 
 /**
- * Services route (/services): an editorial salon menu. A photographic hero,
- * a restrained filter row, then each catalogue category as an alternating
- * image + hairline price list. Categories, services, durations, prices and
- * advance amounts all come from the live backend catalogue
- * (see src/context/CatalogueContext.jsx); each "Book" link deep-links to the
- * homepage booking form with the category / gender / service preselected.
+ * Services routes: an editorial salon menu. A photographic hero, a restrained
+ * filter row, then each catalogue category as an alternating image + hairline
+ * price list. Categories, services, durations, prices and advance amounts all
+ * come from the live backend catalogue (see src/context/CatalogueContext.jsx);
+ * each "Book" link deep-links to the homepage booking form with the category /
+ * gender / service preselected.
+ *
+ * Three routes share this page (see App.jsx): `/services` lists everything,
+ * `/services/men` and `/services/women` are their own pages listing only that
+ * gender's services, with no gender switch. The all-services page keeps a
+ * "For" control whose options link out to those pages (not an in-page filter).
+ *
+ * @param {{ gender?: 'men' | 'women' }} props  set by the gender routes
  */
-export default function Services() {
+export default function Services({ gender: pageGender }) {
   const { categories, loading, error } = useCatalogue()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [type, setType] = useState('all')
   const isLgUp = useIsLgUp()
 
-  const genderParam = searchParams.get('gender')
-  const gender =
-    genderParam === 'men' || genderParam === 'women' ? genderParam : 'all'
+  const gender = pageGender ?? 'all'
+  const genderName = pageGender ? GENDER_LABEL[pageGender] : null
 
   const setGenderFilter = (value) => {
-    setSearchParams((currentParams) => {
-      const nextParams = new URLSearchParams(currentParams)
-
-      if (value === 'all') {
-        nextParams.delete('gender')
-      } else {
-        nextParams.set('gender', value)
-      }
-
-      return nextParams
-    })
+    navigate(value === 'all' ? '/services' : `/services/${value}`)
   }
 
   const hasTypeData = useMemo(
@@ -289,12 +276,22 @@ export default function Services() {
     [categories, gender, type],
   )
 
+  // Old `/services?gender=men` links land on the dedicated page instead.
+  const legacyGender = searchParams.get('gender')
+  if (!pageGender && (legacyGender === 'men' || legacyGender === 'women')) {
+    return <Navigate to={`/services/${legacyGender}`} replace />
+  }
+
   return (
     <>
-      <title>Services — DK StyleHub</title>
+      <title>{`${genderName ? `${genderName}’s Services` : 'Services'} — DK StyleHub`}</title>
       <meta
         name="description"
-        content="Services at DK StyleHub — a premium unisex beauty and styling studio."
+        content={
+          genderName
+            ? `${genderName}’s services at DK StyleHub — a premium unisex beauty and styling studio.`
+            : 'Services at DK StyleHub — a premium unisex beauty and styling studio.'
+        }
       />
 
       <div className="texture-lines">
@@ -328,16 +325,18 @@ export default function Services() {
           <div className="lg:absolute lg:inset-0 lg:z-10 lg:flex lg:items-center">
             <Container className="pt-[clamp(3.5rem,8vw,6rem)] pb-14 lg:pb-0 lg:pt-0">
               <div className="lg:max-w-[30%] lg:pl-[clamp(1rem,3vw,2.5rem)] lg:pr-8">
-                <p className="eyebrow lg:text-[#6d6858]">Services</p>
+                <p className="eyebrow lg:text-[#6d6858]">
+                  {genderName ? `${genderName}’s services` : 'Services'}
+                </p>
 
                 <h1 className="mt-4 font-serif text-[clamp(2.5rem,6vw,4.25rem)] leading-[1.03] text-ink lg:text-[clamp(1.75rem,2.8vw,3.25rem)] lg:text-[#201e1b]">
                   Beauty, styled with intention.
                 </h1>
 
                 <p className="mt-5 max-w-prose text-lg leading-relaxed text-ink-soft lg:mt-4 lg:max-w-none lg:text-base lg:text-[#4a4740]">
-                  Hair, colour, treatments, skin and massage — for all
-                  genders. Every service is priced and timed up front, and
-                  books in a few taps.
+                  {genderName
+                    ? `Every service for ${genderName.toLowerCase()} is priced and timed up front, and books in a few taps.`
+                    : 'Hair, colour, treatments, skin and massage — for all genders. Every service is priced and timed up front, and books in a few taps.'}
                 </p>
 
                 <Link to={BOOKING} className="btn mt-8 no-underline lg:mt-7">
@@ -369,19 +368,23 @@ export default function Services() {
             </Notice>
           )}
 
-          {!loading && categories.length > 0 && (
+          {!loading && categories.length > 0 && (!pageGender || hasTypeData) && (
             <div className="mt-10 flex flex-col gap-5 border-t border-line pt-6 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-10 sm:gap-y-4">
-              <SegmentedFilter
-                legend="For"
-                options={GENDER_FILTERS}
-                value={gender}
-                onChange={setGenderFilter}
-                className="sm:w-auto"
-              />
+              {/* The gender pages list only their own gender, so the "For"
+                  switch appears on the all-services page alone. */}
+              {!pageGender && (
+                <SegmentedFilter
+                  legend="For"
+                  options={GENDER_FILTERS}
+                  value={gender}
+                  onChange={setGenderFilter}
+                  className="sm:w-auto"
+                />
+              )}
 
-              {/* Type only ever appears alongside "For" (never alone), so it's
-                  always the row's second filter — the existing public-site
-                  select styling, not a second pill (see FilterSelect). */}
+              {/* Type is the row's second filter after "For" on the all-services
+                  page (the existing public-site select styling, not a second
+                  pill — see FilterSelect); on a gender page it stands alone. */}
               {hasTypeData && (
                 <FilterSelect
                   legend="Type"
@@ -409,8 +412,8 @@ export default function Services() {
               <button
                 type="button"
                 onClick={() => {
-                  setGenderFilter('all')
                   setType('all')
+                  if (pageGender) setGenderFilter('all')
                 }}
                 className="mt-3 text-sm text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink"
               >

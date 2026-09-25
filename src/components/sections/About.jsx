@@ -76,7 +76,7 @@ export default function About() {
               <Link to="/services" className="btn">
                 Explore Services
               </Link>
-              <Link to="/contact#booking" className="btn btn-outline">
+              <Link to="/booking" className="btn btn-outline">
                 Book Appointment
               </Link>
             </div>

@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
+import { DataTable } from '../components/DataTable'
 import { Modal, ConfirmDialog } from '../components/Modal'
 import {
   ActiveBadge,
@@ -11,14 +12,17 @@ import {
   EmptyState,
   ErrorState,
   Field,
-  LoadingBlock,
+  FormSection,
   PageHeader,
   Pill,
+  SearchInput,
   Select,
+  StatGrid,
   Textarea,
   TextInput,
   Thumb,
   Toggle,
+  Toolbar,
   cn,
 } from '../components/ui'
 import { ImageInput } from '../components/ImageInput'
@@ -36,8 +40,42 @@ import { withTax } from '../../lib/pricing'
  *
  * The combo's tax % is added on top of either amount at checkout.
  */
+
+const num = (v) => (v == null || v === '' ? 0 : Number(v))
+const taxText = (pct) => `${Number(Number(pct || 0).toFixed(2))}%`
+
+const itemsOf = (c) => c.items ?? []
+/** What the products cost together at their combo prices. */
+const itemsTotal = (c) => itemsOf(c).reduce((sum, i) => sum + num(i.price), 0)
+const unavailableOf = (c) => itemsOf(c).filter((i) => !i.available)
+const hasIssue = (c) => unavailableOf(c).length > 0
+/** The price a customer pays for the whole combo, before tax. */
+const wholePrice = (c) => (c.bundle_price != null ? num(c.bundle_price) : itemsTotal(c))
+
+const VISIBILITY_OPTIONS = [
+  { value: 'all', label: 'All combos', test: () => true },
+  { value: 'visible', label: 'Visible on site', test: (c) => Boolean(c.status) },
+  { value: 'hidden', label: 'Hidden from site', test: (c) => !c.status },
+]
+
+const PRODUCTS_OPTIONS = [
+  { value: 'all', label: 'Any products', test: () => true },
+  { value: 'ok', label: 'All products available', test: (c) => !hasIssue(c) },
+  { value: 'issue', label: 'Has unavailable products', test: hasIssue },
+]
+
+const SORT_OPTIONS = [
+  { value: 'default', label: 'Default order', compare: null },
+  { value: 'name', label: 'Name (A–Z)', compare: (a, b) => (a.name ?? '').localeCompare(b.name ?? '') },
+  { value: 'price_asc', label: 'Price: low to high', compare: (a, b) => wholePrice(a) - wholePrice(b) },
+  { value: 'price_desc', label: 'Price: high to low', compare: (a, b) => wholePrice(b) - wholePrice(a) },
+  { value: 'products_desc', label: 'Most products', compare: (a, b) => itemsOf(b).length - itemsOf(a).length },
+]
+
 export default function CombosPage() {
   const { can } = useAuth()
+  const canUpdate = can('products.update')
+  const canDelete = can('products.delete')
 
   const { data, loading, error, refetch, refetching } = useQuery('/admin/combos', {
     params: { per_page: 100 },
@@ -45,6 +83,8 @@ export default function CombosPage() {
 
   const [modal, setModal] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [filters, setFilters] = useState({ search: '', visibility: 'all', products: 'all', sort: 'default' })
+  const setFilter = (patch) => setFilters((f) => ({ ...f, ...patch }))
 
   const deleteMut = useMutation((id) => api.delete(`/admin/combos/${id}`), {
     successMessage: 'Combo deleted.',
@@ -64,6 +104,30 @@ export default function CombosPage() {
   )
 
   const combos = data ?? []
+  const visibleOnSite = combos.filter((c) => c.status).length
+  const withSetPrice = combos.filter((c) => c.bundle_price != null).length
+  const needAttention = combos.filter(hasIssue).length
+
+  const visibilityTest =
+    VISIBILITY_OPTIONS.find((o) => o.value === filters.visibility)?.test ?? (() => true)
+  const productsTest =
+    PRODUCTS_OPTIONS.find((o) => o.value === filters.products)?.test ?? (() => true)
+  const compare = SORT_OPTIONS.find((o) => o.value === filters.sort)?.compare
+  const query = filters.search.trim().toLowerCase()
+
+  const shown = combos.filter(
+    (c) =>
+      visibilityTest(c) &&
+      productsTest(c) &&
+      (!query ||
+        (c.name ?? '').toLowerCase().includes(query) ||
+        itemsOf(c).some((i) => (i.name ?? '').toLowerCase().includes(query))),
+  )
+  if (compare) shown.sort(compare)
+
+  const filtered = filters.search !== '' || filters.visibility !== 'all' || filters.products !== 'all'
+  const clearFilters = () =>
+    setFilters((f) => ({ ...f, search: '', visibility: 'all', products: 'all' }))
 
   const newButton = can('products.create') && (
     <Button size="sm" onClick={() => setModal({ mode: 'create' })}>
@@ -71,155 +135,293 @@ export default function CombosPage() {
     </Button>
   )
 
-  return (
-    <div>
-      <PageHeader
-        title="Combos"
-        description="Bundles of existing products. Customers pay the bundle price when they select the complete set, or the sum of selected combo prices when they choose a subset."
-      >
-        {newButton}
-      </PageHeader>
+  // Row cells hold their own controls — keep their clicks from also opening the row.
+  const stop = (node) => <div onClick={(e) => e.stopPropagation()}>{node}</div>
 
-      {loading ? (
-        <LoadingBlock />
-      ) : error ? (
-        <ErrorState error={error} onRetry={refetch} />
-      ) : combos.length === 0 ? (
-        <div className="card">
-          <EmptyState
-            icon={Layers}
-            title="No combos yet"
-            description="Create a combo, choose its products, set individual combo prices and optionally set a complete-set price."
-            action={newButton}
+  const columns = [
+    {
+      key: 'combo',
+      header: 'Combo',
+      cell: (c) => (
+        <div className="flex min-w-[13rem] items-center gap-3">
+          <Thumb
+            src={c.image_url}
+            alt=""
+            iconSize={16}
+            className={cn(
+              'h-11 w-11 shrink-0 rounded-[var(--radius-md)] border border-[var(--color-line)]',
+              !c.status && 'opacity-40 grayscale',
+            )}
           />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-[var(--color-ink)]" title={c.name}>
+              {c.name}
+            </p>
+            <p className="max-w-[20rem] truncate text-xs text-[var(--color-muted)]">
+              {c.description || 'No description'}
+            </p>
+            <p className="mt-1 flex items-center gap-2 md:hidden">
+              <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
+                {money(wholePrice(c))}
+              </span>
+              <span className="text-xs text-[var(--color-muted)]">
+                {itemsOf(c).length} product{itemsOf(c).length === 1 ? '' : 's'}
+              </span>
+            </p>
+          </div>
         </div>
-      ) : (
-        <div className={cn('grid gap-3 lg:grid-cols-2', refetching && 'opacity-70')}>
-          {combos.map((combo) => (
-            <article key={combo.id} className="card flex flex-col p-3.5">
-              <div className="flex items-start gap-3">
-                <Thumb
-                  src={combo.image_url}
-                  alt={combo.name}
-                  className={cn(
-                    'h-14 w-14 shrink-0 rounded-[var(--radius-sm)]',
-                    !combo.status && 'opacity-40 grayscale',
-                  )}
-                />
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium text-[var(--color-ink)]">{combo.name}</h3>
-                    <Pill
-                      tone={Number(combo.tax_percent) > 0 ? 'info' : 'neutral'}
-                      className="shrink-0"
-                    >
-                      Taxes {Number(Number(combo.tax_percent || 0).toFixed(2))}%
-                    </Pill>
-                  </div>
-
-                  {combo.description && (
-                    <p className="mt-0.5 line-clamp-2 text-sm text-[var(--color-muted)]">
-                      {combo.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {combo.bundle_price != null && (
-                <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] px-3 py-2">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--color-muted)]">Complete set</span>
-                    <span className="font-semibold tabular-nums text-[var(--color-ink)]">
-                      {money(combo.bundle_price)}
-                    </span>
-                  </div>
-                  {Number(combo.tax_percent) > 0 && (
-                    <p className="mt-0.5 text-right text-xs tabular-nums text-[var(--color-muted)]">
-                      Customer pays{' '}
-                      {money(withTax(combo.bundle_price, combo.tax_percent).total)}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <ul className="mt-3 divide-y divide-[var(--color-line)] border-y border-[var(--color-line)] text-sm">
-                {combo.items.map((item) => (
-                  <li
-                    key={item.product_id}
-                    className="flex items-center justify-between gap-3 py-2"
-                  >
-                    <span
-                      className={cn(
-                        'min-w-0 truncate',
-                        item.available
-                          ? 'text-[var(--color-ink-soft)]'
-                          : 'text-[var(--color-faint)]',
-                      )}
-                    >
-                      {item.name ?? `Product #${item.product_id}`}
-
-                      {!item.available && (
-                        <span className="ml-2 text-xs text-[var(--color-warn)]">
-                          Unavailable
-                        </span>
-                      )}
-                    </span>
-
-                    <span className="shrink-0 tabular-nums">
-                      <span className="font-medium text-[var(--color-ink)]">
-                        {money(item.price)}
-                      </span>
-
-                      {item.selling_price != null && (
-                        <span className="ml-2 text-xs text-[var(--color-faint)]">
-                          shelf {money(item.selling_price)}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-auto flex items-center justify-between pt-3">
-                {can('products.update') ? (
-                  <Toggle
-                    id={`combo-${combo.id}`}
-                    checked={combo.status}
-                    onChange={() => toggleMut.mutate(combo)}
-                    label={combo.status ? 'Visible' : 'Hidden'}
-                  />
-                ) : (
-                  <ActiveBadge active={combo.status} />
-                )}
-
-                <div className="flex gap-0.5">
-                  {can('products.update') && (
+      ),
+    },
+    {
+      key: 'products',
+      header: 'Products',
+      hideBelow: 'md',
+      cell: (c) => {
+        const items = itemsOf(c)
+        const bad = unavailableOf(c)
+        return (
+          <div className="min-w-[10rem]">
+            <p className="flex items-center gap-2 text-[var(--color-ink)]">
+              {items.length} product{items.length === 1 ? '' : 's'}
+              {bad.length > 0 && <Pill tone="warn">{bad.length} unavailable</Pill>}
+            </p>
+            <p
+              className="max-w-[16rem] truncate text-xs text-[var(--color-muted)]"
+              title={items
+                .map((i) => `${i.name ?? `Product #${i.product_id}`} — ${money(i.price)}`)
+                .join('\n')}
+            >
+              {items.map((i) => i.name ?? `Product #${i.product_id}`).join(', ') || '—'}
+            </p>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      hideBelow: 'md',
+      cell: (c) => {
+        const hasSet = c.bundle_price != null
+        const hasTax = Number(c.tax_percent) > 0
+        return (
+          <div className="tabular-nums">
+            <p className="whitespace-nowrap">
+              <span className="font-semibold text-[var(--color-ink)]">{money(wholePrice(c))}</span>
+              <span className="ml-1.5 text-xs text-[var(--color-muted)]">
+                {hasSet ? 'complete set' : 'items total'}
+              </span>
+            </p>
+            <p className="whitespace-nowrap text-xs text-[var(--color-muted)]">
+              {hasTax
+                ? `${money(withTax(wholePrice(c), c.tax_percent).total)} incl. tax`
+                : hasSet
+                  ? `Items total ${money(itemsTotal(c))}`
+                  : 'No complete-set price'}
+            </p>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'tax',
+      header: 'Tax',
+      hideBelow: 'md',
+      cell: (c) => (
+        <span className="tabular-nums">
+          {Number(c.tax_percent) > 0 ? taxText(c.tax_percent) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'On site',
+      cell: (c) =>
+        canUpdate
+          ? stop(
+              <Toggle
+                id={`combo-${c.id}`}
+                checked={Boolean(c.status)}
+                disabled={toggleMut.pending}
+                onChange={() => toggleMut.mutate(c)}
+                label={c.status ? 'Visible' : 'Hidden'}
+              />,
+            )
+          : <ActiveBadge active={c.status} />,
+    },
+    ...(canUpdate || canDelete
+      ? [
+          {
+            key: 'actions',
+            header: <span className="sr-only">Actions</span>,
+            align: 'right',
+            cell: (c) =>
+              stop(
+                <div className="flex items-center justify-end gap-1">
+                  {canUpdate && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      aria-label="Edit combo"
-                      onClick={() => setModal({ mode: 'edit', combo })}
+                      aria-label={`Edit ${c.name}`}
+                      onClick={() => setModal({ mode: 'edit', combo: c })}
                     >
-                      <Pencil size={14} />
+                      <Pencil size={13} /> Edit
                     </Button>
                   )}
-
-                  {can('products.delete') && (
+                  {canDelete && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-label="Delete combo"
+                      aria-label={`Delete ${c.name}`}
+                      title="Delete"
                       className="text-[var(--color-danger)]"
-                      onClick={() => setDeleteTarget(combo)}
+                      onClick={() => setDeleteTarget(c)}
                     >
                       <Trash2 size={14} />
                     </Button>
                   )}
-                </div>
-              </div>
-            </article>
-          ))}
+                </div>,
+              ),
+          },
+        ]
+      : []),
+  ]
+
+  return (
+    <div>
+      <PageHeader
+        title="Combos"
+        description="Bundles of existing products. Customers pay the complete-set price when they take every product, or the sum of the combo prices for the ones they choose."
+      >
+        {newButton}
+      </PageHeader>
+
+      {error ? (
+        <ErrorState error={error} onRetry={refetch} />
+      ) : (
+        <div className="flex flex-col gap-5">
+          {!loading && (
+            <StatGrid
+              size="md"
+              items={[
+                {
+                  label: 'Combos',
+                  value: combos.length.toLocaleString('en-IN'),
+                  hint: `${visibleOnSite} visible on the site`,
+                },
+                {
+                  label: 'With complete-set price',
+                  value: withSetPrice.toLocaleString('en-IN'),
+                  hint:
+                    combos.length === 0
+                      ? '—'
+                      : `${combos.length - withSetPrice} use the items total`,
+                },
+                {
+                  label: 'Products in combos',
+                  value: new Set(combos.flatMap((c) => itemsOf(c).map((i) => i.product_id))).size.toLocaleString('en-IN'),
+                  hint: 'Different products used',
+                },
+                {
+                  label: 'Need attention',
+                  value: needAttention.toLocaleString('en-IN'),
+                  hint:
+                    needAttention === 0
+                      ? 'All products are available'
+                      : 'Contain an unavailable product',
+                },
+              ]}
+            />
+          )}
+
+          <Toolbar className="!mb-0">
+            <SearchInput
+              wrapperClassName="min-w-[12rem] flex-1"
+              placeholder="Search by combo or product name"
+              value={filters.search}
+              onChange={(e) => setFilter({ search: e.target.value })}
+            />
+
+            <Field label="Visibility" htmlFor="combos-visibility" className="w-[calc(50%-0.375rem)] sm:w-44">
+              <Select
+                id="combos-visibility"
+                value={filters.visibility}
+                onChange={(e) => setFilter({ visibility: e.target.value })}
+              >
+                {VISIBILITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                    {!loading && o.value !== 'all' ? ` (${combos.filter(o.test).length})` : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Products" htmlFor="combos-products" className="w-[calc(50%-0.375rem)] sm:w-52">
+              <Select
+                id="combos-products"
+                value={filters.products}
+                onChange={(e) => setFilter({ products: e.target.value })}
+              >
+                {PRODUCTS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                    {!loading && o.value !== 'all' ? ` (${combos.filter(o.test).length})` : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Sort by" htmlFor="combos-sort" className="w-full sm:w-48">
+              <Select
+                id="combos-sort"
+                value={filters.sort}
+                onChange={(e) => setFilter({ sort: e.target.value })}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            {filtered && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </Toolbar>
+
+          <div className="card">
+            <DataTable
+              columns={columns}
+              rows={shown}
+              loading={loading}
+              refetching={refetching}
+              onRowClick={canUpdate ? (c) => setModal({ mode: 'edit', combo: c }) : undefined}
+              renderExpanded={(c) => <ComboProducts combo={c} />}
+              empty={
+                <EmptyState
+                  icon={Layers}
+                  title={combos.length === 0 ? 'No combos yet' : 'No combos match'}
+                  description={
+                    combos.length === 0
+                      ? 'Create a combo, choose its products, set individual combo prices and optionally set a complete-set price.'
+                      : 'Try a different search or filter.'
+                  }
+                  action={combos.length === 0 ? newButton : undefined}
+                />
+              }
+            />
+            {!loading && shown.length > 0 && (
+              <p className="border-t border-[var(--color-line)] px-3 py-3 text-xs text-[var(--color-muted)]">
+                Showing {shown.length} of {combos.length} combo{combos.length === 1 ? '' : 's'}
+                {' · use the arrow on a row to see its products'}
+                {canUpdate && ', or click the row to edit it'}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -241,9 +443,103 @@ export default function CombosPage() {
         onConfirm={() => deleteMut.mutate(deleteTarget.id)}
         pending={deleteMut.pending}
         title={`Delete “${deleteTarget?.name}”?`}
-        message="The combo is removed from the public shop. Orders already placed keep their items and prices."
+        message="The combo is removed from the public shop. Orders already placed keep their items and prices. To just take it off the site for now, hide it instead."
         confirmLabel="Delete combo"
       />
+    </div>
+  )
+}
+
+/** The products inside a combo, with their combo and shelf prices — shown when a row is expanded. */
+function ComboProducts({ combo }) {
+  const items = itemsOf(combo)
+  const hasSet = combo.bundle_price != null
+  const hasTax = Number(combo.tax_percent) > 0
+  const shelfTotal = items.reduce((sum, i) => sum + num(i.selling_price), 0)
+  const saving = hasSet ? itemsTotal(combo) - num(combo.bundle_price) : 0
+
+  if (items.length === 0) {
+    return (
+      <p className="rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-muted)]">
+        This combo has no products yet.
+      </p>
+    )
+  }
+
+  const th = 'px-3 py-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-faint)]'
+  const foot = 'px-3 py-2 text-[var(--color-ink-soft)]'
+
+  return (
+    <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)]">
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only">Products in {combo.name}</caption>
+        <thead>
+          <tr className="border-b border-[var(--color-line)] text-left">
+            <th className={th}>Product</th>
+            <th className={cn(th, 'text-right')}>Combo price</th>
+            <th className={cn(th, 'text-right')}>Shelf price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((i) => (
+            <tr key={i.product_id} className="border-b border-[var(--color-line)]">
+              <td className="px-3 py-2">
+                <span
+                  className={cn(
+                    'font-medium',
+                    i.available ? 'text-[var(--color-ink)]' : 'text-[var(--color-faint)]',
+                  )}
+                >
+                  {i.name ?? `Product #${i.product_id}`}
+                </span>
+                {!i.available && (
+                  <Pill tone="warn" className="ml-2">
+                    Unavailable
+                  </Pill>
+                )}
+              </td>
+              <td className="px-3 py-2 text-right font-medium tabular-nums text-[var(--color-ink)]">
+                {money(i.price)}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums text-[var(--color-muted)]">
+                {i.selling_price != null ? money(i.selling_price) : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot className="bg-[var(--color-surface-sunken)] tabular-nums">
+          <tr>
+            <td className={foot}>All {items.length} together</td>
+            <td className={cn(foot, 'text-right font-medium')}>{money(itemsTotal(combo))}</td>
+            <td className={cn(foot, 'text-right text-[var(--color-muted)]')}>{money(shelfTotal)}</td>
+          </tr>
+          {hasSet && (
+            <tr className="border-t border-[var(--color-line)]">
+              <td className={foot}>
+                Complete set price
+                {saving > 0 && (
+                  <span className="ml-2 text-xs text-[var(--color-ok)]">saves {money(saving)}</span>
+                )}
+              </td>
+              <td className={cn(foot, 'text-right font-semibold text-[var(--color-ink)]')}>
+                {money(combo.bundle_price)}
+              </td>
+              <td />
+            </tr>
+          )}
+          {hasTax && (
+            <tr className="border-t border-[var(--color-line)]">
+              <td className={foot}>
+                Customer pays for the whole combo (incl. {taxText(combo.tax_percent)} tax)
+              </td>
+              <td className={cn(foot, 'text-right font-semibold text-[var(--color-ink)]')}>
+                {money(withTax(wholePrice(combo), combo.tax_percent).total)}
+              </td>
+              <td />
+            </tr>
+          )}
+        </tfoot>
+      </table>
     </div>
   )
 }
@@ -308,6 +604,16 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
 
   const removeItem = (productId) =>
     setItems((list) => list.filter((i) => i.product_id !== productId))
+
+  // Live summary of what the customer will pay, so a price typo shows up here.
+  const itemsSum = items.reduce((sum, i) => sum + num(i.price), 0)
+  const pricesFilled = items.length > 0 && items.every((i) => i.price !== '')
+  const bundleNum = form.bundlePrice === '' ? null : Number(form.bundlePrice)
+  const taxNum = form.taxPercent === '' ? 0 : Number(form.taxPercent)
+  const taxOk = !Number.isNaN(taxNum) && taxNum >= 0 && taxNum <= 100
+  const wholeBase = bundleNum != null && !Number.isNaN(bundleNum) ? bundleNum : itemsSum
+  const wholeWithTax = taxOk ? withTax(wholeBase, taxNum) : null
+  const saving = bundleNum != null && !Number.isNaN(bundleNum) ? itemsSum - bundleNum : 0
 
   const { mutate, pending, fieldErrors } = useMutation(
     () => {
@@ -402,81 +708,45 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
         </>
       }
     >
-      <form className="flex flex-col gap-4" onSubmit={submit}>
-        <Field label="Name" required error={fieldErrors.name}>
-          <TextInput
-            autoFocus
-            value={form.name}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, name: e.target.value }))
-            }
-            placeholder="e.g. Hair Care Package"
+      <form className="flex flex-col gap-5" onSubmit={submit}>
+        <FormSection title="Details">
+          <ImageInput
+            label={mode === 'create' ? 'Combo photo' : 'Replace photo'}
+            currentUrl={combo?.image_url}
+            error={fieldErrors.image}
+            hint="Optional"
+            onChange={setImage}
           />
-        </Field>
 
-        <Field label="Description" error={fieldErrors.description}>
-          <Textarea
-            rows={2}
-            value={form.description}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, description: e.target.value }))
-            }
-            placeholder="Shown on the public combo card"
-          />
-        </Field>
-
-        <Field
-          label="Complete Set Price"
-          error={fieldErrors.bundle_price}
-          hint="Charged when the customer selects every product in this combo. Leave empty to use the individual combo prices."
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm text-[var(--color-muted)]">₹</span>
+          <Field label="Name" required error={fieldErrors.name}>
             <TextInput
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="e.g. 1400"
-              value={form.bundlePrice}
+              autoFocus
+              value={form.name}
               onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  bundlePrice: e.target.value,
-                }))
+                setForm((f) => ({ ...f, name: e.target.value }))
               }
+              placeholder="e.g. Hair Care Package"
             />
-          </div>
-        </Field>
+          </Field>
 
-        <Field
-          label="Taxes (%)"
-          error={fieldErrors.tax_percent}
-          hint="Added on top of the complete-set price or the selected combo prices at checkout."
+          <Field label="Description" error={fieldErrors.description}>
+            <Textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, description: e.target.value }))
+              }
+              placeholder="Shown on the public combo card"
+            />
+          </Field>
+        </FormSection>
+
+        <FormSection
+          title="Included products & combo prices"
+          hint="Set each product's price when bought as part of this combo. A customer who picks only some products pays the sum of those prices."
         >
-          <TextInput
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            inputMode="decimal"
-            value={form.taxPercent}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, taxPercent: e.target.value }))
-            }
-          />
-        </Field>
-
-        <div className="border-t border-[var(--color-line)] pt-4">
-          <p className="label">Included products &amp; combo prices</p>
-
-          <p className="mt-1 text-xs text-[var(--color-muted)]">
-            Set the price for each product when purchased separately from the
-            complete set. A proper subset uses the sum of the selected prices.
-          </p>
-
           {items.length > 0 && (
-            <ul className="mt-3 divide-y divide-[var(--color-line)] rounded-[var(--radius-md)] border border-[var(--color-line)]">
+            <ul className="divide-y divide-[var(--color-line)] rounded-[var(--radius-md)] border border-[var(--color-line)]">
               {items.map((item, i) => {
                 const product = productById(item.product_id)
 
@@ -551,9 +821,10 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
             </ul>
           )}
 
-          <div className="mt-3 flex items-end gap-2">
-            <Field label="Add a product" className="flex-1">
+          <div className="flex items-end gap-2">
+            <Field label="Add a product" htmlFor="combo-add-product" className="flex-1">
               <Select
+                id="combo-add-product"
                 value={pick}
                 onChange={(e) => setPick(e.target.value)}
                 disabled={products.loading || addable.length === 0}
@@ -591,34 +862,93 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
           </div>
 
           {itemsError && (
-            <p
-              className="mt-2 text-sm text-[var(--color-danger)]"
-              role="alert"
-            >
+            <p className="text-sm text-[var(--color-danger)]" role="alert">
               {itemsError}
             </p>
           )}
-        </div>
+        </FormSection>
 
-        <ImageInput
-          label={mode === 'create' ? 'Combo photo' : 'Replace photo'}
-          currentUrl={combo?.image_url}
-          error={fieldErrors.image}
-          hint="Optional"
-          onChange={setImage}
-        />
+        <FormSection title="Complete set & taxes">
+          <Field
+            label="Complete set price"
+            htmlFor="combo-bundle-price"
+            error={fieldErrors.bundle_price}
+            hint="Charged when the customer selects every product in this combo. Leave empty to use the individual combo prices."
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-[var(--color-muted)]">₹</span>
+              <TextInput
+                id="combo-bundle-price"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="e.g. 1400"
+                value={form.bundlePrice}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    bundlePrice: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </Field>
 
-        <div className="flex items-center justify-between border-t border-[var(--color-line)] pt-4">
-          <span className="text-sm text-[var(--color-ink-soft)]">
-            Visible on the public site
-          </span>
+          <Field
+            label="Taxes (%)"
+            htmlFor="combo-tax"
+            error={fieldErrors.tax_percent}
+            hint="Added on top of the complete-set price or the selected combo prices at checkout."
+            className="sm:w-1/2"
+          >
+            <TextInput
+              id="combo-tax"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              inputMode="decimal"
+              value={form.taxPercent}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, taxPercent: e.target.value }))
+              }
+            />
+          </Field>
 
-          <Toggle
-            id="combo-status"
-            checked={form.status}
-            onChange={(v) => setForm((f) => ({ ...f, status: v }))}
-          />
-        </div>
+          {pricesFilled && wholeWithTax && (
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs tabular-nums text-[var(--color-ink-soft)]">
+              <p>
+                Whole combo: customer pays{' '}
+                <strong className="font-semibold text-[var(--color-ink)]">
+                  {money(wholeWithTax.total)}
+                </strong>
+                {Number(taxNum) > 0 && (
+                  <> = {money(wholeWithTax.base)} + {money(wholeWithTax.tax)} tax</>
+                )}
+              </p>
+              <p className="mt-0.5 text-[var(--color-muted)]">
+                Products add up to {money(itemsSum)} at their combo prices
+                {saving > 0 && <> · the complete-set price saves {money(saving)}</>}
+                {saving < 0 && <> · the complete-set price is {money(-saving)} higher than that</>}
+              </p>
+            </div>
+          )}
+        </FormSection>
+
+        <FormSection title="Visibility">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-[var(--color-ink-soft)]">
+              Visible on the public site
+            </span>
+
+            <Toggle
+              id="combo-status"
+              checked={form.status}
+              onChange={(v) => setForm((f) => ({ ...f, status: v }))}
+            />
+          </div>
+        </FormSection>
       </form>
     </Modal>
   )

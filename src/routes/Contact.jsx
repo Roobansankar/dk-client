@@ -6,7 +6,7 @@ import ReviewUs from '../components/sections/ReviewUs'
 import { useSite } from '../context/SiteContext'
 import { formatTime12h } from '../lib/time'
 
-const BOOKING = { pathname: '/', hash: '#booking' }
+const BOOKING = '/booking'
 
 const MAP_EMBED_SRC =
   'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3916.3702896175228!2d76.9602525!3d11.0108196!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba8590ebe89bbe7%3A0x57fd23b2ccdef8c9!2sThe_DK%20Stylehub!5e0!3m2!1sen!2sin!4v1788590356951!5m2!1sen!2sin'

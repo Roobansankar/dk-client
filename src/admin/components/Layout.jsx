@@ -61,7 +61,7 @@ const NAV = [
   { to: '/admin/services/female', label: 'Female Services', icon: Scissors, perm: 'services.view' },
   { to: '/admin/services/male', label: 'Male Services', icon: Scissors, perm: 'services.view' },
   { to: '/admin/products', label: 'Products', icon: Package, perm: 'products.view' },
-  { to: '/admin/combos', label: 'Combos', icon: Layers, perm: 'products.view' },
+  { to: '/admin/combos', label: 'Product Combos', icon: Layers, perm: 'products.view' },
   { to: '/admin/pricing-plans', label: 'Pricing Plans', icon: Tags, perm: 'pricing.view' },
 
   { section: 'Studio' },

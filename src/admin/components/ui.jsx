@@ -310,6 +310,19 @@ export function PageHeader({ title, description, children }) {
   )
 }
 
+/** Titled group inside a long form or modal — hairline-separated, the first one flush. */
+export function FormSection({ title, hint, children }) {
+  return (
+    <section className="flex flex-col gap-4 border-t border-[var(--color-line)] pt-5 first:border-t-0 first:pt-0">
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--color-ink)]">{title}</h3>
+        {hint && <p className="mt-0.5 text-xs text-[var(--color-muted)]">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
 /**
  * Card with an optional hairline header (title / description / actions) and a
  * padded body. The single container for grouped content across the admin —

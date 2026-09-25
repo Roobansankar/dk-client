@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 
-/** The homepage booking section — the existing in-page target. */
-const BOOKING = { pathname: '/', hash: '#booking' }
+/** The dedicated booking page. */
+const BOOKING = '/booking'
 
 /**
  * Homepage closing CTA — a STANDALONE section (no overlap with the footer):
@@ -14,8 +14,8 @@ const BOOKING = { pathname: '/', hash: '#booking' }
  *
  * The accent token is pinned to its on-dark value for the panel subtree, so the
  * emphasised phrase and the atmospheric glow share one warm gold in both
- * themes. Both CTAs point at existing destinations (the #booking section on
- * this page and the /contact route) — nothing here is invented.
+ * themes. Both CTAs point at existing destinations (the /booking page and
+ * the /contact route) — nothing here is invented.
  */
 export default function FooterCta() {
   return (

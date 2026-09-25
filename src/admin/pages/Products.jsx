@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Package, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
+import { DataTable } from '../components/DataTable'
 import { Modal, ConfirmDialog } from '../components/Modal'
 import {
   ActiveBadge,
@@ -11,29 +12,68 @@ import {
   EmptyState,
   ErrorState,
   Field,
-  LoadingBlock,
+  FormSection,
   PageHeader,
   Pill,
-  SectionCard,
+  SearchInput,
+  Select,
   StatGrid,
   Textarea,
   TextInput,
   Thumb,
   Toggle,
+  Toolbar,
   cn,
 } from '../components/ui'
 import { ImageInput } from '../components/ImageInput'
 import { formatMoney } from '../lib/format'
 import { withTax } from '../../lib/pricing'
 
-/** Products at or below this many units are listed under Low Stock. */
+/** Products at or below this many units are treated as low stock. */
 const LOW_STOCK_THRESHOLD = 3
 
 const taxText = (pct) => `${Number(Number(pct || 0).toFixed(2))}%`
 
+const stockOf = (p) => p.stock_quantity ?? 0
+
+/** Whole-number saving, e.g. MRP 800 → price 720 ⇒ 10. */
+function discountPct(mrp, price) {
+  if (mrp == null || price == null || Number(mrp) <= Number(price) || Number(mrp) <= 0) return 0
+  return Math.round((1 - Number(price) / Number(mrp)) * 100)
+}
+
+const isOut = (p) => stockOf(p) <= 0
+const isLow = (p) => stockOf(p) > 0 && stockOf(p) <= LOW_STOCK_THRESHOLD
+const isHealthy = (p) => stockOf(p) > LOW_STOCK_THRESHOLD
+
+const STOCK_OPTIONS = [
+  { value: 'all', label: 'All stock levels', test: () => true },
+  { value: 'in', label: 'In stock', test: isHealthy },
+  { value: 'low', label: `Low stock (${LOW_STOCK_THRESHOLD} or fewer)`, test: isLow },
+  { value: 'out', label: 'Out of stock', test: isOut },
+]
+
+const VISIBILITY_OPTIONS = [
+  { value: 'all', label: 'All products', test: () => true },
+  { value: 'visible', label: 'Visible on site', test: (p) => Boolean(p.status) },
+  { value: 'hidden', label: 'Hidden from site', test: (p) => !p.status },
+]
+
+const num = (v) => (v == null ? 0 : Number(v))
+
+const SORT_OPTIONS = [
+  { value: 'default', label: 'Default order', compare: null },
+  { value: 'name', label: 'Name (A–Z)', compare: (a, b) => (a.name ?? '').localeCompare(b.name ?? '') },
+  { value: 'price_asc', label: 'Price: low to high', compare: (a, b) => num(a.selling_price) - num(b.selling_price) },
+  { value: 'price_desc', label: 'Price: high to low', compare: (a, b) => num(b.selling_price) - num(a.selling_price) },
+  { value: 'stock_asc', label: 'Stock: low to high', compare: (a, b) => stockOf(a) - stockOf(b) },
+  { value: 'sold_desc', label: 'Best selling', compare: (a, b) => num(b.items_sold) - num(a.items_sold) },
+]
+
 export default function ProductsPage() {
   const { can } = useAuth()
-  const canManage = can('products.create') || can('products.update') || can('products.delete')
+  const canUpdate = can('products.update')
+  const canDelete = can('products.delete')
 
   const { data, loading, error, refetch, refetching } = useQuery('/admin/products', {
     params: { per_page: 100 },
@@ -41,6 +81,8 @@ export default function ProductsPage() {
 
   const [modal, setModal] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [filters, setFilters] = useState({ search: '', stock: 'all', visibility: 'all', sort: 'default' })
+  const setFilter = (patch) => setFilters((f) => ({ ...f, ...patch }))
 
   const deleteMut = useMutation((id) => api.delete(`/admin/products/${id}`), {
     successMessage: 'Product deleted.',
@@ -59,116 +101,308 @@ export default function ProductsPage() {
   )
 
   const products = data ?? []
-  const totalStock = products.reduce((sum, p) => sum + (p.stock_quantity ?? 0), 0)
+  const totalStock = products.reduce((sum, p) => sum + stockOf(p), 0)
   const totalSold = products.reduce((sum, p) => sum + (p.items_sold ?? 0), 0)
-  const lowStock = products
-    .filter((p) => (p.stock_quantity ?? 0) <= LOW_STOCK_THRESHOLD)
-    .sort((a, b) => (a.stock_quantity ?? 0) - (b.stock_quantity ?? 0))
+  const visibleOnSite = products.filter((p) => p.status).length
+  const lowCount = products.filter(isLow).length
+  const outCount = products.filter(isOut).length
+
+  const stockTest = STOCK_OPTIONS.find((o) => o.value === filters.stock)?.test ?? (() => true)
+  const visibilityTest =
+    VISIBILITY_OPTIONS.find((o) => o.value === filters.visibility)?.test ?? (() => true)
+  const compare = SORT_OPTIONS.find((o) => o.value === filters.sort)?.compare
+  const query = filters.search.trim().toLowerCase()
+
+  const shown = products.filter(
+    (p) =>
+      stockTest(p) &&
+      visibilityTest(p) &&
+      (!query || (p.name ?? '').toLowerCase().includes(query)),
+  )
+  if (compare) shown.sort(compare)
+
+  const filtered = filters.search !== '' || filters.stock !== 'all' || filters.visibility !== 'all'
+  const clearFilters = () => setFilters((f) => ({ ...f, search: '', stock: 'all', visibility: 'all' }))
 
   const newButton = can('products.create') && (
     <Button size="sm" onClick={() => setModal({ mode: 'create' })}>
-      <Plus size={15} /> Add Product
+      <Plus size={15} /> Add product
     </Button>
   )
+
+  // Row cells hold their own controls — keep their clicks from also opening the row.
+  const stop = (node) => <div onClick={(e) => e.stopPropagation()}>{node}</div>
+
+  const columns = [
+    {
+      key: 'product',
+      header: 'Product',
+      cell: (p) => (
+        <div className="flex min-w-[13rem] items-center gap-3">
+          <Thumb
+            src={p.image_url}
+            alt=""
+            iconSize={16}
+            className={cn(
+              'h-11 w-11 shrink-0 rounded-[var(--radius-md)] border border-[var(--color-line)]',
+              !p.status && 'opacity-40 grayscale',
+            )}
+          />
+          <div className="min-w-0">
+            <p className="flex items-center gap-2">
+              <span className="truncate font-medium text-[var(--color-ink)]" title={p.name}>
+                {p.name}
+              </span>
+              {p.is_featured && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-ink)] px-2 py-0.5 text-[0.6875rem] font-medium text-[var(--color-surface)]">
+                  <Star size={10} aria-hidden="true" /> Featured
+                </span>
+              )}
+            </p>
+            <p className="max-w-[22rem] truncate text-xs text-[var(--color-muted)]">
+              {p.description || 'No description'}
+            </p>
+            <p className="mt-1 flex items-center gap-2 md:hidden">
+              <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
+                {formatMoney(p.selling_price)}
+              </span>
+              <StockPill quantity={p.stock_quantity} />
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      hideBelow: 'md',
+      cell: (p) => {
+        const hasTax = Number(p.tax_percent) > 0
+        const total = p.selling_price != null ? withTax(p.selling_price, p.tax_percent).total : null
+        const off = discountPct(p.mrp, p.selling_price)
+        return (
+          <div className="tabular-nums">
+            <p className="flex items-baseline gap-x-2 whitespace-nowrap">
+              <span className="font-semibold text-[var(--color-ink)]">
+                {formatMoney(p.selling_price)}
+              </span>
+              {off > 0 && (
+                <span className="text-xs text-[var(--color-faint)] line-through">
+                  {formatMoney(p.mrp)}
+                </span>
+              )}
+            </p>
+            {(off > 0 || (hasTax && total != null)) && (
+              <p className="whitespace-nowrap text-xs text-[var(--color-muted)]">
+                {off > 0 && (
+                  <span className="font-medium text-[var(--color-ok)]">{off}% off</span>
+                )}
+                {off > 0 && hasTax && total != null && ' · '}
+                {hasTax && total != null && `${formatMoney(total)} incl. tax`}
+              </p>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      key: 'tax',
+      header: 'Tax',
+      hideBelow: 'md',
+      cell: (p) => (
+        <span className="tabular-nums">
+          {Number(p.tax_percent) > 0 ? taxText(p.tax_percent) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'stock',
+      header: 'Stock',
+      hideBelow: 'md',
+      cell: (p) => <StockPill quantity={p.stock_quantity} />,
+    },
+    {
+      key: 'sold',
+      header: 'Sold',
+      hideBelow: 'md',
+      cell: (p) => <span className="tabular-nums">{(p.items_sold ?? 0).toLocaleString('en-IN')}</span>,
+    },
+    {
+      key: 'status',
+      header: 'On site',
+      cell: (p) =>
+        canUpdate
+          ? stop(
+              <Toggle
+                id={`product-${p.id}`}
+                checked={Boolean(p.status)}
+                disabled={toggleMut.pending}
+                onChange={() => toggleMut.mutate(p)}
+                label={p.status ? 'Visible' : 'Hidden'}
+              />,
+            )
+          : <ActiveBadge active={p.status} />,
+    },
+    ...(canUpdate || canDelete
+      ? [
+          {
+            key: 'actions',
+            header: <span className="sr-only">Actions</span>,
+            align: 'right',
+            cell: (p) =>
+              stop(
+                <div className="flex items-center justify-end gap-1">
+                  {canUpdate && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Edit ${p.name}`}
+                      onClick={() => setModal({ mode: 'edit', product: p })}
+                    >
+                      <Pencil size={13} /> Edit
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Delete ${p.name}`}
+                      title="Delete"
+                      className="text-[var(--color-danger)]"
+                      onClick={() => setDeleteTarget(p)}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
+                </div>,
+              ),
+          },
+        ]
+      : []),
+  ]
 
   return (
     <div>
       <PageHeader
         title="Products"
-        description="The retail shelf shown on the public /products page."
-      />
+        description="The retail shelf shown on the public Products page. Keep prices, taxes and stock up to date here."
+      >
+        {newButton}
+      </PageHeader>
 
-      {loading ? (
-        <LoadingBlock />
-      ) : error ? (
+      {error ? (
         <ErrorState error={error} onRetry={refetch} />
       ) : (
-        <div className={cn('flex flex-col gap-5', refetching && 'opacity-70')}>
-          <StatGrid
-            columns={2}
-            items={[
-              {
-                label: 'Current Stock',
-                value: totalStock.toLocaleString('en-IN'),
-                hint: `Units across ${products.length} product${products.length === 1 ? '' : 's'}`,
-              },
-              {
-                label: 'Items Sold',
-                value: totalSold.toLocaleString('en-IN'),
-                hint: 'Units sold through product orders',
-              },
-            ]}
-          />
-
-          <SectionCard
-            title="Low Stock"
-            description={`Products with ${LOW_STOCK_THRESHOLD} or fewer units left.`}
-            bodyClassName={lowStock.length ? 'p-0' : undefined}
-          >
-            {lowStock.length === 0 ? (
-              <p className="text-sm text-[var(--color-muted)]">
-                {products.length === 0
-                  ? 'No products yet.'
-                  : `Every product has more than ${LOW_STOCK_THRESHOLD} units in stock.`}
-              </p>
-            ) : (
-              <ul className="divide-y divide-[var(--color-line)]">
-                {lowStock.map((product) => (
-                  <li key={product.id} className="flex items-center gap-3 px-5 py-2.5">
-                    <Thumb
-                      src={product.image_url}
-                      alt={product.name}
-                      className="h-9 w-9 shrink-0 rounded-[var(--radius-sm)]"
-                      iconSize={14}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-ink)]">
-                      {product.name}
-                      {!product.status && (
-                        <span className="ml-2 text-xs text-[var(--color-muted)]">Hidden</span>
-                      )}
-                    </span>
-                    <StockPill quantity={product.stock_quantity} />
-                    {can('products.update') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Edit ${product.name}`}
-                        onClick={() => setModal({ mode: 'edit', product })}
-                      >
-                        <Pencil size={14} />
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SectionCard>
-
-          {newButton && <div>{newButton}</div>}
-
-          {products.length === 0 ? (
-            <div className="card">
-              <EmptyState
-                icon={Package}
-                title="No products yet"
-                description="Add a product with a photo, MRP, selling price, stock and taxes."
-              />
-            </div>
-          ) : (
-            <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  can={can}
-                  canManage={canManage}
-                  onToggle={() => toggleMut.mutate(product)}
-                  onEdit={() => setModal({ mode: 'edit', product })}
-                  onDelete={() => setDeleteTarget(product)}
-                />
-              ))}
-            </div>
+        <div className="flex flex-col gap-5">
+          {!loading && (
+            <StatGrid
+              size="md"
+              items={[
+                {
+                  label: 'Products',
+                  value: products.length.toLocaleString('en-IN'),
+                  hint: `${visibleOnSite} visible on the site`,
+                },
+                {
+                  label: 'Units in stock',
+                  value: totalStock.toLocaleString('en-IN'),
+                  hint: 'Across all products',
+                },
+                {
+                  label: 'Items sold',
+                  value: totalSold.toLocaleString('en-IN'),
+                  hint: 'Through product orders',
+                },
+                {
+                  label: 'Need restocking',
+                  value: (lowCount + outCount).toLocaleString('en-IN'),
+                  hint:
+                    lowCount + outCount === 0
+                      ? 'Everything is well stocked'
+                      : `${outCount} out · ${lowCount} low (${LOW_STOCK_THRESHOLD} or fewer)`,
+                },
+              ]}
+            />
           )}
+
+          <Toolbar className="!mb-0">
+            <SearchInput
+              wrapperClassName="min-w-[12rem] flex-1"
+              placeholder="Search by product name"
+              value={filters.search}
+              onChange={(e) => setFilter({ search: e.target.value })}
+            />
+
+            <Field label="Stock" htmlFor="products-stock" className="w-[calc(50%-0.375rem)] sm:w-52">
+              <Select id="products-stock" value={filters.stock} onChange={(e) => setFilter({ stock: e.target.value })}>
+                {STOCK_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                    {!loading && o.value !== 'all' ? ` (${products.filter(o.test).length})` : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Visibility" htmlFor="products-visibility" className="w-[calc(50%-0.375rem)] sm:w-44">
+              <Select
+                id="products-visibility"
+                value={filters.visibility}
+                onChange={(e) => setFilter({ visibility: e.target.value })}
+              >
+                {VISIBILITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                    {!loading && o.value !== 'all' ? ` (${products.filter(o.test).length})` : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Sort by" htmlFor="products-sort" className="w-full sm:w-48">
+              <Select id="products-sort" value={filters.sort} onChange={(e) => setFilter({ sort: e.target.value })}>
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            {filtered && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </Toolbar>
+
+          <div className="card">
+            <DataTable
+              columns={columns}
+              rows={shown}
+              loading={loading}
+              refetching={refetching}
+              onRowClick={canUpdate ? (p) => setModal({ mode: 'edit', product: p }) : undefined}
+              empty={
+                <EmptyState
+                  icon={Package}
+                  title={products.length === 0 ? 'No products yet' : 'No products match'}
+                  description={
+                    products.length === 0
+                      ? 'Add a product with a photo, MRP, selling price, stock and taxes.'
+                      : 'Try a different search or filter.'
+                  }
+                  action={products.length === 0 ? newButton : undefined}
+                />
+              }
+            />
+            {!loading && shown.length > 0 && (
+              <p className="border-t border-[var(--color-line)] px-3 py-3 text-xs text-[var(--color-muted)]">
+                Showing {shown.length} of {products.length} product{products.length === 1 ? '' : 's'}
+                {canUpdate && ' · click a row to edit it'}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -190,7 +424,7 @@ export default function ProductsPage() {
         onConfirm={() => deleteMut.mutate(deleteTarget.id)}
         pending={deleteMut.pending}
         title={`Delete “${deleteTarget?.name}”?`}
-        message="The product is removed from the public shelf. This can't be undone here."
+        message="The product is removed from the public shelf. This can't be undone here. To just take it off the site for now, hide it instead."
         confirmLabel="Delete product"
       />
     </div>
@@ -201,111 +435,9 @@ function StockPill({ quantity }) {
   const qty = quantity ?? 0
   const tone = qty === 0 ? 'danger' : qty <= LOW_STOCK_THRESHOLD ? 'warn' : 'ok'
   return (
-    <Pill tone={tone} className="shrink-0 tabular-nums">
-      {qty === 0 ? 'Out of stock' : `${qty} in stock`}
+    <Pill tone={tone} className="shrink-0 whitespace-nowrap tabular-nums">
+      {qty === 0 ? 'Out of stock' : qty <= LOW_STOCK_THRESHOLD ? `Only ${qty} left` : `${qty} in stock`}
     </Pill>
-  )
-}
-
-function ProductCard({ product, can, canManage, onToggle, onEdit, onDelete }) {
-  const hasTax = Number(product.tax_percent) > 0
-  const price =
-    product.selling_price != null ? withTax(product.selling_price, product.tax_percent) : null
-
-  return (
-    <article className="card flex h-full flex-col overflow-hidden">
-      {/* Fixed 4:3 frame; the image is absolutely positioned so its intrinsic
-          size can never stretch the frame (and with it, the card). */}
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-[var(--color-surface-sunken)]">
-        <Thumb
-          src={product.image_url}
-          alt={product.name}
-          className={cn(
-            'absolute inset-0 h-full w-full object-cover',
-            !product.status && 'opacity-40 grayscale',
-          )}
-        />
-        {!product.status && (
-          <span className="absolute right-1.5 top-1.5 rounded-[3px] bg-[var(--color-neutral-tint)] px-2 py-0.5 text-[0.625rem] font-medium text-[var(--color-neutral)]">
-            Hidden
-          </span>
-        )}
-        {product.is_featured && (
-          <span className="absolute left-1.5 top-1.5 rounded-[3px] bg-[var(--color-ink)] px-2 py-0.5 text-[0.625rem] font-medium text-[var(--color-surface)]">
-            Featured
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col p-3.5">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 truncate font-medium text-[var(--color-ink)]" title={product.name}>
-            {product.name}
-          </h3>
-          <Pill tone={hasTax ? 'info' : 'neutral'} className="shrink-0">
-            Taxes {taxText(product.tax_percent)}
-          </Pill>
-        </div>
-
-        <p className="mt-1 h-5 truncate text-sm leading-5 tabular-nums text-[var(--color-ink-soft)]">
-          <span className="text-[var(--color-ink)]">{formatMoney(product.selling_price)}</span>
-          {product.mrp != null &&
-            product.selling_price != null &&
-            product.mrp > product.selling_price && (
-              <span className="ml-2 text-[var(--color-faint)] line-through">
-                {formatMoney(product.mrp)}
-              </span>
-            )}
-        </p>
-        <p className="mt-0.5 h-4 truncate text-xs leading-4 tabular-nums text-[var(--color-muted)]">
-          {price && hasTax
-            ? `Customer pays ${formatMoney(price.total)} (incl. ${formatMoney(price.tax)} tax)`
-            : '\u00a0'}
-        </p>
-
-        <p className="mt-2 line-clamp-2 h-10 text-sm leading-5 text-[var(--color-muted)]">
-          {product.description || '\u00a0'}
-        </p>
-
-        <div className="mb-3 mt-3 flex items-center justify-between gap-2 text-xs text-[var(--color-muted)]">
-          <StockPill quantity={product.stock_quantity} />
-          <span className="tabular-nums">{(product.items_sold ?? 0).toLocaleString('en-IN')} sold</span>
-        </div>
-
-        <div className="mt-auto flex items-center justify-between border-t border-[var(--color-line)] pt-3">
-          {can('products.update') ? (
-            <Toggle
-              id={`product-${product.id}`}
-              checked={product.status}
-              onChange={onToggle}
-              label={product.status ? 'Visible' : 'Hidden'}
-            />
-          ) : (
-            <ActiveBadge active={product.status} />
-          )}
-          {canManage && (
-            <div className="flex gap-0.5">
-              {can('products.update') && (
-                <Button variant="ghost" size="sm" aria-label="Edit product" onClick={onEdit}>
-                  <Pencil size={14} />
-                </Button>
-              )}
-              {can('products.delete') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Delete product"
-                  className="text-[var(--color-danger)]"
-                  onClick={onDelete}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
   )
 }
 
@@ -333,6 +465,7 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
     sellingNum != null && !Number.isNaN(sellingNum) && taxNum >= 0 && taxNum <= 100
       ? withTax(sellingNum, taxNum)
       : null
+  const discount = priceOrderInvalid ? 0 : discountPct(mrpNum, sellingNum)
 
   const { mutate, pending, fieldErrors } = useMutation(
     () => {
@@ -380,82 +513,70 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
         </>
       }
     >
-      <form className="flex flex-col gap-4" onSubmit={submit}>
-        <ImageInput
-          label={mode === 'create' ? 'Product photo' : 'Replace photo'}
-          currentUrl={product?.image_url}
-          error={fieldErrors.image}
-          hint="Optional — a placeholder is shown on the site when there's no photo"
-          onChange={setImage}
-        />
-
-        <Field label="Name" required error={fieldErrors.name}>
-          <TextInput
-            autoFocus
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+      <form className="flex flex-col gap-5" onSubmit={submit}>
+        <FormSection title="Details">
+          <ImageInput
+            label={mode === 'create' ? 'Product photo' : 'Replace photo'}
+            currentUrl={product?.image_url}
+            error={fieldErrors.image}
+            hint="Optional — a placeholder is shown on the site when there's no photo"
+            onChange={setImage}
           />
-        </Field>
 
-        <Field label="Description" error={fieldErrors.description}>
-          <Textarea
-            rows={2}
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Shown on the public product card"
-          />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="MRP (₹)" required error={fieldErrors.mrp}>
+          <Field label="Name" required error={fieldErrors.name}>
             <TextInput
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={form.mrp}
-              onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))}
+              autoFocus
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </Field>
-          <Field
-            label="Selling price (₹)"
-            required
-            error={
-              fieldErrors.selling_price ||
-              (priceOrderInvalid ? 'Cannot be higher than the MRP.' : undefined)
-            }
-          >
-            <TextInput
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={form.selling_price}
-              onChange={(e) => setForm((f) => ({ ...f, selling_price: e.target.value }))}
-            />
-          </Field>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="Stock Available"
-            required
-            error={fieldErrors.stock_quantity}
-            hint="Changes are logged in the stock history."
-          >
-            <TextInput
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              value={form.stock_quantity}
-              onChange={(e) => setForm((f) => ({ ...f, stock_quantity: e.target.value }))}
+          <Field label="Description" error={fieldErrors.description}>
+            <Textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Shown on the public product card"
             />
           </Field>
+        </FormSection>
+
+        <FormSection title="Pricing" hint="Enter amounts before tax.">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="MRP (₹)" required error={fieldErrors.mrp}>
+              <TextInput
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={form.mrp}
+                onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))}
+              />
+            </Field>
+            <Field
+              label="Selling price (₹)"
+              required
+              error={
+                fieldErrors.selling_price ||
+                (priceOrderInvalid ? 'Cannot be higher than the MRP.' : undefined)
+              }
+            >
+              <TextInput
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={form.selling_price}
+                onChange={(e) => setForm((f) => ({ ...f, selling_price: e.target.value }))}
+              />
+            </Field>
+          </div>
+
           <Field
             label="Taxes (%)"
             error={fieldErrors.tax_percent}
             hint="Added on top of the selling price at checkout."
+            className="sm:w-1/2"
           >
             <TextInput
               type="number"
@@ -467,38 +588,63 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
               onChange={(e) => setForm((f) => ({ ...f, tax_percent: e.target.value }))}
             />
           </Field>
-        </div>
 
-        {preview && (
-          <p className="-mt-1 text-xs tabular-nums text-[var(--color-muted)]">
-            Customer pays {formatMoney(preview.total)} = {formatMoney(preview.base)} +{' '}
-            {formatMoney(preview.tax)} tax
-          </p>
-        )}
+          {preview && (
+            <p className="rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs tabular-nums text-[var(--color-ink-soft)]">
+              Customer pays{' '}
+              <strong className="font-semibold text-[var(--color-ink)]">
+                {formatMoney(preview.total)}
+              </strong>{' '}
+              = {formatMoney(preview.base)} + {formatMoney(preview.tax)} tax
+              {discount > 0 && <> · {discount}% off MRP</>}
+            </p>
+          )}
+        </FormSection>
 
-        <div className="flex items-center justify-between border-t border-[var(--color-line)] pt-4">
-          <span className="text-sm text-[var(--color-ink-soft)]">Visible on the public site</span>
-          <Toggle
-            id="product-status"
-            checked={form.status}
-            onChange={(v) => setForm((f) => ({ ...f, status: v }))}
-          />
-        </div>
+        <FormSection title="Stock">
+          <Field
+            label="Stock available"
+            required
+            error={fieldErrors.stock_quantity}
+            hint="Changes are logged in the stock history."
+            className="sm:w-1/2"
+          >
+            <TextInput
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              value={form.stock_quantity}
+              onChange={(e) => setForm((f) => ({ ...f, stock_quantity: e.target.value }))}
+            />
+          </Field>
+        </FormSection>
 
-        <div className="flex items-center justify-between border-t border-[var(--color-line)] pt-4">
-          <span className="text-sm text-[var(--color-ink-soft)]">
-            Featured Product
-            <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
-              Highlighted on /products. Only one product can be featured — turning
-              this on removes it from any other product.
+        <FormSection title="Visibility">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-[var(--color-ink-soft)]">Visible on the public site</span>
+            <Toggle
+              id="product-status"
+              checked={form.status}
+              onChange={(v) => setForm((f) => ({ ...f, status: v }))}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-[var(--color-ink-soft)]">
+              Featured product
+              <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
+                Highlighted on the Products page. Only one product can be featured — turning
+                this on removes it from any other product.
+              </span>
             </span>
-          </span>
-          <Toggle
-            id="product-featured"
-            checked={form.is_featured}
-            onChange={(v) => setForm((f) => ({ ...f, is_featured: v }))}
-          />
-        </div>
+            <Toggle
+              id="product-featured"
+              checked={form.is_featured}
+              onChange={(v) => setForm((f) => ({ ...f, is_featured: v }))}
+            />
+          </div>
+        </FormSection>
       </form>
     </Modal>
   )

@@ -10,6 +10,7 @@ import Cart from './routes/Cart'
 import Checkout from './routes/Checkout'
 import Gallery from './routes/Gallery'
 import Contact from './routes/Contact'
+import Booking from './routes/Booking'
 import Terms from './routes/Terms'
 import Privacy from './routes/Privacy'
 import NotFound from './routes/NotFound'
@@ -52,6 +53,8 @@ function PublicShell() {
                       <Route element={<RootLayout />}>
                         <Route index element={<Home />} />
                         <Route path="services" element={<Services />} />
+                        <Route path="services/men" element={<Services key="men" gender="men" />} />
+                        <Route path="services/women" element={<Services key="women" gender="women" />} />
                         <Route path="products" element={<Products />} />
                         <Route path="products/:slug" element={<ProductDetail />} />
                         <Route path="combos/:slug" element={<ComboDetail />} />
@@ -81,6 +84,7 @@ function PublicShell() {
                           }
                         />
                         <Route path="contact" element={<Contact />} />
+                        <Route path="booking" element={<Booking />} />
                         <Route path="terms" element={<Terms />} />
                         <Route path="privacy" element={<Privacy />} />
                         <Route path="login" element={<Login />} />

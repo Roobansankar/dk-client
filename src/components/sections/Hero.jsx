@@ -3,8 +3,8 @@ import { ArrowRight } from 'lucide-react'
 import Container from '../layout/Container'
 import { hero } from '../../data/hero'
 
-/** The homepage booking section — the existing in-page target. */
-const BOOKING = { pathname: '/', hash: '#booking' }
+/** The dedicated booking page. */
+const BOOKING = '/booking'
 
 /**
  * Full-bleed, single static homepage hero.

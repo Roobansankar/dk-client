@@ -13,7 +13,7 @@ import GoogleButton from './GoogleButton'
  * The underlying authentication infrastructure remains unchanged.
  */
 export default function BookingAuthGate({ onClose }) {
-  const returnTo = '/#booking'
+  const returnTo = '/booking'
 
   return (
     <div className="fixed inset-0 z-[70]">

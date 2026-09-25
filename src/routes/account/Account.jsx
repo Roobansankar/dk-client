@@ -12,7 +12,7 @@ import { useAccountOrders } from '../../hooks/useAccountOrders'
 import AccountOrders from '../../components/account/AccountOrders'
 import { Skeleton } from '../../components/StateViews'
 
-const BOOKING = { pathname: '/', hash: '#booking' }
+const BOOKING = '/booking'
 
 const FIELD =
   'mt-2 w-full rounded-sm border border-line-strong bg-paper px-3.5 py-2.5 text-ink transition-colors focus-visible:border-ink disabled:cursor-not-allowed disabled:text-muted'

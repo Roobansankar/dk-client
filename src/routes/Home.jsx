@@ -5,15 +5,17 @@ import MeetTheTeam from '../components/sections/MeetTheTeam'
 import ComboOffers from '../components/sections/ComboOffers'
 import ProductShowcase from '../components/sections/ProductShowcase'
 import VideoMarquee from '../components/sections/VideoMarquee'
-import Booking from '../components/sections/Booking'
 import CustomerReviews from '../components/sections/CustomerReviews'
 import FooterCta from '../components/sections/FooterCta'
 
 /**
  * Homepage. Fixed section order:
  *   Hero → About → Our Services → Meet the Team → Combo Offers →
- *   Our Products → Video → Booking → Reviews → Closing CTA →
+ *   Our Products → Video → Reviews → Closing CTA →
  *   (Footer, from RootLayout).
+ *
+ * Booking lives on its own `/booking` page — every "Book Appointment"
+ * button across the site links there instead of an on-page section.
  *
  * No dedicated Gallery/Studio section on the homepage — `Studio.jsx` (the
  * former "The Studio" feature band) is intentionally unused here but kept in
@@ -36,7 +38,6 @@ export default function Home() {
       <ComboOffers />
       <ProductShowcase />
       <VideoMarquee />
-      <Booking />
       <CustomerReviews />
       <FooterCta />
     </div>

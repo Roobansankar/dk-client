@@ -87,7 +87,7 @@ function ComboOfferCard({ plan }) {
 
         <div className="mt-auto pt-8">
           <Link
-            to={{ pathname: '/', hash: '#booking' }}
+            to="/booking"
             className="btn btn-on-dark w-full rounded-full no-underline"
           >
             Book this package

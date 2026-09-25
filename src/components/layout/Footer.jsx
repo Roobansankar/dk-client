@@ -28,7 +28,7 @@ const QUICK_LINKS = [
   { label: 'Gallery', to: '/gallery' },
   { label: 'About', to: { pathname: '/', hash: '#about' } },
   { label: 'Contact', to: '/contact' },
-  { label: 'Book an appointment', to: { pathname: '/', hash: '#booking' } },
+  { label: 'Book an appointment', to: '/booking' },
 ]
 
 /** Social label → icon. Lucide ships no brand glyphs, so Instagram/Facebook
@@ -202,7 +202,7 @@ export default function Footer() {
                 {site.description}
               </p>
               <Link
-                to={{ pathname: '/', hash: '#booking' }}
+                to="/booking"
                 className="btn btn-solid-light mt-6 rounded-full no-underline"
               >
                 Book Appointment
