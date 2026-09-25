@@ -12,16 +12,13 @@ const longDate = new Intl.DateTimeFormat('en-IN', {
 })
 
 /**
- * How each kind of day looks in the grid. `regular` is an ordinary working day
- * from the weekly pattern; `weekly-off` is a normal day off in that pattern;
- * `custom` and `off` are dates set on the calendar itself.
+ * How each kind of day looks in the grid. `custom` is a date that has hours
+ * set (bookable); `none` is every other date — nothing is selected by default.
  */
 const DAY_KIND_STYLES = {
-  regular: 'border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-muted)]',
-  'weekly-off': 'border-transparent bg-[var(--color-surface-sunken)] text-[var(--color-faint)]',
+  none: 'border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-faint)]',
   custom:
     'border-[var(--color-accent)] bg-[color-mix(in_oklab,var(--color-accent)_12%,transparent)] text-[var(--color-ink-soft)]',
-  off: 'border-[color-mix(in_oklab,var(--color-danger)_40%,transparent)] bg-[var(--color-danger-tint)] text-[var(--color-danger)]',
 }
 
 /**
@@ -136,7 +133,7 @@ export function MonthCalendar({
               onClick={(e) => onDayClick(iso, { shift: e.shiftKey })}
               className={cn(
                 'flex h-14 flex-col justify-between rounded-[var(--radius-md)] border p-1.5 text-left transition-colors sm:h-[4.5rem] sm:p-2',
-                DAY_KIND_STYLES[kind] ?? DAY_KIND_STYLES.regular,
+                DAY_KIND_STYLES[kind] ?? DAY_KIND_STYLES.none,
                 !outside && 'hover:border-[var(--color-ink)]',
                 isSelected && 'border-[var(--color-ink)] ring-2 ring-[var(--color-ink)]',
                 outside && 'cursor-not-allowed opacity-35',
@@ -158,10 +155,8 @@ export function MonthCalendar({
 
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-[var(--color-muted)]" aria-label="Legend">
         {[
-          ['regular', 'Regular hours'],
-          ['custom', 'Custom hours'],
-          ['off', 'Day off (set here)'],
-          ['weekly-off', 'Weekly day off'],
+          ['custom', 'Available — hours set'],
+          ['none', 'Not available'],
         ].map(([kind, label]) => (
           <li key={kind} className="flex items-center gap-1.5">
             <span aria-hidden="true" className={cn('h-3.5 w-3.5 rounded-sm border', DAY_KIND_STYLES[kind])} />

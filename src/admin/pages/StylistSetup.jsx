@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, Copy, Info, Plus, Search, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Info, Plus, Search, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
@@ -15,13 +15,12 @@ import {
   SectionCard,
   TextInput,
   Thumb,
-  Toggle,
   cn,
 } from '../components/ui'
 import { formatMoney } from '../lib/format'
 import { MonthCalendar } from '../components/MonthCalendar'
 import { addDaysIso, formatTime12h, parseDateIso, studioNow } from '../../lib/time'
-import { DAY_NAMES_LONG, DISPLAY_ORDER, describeWeek, formatRange } from '../../lib/workHours'
+import { formatRange } from '../../lib/workHours'
 
 /**
  * Admin → Stylists → Services & hours (/admin/stylists/:id/setup).
@@ -30,7 +29,9 @@ import { DAY_NAMES_LONG, DISPLAY_ORDER, describeWeek, formatRange } from '../../
  *  - the services they offer, picked per gender (Men / Women) and category —
  *    which also decides which genders and categories the booking page shows
  *    for them;
- *  - their weekly working hours (several ranges per day; no range = day off).
+ *  - the calendar dates they can be booked on, and the hours for each (several
+ *    ranges per day). Nothing is selected by default: a date with no hours is
+ *    simply not available.
  * The public booking page reads exactly this, so nothing here is cosmetic.
  */
 
@@ -45,20 +46,6 @@ const toMinutes = (hhmm) => {
   return h * 60 + m
 }
 const isTime = (v) => /^\d{2}:\d{2}$/.test(v ?? '')
-
-/** The ranges a day gets when it is switched on: the studio's hours around a 1–2 PM break. */
-function defaultRanges(shop) {
-  const open = shop?.opens ?? '10:00'
-  const close = shop?.closes ?? '19:30'
-  const [breakStart, breakEnd] = ['13:00', '14:00']
-
-  return toMinutes(open) < toMinutes(breakStart) && toMinutes(breakEnd) < toMinutes(close)
-    ? [
-        { start: open, end: breakStart },
-        { start: breakEnd, end: close },
-      ]
-    : [{ start: open, end: close }]
-}
 
 export default function StylistSetupPage() {
   const { id } = useParams()
@@ -132,10 +119,11 @@ function SetupLoader({ id }) {
 
       <div className="flex flex-col gap-5">
         <ServicesEditor
-          key={`s-${[...data.service_ids].sort((a, b) => a - b).join(',')}`}
+          key={`s-${[...data.service_ids].sort((a, b) => a - b).join(',')}-${JSON.stringify(data.service_terms ?? {})}`}
           stylistId={stylist.id}
           categories={data.categories}
           savedIds={data.service_ids}
+          savedTerms={data.service_terms ?? {}}
           canManage={canManage}
           tab={tab}
           setTab={setTab}
@@ -144,7 +132,6 @@ function SetupLoader({ id }) {
 
         <WorkingHours
           stylistId={stylist.id}
-          savedWeek={data.work_hours}
           dateHours={data.date_hours ?? {}}
           shop={data.shop_hours}
           canManage={canManage}
@@ -157,8 +144,114 @@ function SetupLoader({ id }) {
 
 /* -- Services ---------------------------------------------------------------- */
 
-function ServicesEditor({ stylistId, categories, savedIds, canManage, tab, setTab, onSaved }) {
+/** Saved terms { "30": { price: 1200, advance_percentage: 25 } } → form inputs (blank string = the standard). */
+function termsToInputs(saved) {
+  const out = {}
+  for (const [id, t] of Object.entries(saved ?? {})) {
+    out[id] = {
+      price: t.price != null ? String(t.price) : '',
+      advance: t.advance_percentage != null ? String(t.advance_percentage) : '',
+    }
+  }
+  return out
+}
+
+const parseNum = (v) => (String(v ?? '').trim() === '' ? null : Number(v))
+
+/** A comparable signature of "which services, at which terms" — used to tell if anything changed. */
+const termsSignature = (ids, inputs) =>
+  [...ids]
+    .sort((a, b) => a - b)
+    .map((id) => `${id}:${parseNum(inputs[id]?.price) ?? ''}:${parseNum(inputs[id]?.advance) ?? ''}`)
+    .join('|')
+
+function termError(value) {
+  const price = parseNum(value?.price)
+  const percentage = parseNum(value?.advance)
+
+  if (price !== null && (Number.isNaN(price) || price < 0)) return 'Enter a price of 0 or more.'
+  if (percentage !== null && (Number.isNaN(percentage) || !Number.isInteger(percentage) || percentage < 0 || percentage > 100)) {
+    return 'Advance must be a whole number from 0 to 100.'
+  }
+  return null
+}
+
+/**
+ * This professional's own price and advance-to-confirm % for one ticked service.
+ * Blank fields use the service's standard (shown as the placeholder).
+ */
+function ServiceTerms({ service, value, onChange, error, disabled }) {
+  const price = parseNum(value?.price)
+  const percentage = parseNum(value?.advance)
+  const custom = price !== null || percentage !== null
+
+  const effectivePrice = price ?? service.price
+  const effectivePercentage = percentage ?? service.advance_percentage ?? 0
+  const advance = effectivePrice != null && !error ? Math.round(effectivePrice * effectivePercentage) / 100 : null
+
+  let summary
+  if (error) summary = null
+  else if (effectivePrice == null) summary = 'No price set — clients will see no price.'
+  else if (effectivePercentage === 0) summary = `Clients pay ${formatMoney(effectivePrice)} · no advance needed.`
+  else summary = `Clients pay ${formatMoney(effectivePrice)} · ${effectivePercentage}% (${formatMoney(advance)}) advance to confirm.`
+
+  return (
+    <div className="bg-[var(--color-surface-sunken)] px-3 pb-3 pl-10 pt-2">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+        <div className="w-32">
+          <label className="label" htmlFor={`terms-price-${service.id}`}>
+            Price (₹)
+          </label>
+          <TextInput
+            id={`terms-price-${service.id}`}
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            placeholder={service.price != null ? String(service.price) : 'Standard'}
+            value={value?.price ?? ''}
+            disabled={disabled}
+            aria-invalid={Boolean(error)}
+            onChange={(e) => onChange({ price: e.target.value })}
+          />
+        </div>
+        <div className="w-36">
+          <label className="label" htmlFor={`terms-advance-${service.id}`}>
+            Advance to confirm (%)
+          </label>
+          <TextInput
+            id={`terms-advance-${service.id}`}
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            inputMode="numeric"
+            placeholder={String(service.advance_percentage ?? 0)}
+            value={value?.advance ?? ''}
+            disabled={disabled}
+            aria-invalid={Boolean(error)}
+            onChange={(e) => onChange({ advance: e.target.value })}
+          />
+        </div>
+        <p className="min-w-[12rem] flex-1 pb-1.5 text-xs leading-relaxed text-[var(--color-muted)]">
+          {custom ? <Pill tone="info" className="mr-1.5">Their own terms</Pill> : null}
+          {summary}
+          {!custom && !error && ' (standard — type a value to change it for this professional)'}
+        </p>
+      </div>
+      {error && (
+        <p role="alert" className="mt-1.5 text-xs text-[var(--color-danger)]">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ServicesEditor({ stylistId, categories, savedIds, savedTerms, canManage, tab, setTab, onSaved }) {
+  const savedInputs = useMemo(() => termsToInputs(savedTerms), [savedTerms])
   const [selected, setSelected] = useState(() => new Set(savedIds))
+  const [terms, setTerms] = useState(savedInputs)
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState(() => new Set())
 
@@ -169,7 +262,18 @@ function ServicesEditor({ stylistId, categories, savedIds, canManage, tab, setTa
   }, [categories])
 
   const countFor = (gender) => [...selected].filter((sid) => genderOf.get(sid) === gender).length
-  const dirty = selected.size !== savedIds.length || savedIds.some((sid) => !selected.has(sid))
+  const dirty = termsSignature(selected, terms) !== termsSignature(savedIds, savedInputs)
+  const setTerm = (sid, patch) => setTerms((prev) => ({ ...prev, [sid]: { ...prev[sid], ...patch } }))
+  const orderedIds = [...selected]
+  const rowError = (sid) => {
+    const index = orderedIds.indexOf(sid)
+    return (
+      termError(terms[sid]) ||
+      saveMut.fieldErrors[`services.${index}.price`] ||
+      saveMut.fieldErrors[`services.${index}.advance_percentage`]
+    )
+  }
+  const hasTermErrors = orderedIds.some((sid) => termError(terms[sid]))
 
   const query = search.trim().toLowerCase()
   const visibleCategories = categories
@@ -181,7 +285,14 @@ function ServicesEditor({ stylistId, categories, savedIds, canManage, tab, setTa
     .filter((c) => c.services.length > 0)
 
   const saveMut = useMutation(
-    () => api.put(`/admin/stylists/${stylistId}/services`, { service_ids: [...selected] }),
+    () =>
+      api.put(`/admin/stylists/${stylistId}/services`, {
+        services: [...selected].map((id) => ({
+          id,
+          price: parseNum(terms[id]?.price),
+          advance_percentage: parseNum(terms[id]?.advance),
+        })),
+      }),
     { successMessage: 'Services saved.', onSuccess: onSaved },
   )
 
@@ -209,7 +320,7 @@ function ServicesEditor({ stylistId, categories, savedIds, canManage, tab, setTa
   return (
     <SectionCard
       title="Services they offer"
-      description="Pick Men or Women, then tick the services this professional does. Clients only see what is ticked."
+      description="Pick Men or Women, then tick the services this professional does. Set their own price and advance % where it differs from the standard — clients see exactly this when they book."
     >
       <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Who the services are for">
         {GENDER_TABS.map((t) => (
@@ -321,11 +432,20 @@ function ServicesEditor({ stylistId, categories, savedIds, canManage, tab, setTa
                           </span>
                           {!service.status && <Pill tone="neutral">Inactive</Pill>}
                           <span className="shrink-0 text-xs tabular-nums text-[var(--color-muted)]">
-                            {[service.duration_minutes ? `${service.duration_minutes} min` : null, service.price != null ? formatMoney(service.price) : null]
+                            {[service.duration_minutes ? `${service.duration_minutes} min` : null, service.price != null ? `standard ${formatMoney(service.price)}` : null]
                               .filter(Boolean)
                               .join(' · ')}
                           </span>
                         </label>
+                        {selected.has(service.id) && (
+                          <ServiceTerms
+                            service={service}
+                            value={terms[service.id]}
+                            error={rowError(service.id)}
+                            disabled={!canManage}
+                            onChange={(patch) => setTerm(service.id, patch)}
+                          />
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -342,7 +462,11 @@ function ServicesEditor({ stylistId, categories, savedIds, canManage, tab, setTa
           dirty={dirty}
           pending={saveMut.pending}
           onSave={() => saveMut.mutate()}
-          onReset={() => setSelected(new Set(savedIds))}
+          saveDisabled={hasTermErrors}
+          onReset={() => {
+            setSelected(new Set(savedIds))
+            setTerms(savedInputs)
+          }}
           saveLabel="Save services"
         />
       )}
@@ -423,20 +547,8 @@ function validateRanges(ranges, shop) {
   return errors
 }
 
-/** The same checks across a whole week, keyed `${weekday}.${rangeIndex}`. */
-function validateWeek(week, shop) {
-  const errors = {}
-  week.forEach((ranges, day) => {
-    for (const [index, message] of Object.entries(validateRanges(ranges, shop))) errors[`${day}.${index}`] = message
-  })
-  return errors
-}
-
-/** A new range starts where the last one ended and runs to closing time. */
-const addRange = (ranges, shop) => [
-  ...ranges,
-  { start: ranges[ranges.length - 1]?.end ?? '', end: shop?.closes ?? '' },
-]
+/** A new range starts empty: nothing is filled in for the admin — they give the times. */
+const blankRange = () => ({ start: '', end: '' })
 
 /** "10:00" → "10a", "19:30" → "7:30p" — short enough for a calendar cell. */
 function compactTime(hhmm) {
@@ -504,53 +616,32 @@ function RangeList({ ranges, onChange, label, errorFor, disabled }) {
   )
 }
 
-function WorkingHours({ stylistId, savedWeek, dateHours, shop, canManage, onSaved }) {
-  const [tab, setTab] = useState('calendar')
-
+function WorkingHours({ stylistId, dateHours, shop, canManage, onSaved }) {
   return (
     <SectionCard
       title="Working hours"
       description={
-        shop
-          ? `Pick days on the calendar to set that date's hours, or edit the regular weekly pattern. Studio hours are ${formatTime12h(shop.opens)} – ${formatTime12h(shop.closes)}, and hours must sit inside that.`
-          : "Pick days on the calendar to set that date's hours, or edit the regular weekly pattern."
+        `Pick the dates this professional can be booked on, then give each the times. Nothing is available until you set it — the booking page shows exactly these dates and times.${
+          shop
+            ? ` Studio hours are ${formatTime12h(shop.opens)} – ${formatTime12h(shop.closes)}, and hours must sit inside that.`
+            : ''
+        }`
       }
     >
-      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="How to set working hours">
-        <ChipButton active={tab === 'calendar'} onClick={() => setTab('calendar')}>
-          Calendar
-        </ChipButton>
-        <ChipButton active={tab === 'weekly'} onClick={() => setTab('weekly')}>
-          Weekly pattern
-        </ChipButton>
-      </div>
-
-      {tab === 'calendar' ? (
-        <CalendarEditor
-          stylistId={stylistId}
-          savedWeek={savedWeek}
-          dateHours={dateHours}
-          shop={shop}
-          canManage={canManage}
-          onSaved={onSaved}
-        />
-      ) : (
-        <WeeklyEditor
-          key={JSON.stringify(savedWeek)}
-          stylistId={stylistId}
-          savedWeek={savedWeek}
-          shop={shop}
-          canManage={canManage}
-          onSaved={onSaved}
-        />
-      )}
+      <CalendarEditor
+        stylistId={stylistId}
+        dateHours={dateHours}
+        shop={shop}
+        canManage={canManage}
+        onSaved={onSaved}
+      />
     </SectionCard>
   )
 }
 
 /* -- Calendar ---------------------------------------------------------------- */
 
-function CalendarEditor({ stylistId, savedWeek, dateHours, shop, canManage, onSaved }) {
+function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
   const todayIso = studioNow().dateIso
   const maxIso = addDaysIso(todayIso, 399)
   const start = parseDateIso(todayIso)
@@ -560,18 +651,15 @@ function CalendarEditor({ stylistId, savedWeek, dateHours, shop, canManage, onSa
   const [anchor, setAnchor] = useState(null)
   const [warnings, setWarnings] = useState([])
 
+  // A date is only "on" when it has hours; every other date is simply not available.
   const describe = (iso) => {
     const own = dateHours[iso]
-    if (own !== undefined) {
-      return own.length === 0
-        ? { kind: 'off', text: 'Day off', title: 'Day off' }
-        : { kind: 'custom', text: compactRange(own), title: `Custom hours: ${own.map(formatRange).join(', ')}` }
-    }
-    const weekly = savedWeek[parseDateIso(iso).getDay()] ?? []
-    return weekly.length === 0
-      ? { kind: 'weekly-off', text: 'Off', title: 'Day off (weekly pattern)' }
-      : { kind: 'regular', text: compactRange(weekly), title: `Regular hours: ${weekly.map(formatRange).join(', ')}` }
+    return own?.length
+      ? { kind: 'custom', text: compactRange(own), title: `Available: ${own.map(formatRange).join(', ')}` }
+      : { kind: 'none', text: '', title: 'Not available — no hours set' }
   }
+
+  const daysSet = Object.values(dateHours).filter((ranges) => ranges.length > 0).length
 
   const onDayClick = (iso, { shift }) => {
     if (!canManage) return
@@ -625,6 +713,12 @@ function CalendarEditor({ stylistId, savedWeek, dateHours, shop, canManage, onSa
         </div>
       )}
 
+      <p className="mb-3 text-sm text-[var(--color-ink-soft)]" data-testid="days-set">
+        {daysSet === 0
+          ? 'No dates set yet — this professional can’t be booked until you add some.'
+          : `Available on ${daysSet} upcoming day${daysSet === 1 ? '' : 's'}.`}
+      </p>
+
       <MonthCalendar
         year={view.year}
         month={view.month}
@@ -641,16 +735,14 @@ function CalendarEditor({ stylistId, savedWeek, dateHours, shop, canManage, onSa
         dates.length === 0 ? (
           <p className="mt-4 flex items-start gap-2 rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs text-[var(--color-ink-soft)]">
             <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
-            Click a day to set its hours. Click several days — or Shift-click to pick a range — to change
-            them together, for example a holiday.
+            Click a day to set the times clients can book. Click several days — or Shift-click to pick a
+            range — to give them the same hours.
           </p>
         ) : (
           <DayEditor
             key={dates.join(',')}
             stylistId={stylistId}
             dates={dates}
-            describe={describe}
-            savedWeek={savedWeek}
             dateHours={dateHours}
             shop={shop}
             onClear={() => setSelected(new Set())}
@@ -667,26 +759,20 @@ function CalendarEditor({ stylistId, savedWeek, dateHours, shop, canManage, onSa
 }
 
 const MODE_OPTIONS = [
-  { id: 'regular', title: 'Regular hours', hint: 'Follow the weekly pattern' },
-  { id: 'off', title: 'Day off', hint: 'Not available to book' },
-  { id: 'custom', title: 'Custom hours', hint: 'Set the times for these days' },
+  { id: 'custom', title: 'Set hours', hint: 'Times clients can book' },
+  { id: 'clear', title: 'Remove hours', hint: 'Not available on these days' },
 ]
 
-/** What to do with the selected days: regular hours, a day off, or custom hours. */
-function DayEditor({ stylistId, dates, describe, savedWeek, dateHours, shop, onClear, onApplied }) {
+/** Give the selected days their hours — or, for days that have some, take them away again. */
+function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
   const single = dates.length === 1
-  const current = single ? describe(dates[0]) : null
+  const alreadySet = dates.filter((date) => dateHours[date]?.length > 0)
 
-  const [mode, setMode] = useState(single ? (current.kind === 'custom' ? 'custom' : current.kind === 'off' ? 'off' : 'regular') : 'off')
-  const [ranges, setRanges] = useState(() => {
-    if (single) {
-      const own = dateHours[dates[0]]
-      if (own?.length) return own.map((r) => ({ ...r }))
-      const weekly = savedWeek[parseDateIso(dates[0]).getDay()]
-      if (weekly?.length) return weekly.map((r) => ({ ...r }))
-    }
-    return defaultRanges(shop)
-  })
+  const [mode, setMode] = useState('custom')
+  // Nothing is pre-filled: a day that already has hours shows them; anything else starts empty.
+  const [ranges, setRanges] = useState(() =>
+    single && dateHours[dates[0]]?.length ? dateHours[dates[0]].map((r) => ({ ...r })) : [blankRange()],
+  )
 
   const errors = mode === 'custom' ? validateRanges(ranges, shop) : {}
   const invalid = mode === 'custom' && (ranges.length === 0 || Object.keys(errors).length > 0)
@@ -696,7 +782,12 @@ function DayEditor({ stylistId, dates, describe, savedWeek, dateHours, shop, onC
       api.put(`/admin/stylists/${stylistId}/date-hours`, {
         days: dates.map((date) => ({ date, mode, ranges: mode === 'custom' ? ranges : [] })),
       }),
-    { successMessage: `Saved ${dates.length} day${dates.length === 1 ? '' : 's'}.` },
+    {
+      successMessage:
+        mode === 'custom'
+          ? `Saved hours for ${dates.length} day${dates.length === 1 ? '' : 's'}.`
+          : `Removed hours from ${dates.length} day${dates.length === 1 ? '' : 's'}.`,
+    },
   )
 
   const apply = async () => {
@@ -704,10 +795,16 @@ function DayEditor({ stylistId, dates, describe, savedWeek, dateHours, shop, onC
     if (res.ok) onApplied(res.result)
   }
 
-  const errorFor = (index) =>
-    errors[index] ||
-    saveMut.fieldErrors[`days.0.ranges.${index}.start`] ||
-    saveMut.fieldErrors[`days.0.ranges.${index}.end`]
+  // A row the admin hasn't touched yet isn't flagged — Save just stays disabled until it's filled in.
+  const errorFor = (index) => {
+    const untouched = !ranges[index]?.start && !ranges[index]?.end
+
+    return (
+      (untouched ? null : errors[index]) ||
+      saveMut.fieldErrors[`days.0.ranges.${index}.start`] ||
+      saveMut.fieldErrors[`days.0.ranges.${index}.end`]
+    )
+  }
 
   const shown = dates.slice(0, 6).map(formatDay).join(', ')
 
@@ -721,48 +818,52 @@ function DayEditor({ stylistId, dates, describe, savedWeek, dateHours, shop, onC
         {dates.length > 6 && ` and ${dates.length - 6} more`}
       </p>
 
-      <fieldset className="mt-4">
-        <legend className="sr-only">Hours for the selected days</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {MODE_OPTIONS.map((option) => (
-            <label
-              key={option.id}
-              className={cn(
-                'flex cursor-pointer items-start gap-2.5 rounded-[var(--radius-md)] border px-3 py-2.5 transition-colors',
-                mode === option.id
-                  ? 'border-[var(--color-ink)] bg-[var(--color-surface-sunken)]'
-                  : 'border-[var(--color-line)] hover:border-[var(--color-line-strong)]',
-              )}
-            >
-              <input
-                type="radio"
-                name="day-mode"
-                className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
-                checked={mode === option.id}
-                onChange={() => setMode(option.id)}
-              />
-              <span>
-                <span className="block text-sm font-medium text-[var(--color-ink)]">{option.title}</span>
-                <span className="block text-xs text-[var(--color-muted)]">{option.hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {/* Removing only makes sense when at least one selected day has hours to remove. */}
+      {alreadySet.length > 0 && (
+        <fieldset className="mt-4">
+          <legend className="sr-only">What to do with the selected days</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {MODE_OPTIONS.map((option) => (
+              <label
+                key={option.id}
+                className={cn(
+                  'flex cursor-pointer items-start gap-2.5 rounded-[var(--radius-md)] border px-3 py-2.5 transition-colors',
+                  mode === option.id
+                    ? 'border-[var(--color-ink)] bg-[var(--color-surface-sunken)]'
+                    : 'border-[var(--color-line)] hover:border-[var(--color-line-strong)]',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="day-mode"
+                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+                  checked={mode === option.id}
+                  onChange={() => setMode(option.id)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-[var(--color-ink)]">{option.title}</span>
+                  <span className="block text-xs text-[var(--color-muted)]">{option.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {mode === 'custom' && (
         <div className="mt-4">
-          <RangeList
-            ranges={ranges}
-            label="Selected days"
-            errorFor={errorFor}
-            onChange={setRanges}
-          />
+          {!single && alreadySet.length > 0 && (
+            <p className="mb-2 text-xs text-[var(--color-muted)]">
+              {alreadySet.length} of these days already {alreadySet.length === 1 ? 'has' : 'have'} hours — saving
+              replaces them.
+            </p>
+          )}
+          <RangeList ranges={ranges} label="Selected days" errorFor={errorFor} onChange={setRanges} />
           {ranges.length === 0 && (
             <p className="text-sm text-[var(--color-muted)]">Add at least one range of hours.</p>
           )}
           {ranges.length < MAX_RANGES && (
-            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setRanges(addRange(ranges, shop))}>
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setRanges([...ranges, blankRange()])}>
               <Plus size={13} /> Add hours
             </Button>
           )}
@@ -773,131 +874,18 @@ function DayEditor({ stylistId, dates, describe, savedWeek, dateHours, shop, onC
         <Button variant="ghost" size="sm" onClick={onClear} disabled={saveMut.pending}>
           Clear selection
         </Button>
-        <Button size="sm" onClick={apply} loading={saveMut.pending} disabled={invalid}>
-          Apply to {dates.length} day{dates.length === 1 ? '' : 's'}
+        <Button
+          size="sm"
+          variant={mode === 'clear' ? 'danger' : 'primary'}
+          onClick={apply}
+          loading={saveMut.pending}
+          disabled={invalid}
+        >
+          {mode === 'custom'
+            ? `Save hours for ${dates.length} day${dates.length === 1 ? '' : 's'}`
+            : `Remove hours from ${dates.length} day${dates.length === 1 ? '' : 's'}`}
         </Button>
       </div>
-    </div>
-  )
-}
-
-/* -- Weekly pattern ---------------------------------------------------------- */
-
-function WeeklyEditor({ stylistId, savedWeek, shop, canManage, onSaved }) {
-  const clone = (week) => week.map((day) => day.map((r) => ({ ...r })))
-  const [week, setWeek] = useState(() => clone(savedWeek))
-
-  const dirty = JSON.stringify(week) !== JSON.stringify(savedWeek)
-  const clientErrors = useMemo(() => validateWeek(week, shop), [week, shop])
-
-  const saveMut = useMutation(
-    () =>
-      api.put(`/admin/stylists/${stylistId}/work-hours`, {
-        days: week.map((ranges, day) => ({ day_of_week: day, ranges })),
-      }),
-    { successMessage: 'Weekly hours saved.', onSuccess: onSaved },
-  )
-
-  const errorFor = (day) => (index) =>
-    clientErrors[`${day}.${index}`] ||
-    saveMut.fieldErrors[`days.${day}.ranges.${index}.start`] ||
-    saveMut.fieldErrors[`days.${day}.ranges.${index}.end`]
-
-  const setDay = (day, ranges) => setWeek((prev) => prev.map((r, d) => (d === day ? ranges : r)))
-
-  const summary = describeWeek(week)
-  const workingDays = week.filter((day) => day.length > 0).length
-
-  return (
-    <div>
-      <p className="mb-4 rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs leading-relaxed text-[var(--color-ink-soft)]">
-        <span className="font-medium text-[var(--color-ink)]">The regular week: </span>
-        {workingDays === 0
-          ? 'No weekly hours. Set dates on the calendar instead, or add hours here.'
-          : summary.map((group, i) => (
-              <span key={group.label}>
-                {i > 0 && ' · '}
-                {group.label} {group.off ? 'off' : group.text}
-              </span>
-            ))}
-        <span className="mt-1 block text-[var(--color-muted)]">
-          This repeats every week. A date set on the calendar replaces it for that day.
-        </span>
-      </p>
-
-      <ul>
-        {DISPLAY_ORDER.map((day) => {
-          const ranges = week[day]
-          const working = ranges.length > 0
-
-          return (
-            <li
-              key={day}
-              className="flex flex-col gap-2 border-b border-[var(--color-line)] py-3 first:pt-0 last:border-0 sm:flex-row sm:items-start sm:gap-6"
-            >
-              <div className="flex shrink-0 items-center sm:w-40 sm:pt-1.5">
-                <Toggle
-                  id={`day-${day}`}
-                  checked={working}
-                  disabled={!canManage}
-                  label={DAY_NAMES_LONG[day]}
-                  onChange={(on) => setDay(day, on ? defaultRanges(shop) : [])}
-                />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                {!working ? (
-                  <p className="py-1.5 text-sm text-[var(--color-muted)]">Day off</p>
-                ) : (
-                  <RangeList
-                    ranges={ranges}
-                    label={DAY_NAMES_LONG[day]}
-                    errorFor={errorFor(day)}
-                    disabled={!canManage}
-                    onChange={(next) => setDay(day, next)}
-                  />
-                )}
-              </div>
-
-              {canManage && working && (
-                <div className="flex shrink-0 items-center gap-1 sm:pt-0.5">
-                  {ranges.length < MAX_RANGES && (
-                    <Button variant="ghost" size="sm" onClick={() => setDay(day, addRange(ranges, shop))}>
-                      <Plus size={13} /> Add hours
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Copy these hours to every day"
-                    aria-label={`Copy ${DAY_NAMES_LONG[day]} hours to every day`}
-                    onClick={() => setWeek((prev) => prev.map(() => prev[day].map((r) => ({ ...r }))))}
-                  >
-                    <Copy size={13} /> Copy to all
-                  </Button>
-                </div>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-
-      {canManage && (
-        <SaveBar
-          summary={`Works ${workingDays} day${workingDays === 1 ? '' : 's'} a week`}
-          dirty={dirty}
-          pending={saveMut.pending}
-          onSave={() => saveMut.mutate()}
-          saveDisabled={Object.keys(clientErrors).length > 0}
-          onReset={() => setWeek(clone(savedWeek))}
-          saveLabel="Save weekly hours"
-        />
-      )}
-      {canManage && dirty && Object.keys(clientErrors).length > 0 && (
-        <p role="alert" className="mt-2 text-right text-xs text-[var(--color-danger)]">
-          Fix the highlighted hours before saving.
-        </p>
-      )}
     </div>
   )
 }

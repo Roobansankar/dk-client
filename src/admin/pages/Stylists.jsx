@@ -214,9 +214,9 @@ function StylistCard({
 }) {
   const visible = Boolean(s.status)
   const services = s.services_count ?? 0
-  // Bookable = has services AND some way to work: a weekly pattern or custom calendar days.
-  const hasHours = (s.work_hours_count ?? 0) > 0 || (s.custom_days_count ?? 0) > 0
-  const setupReady = services > 0 && hasHours
+  // Bookable = has services AND hours set on at least one upcoming calendar date.
+  const upcomingDays = s.upcoming_days_count ?? 0
+  const setupReady = services > 0 && upcomingDays > 0
 
   return (
     <li className="card flex flex-col overflow-hidden">
@@ -293,10 +293,10 @@ function StylistCard({
         <div className="mt-auto flex flex-col gap-2 pt-2">
           <p className="text-xs text-[var(--color-muted)]">
             {setupReady
-              ? `${services} service${services === 1 ? '' : 's'} · working hours set`
+              ? `${services} service${services === 1 ? '' : 's'} · available on ${upcomingDays} upcoming day${upcomingDays === 1 ? '' : 's'}`
               : services === 0
                 ? 'No services ticked yet'
-                : 'No working hours set'}
+                : 'No dates set on the calendar yet'}
           </p>
           <Link
             to={`/admin/stylists/${s.id}/setup`}

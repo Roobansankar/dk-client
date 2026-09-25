@@ -4,7 +4,7 @@ import { toMinutes } from '../lib/time'
  * Constants for the booking form's date and time pickers.
  *
  * Which times are actually bookable is decided on the server, per professional
- * (their weekly hours, the service length, existing bookings and the studio's
+ * (the hours set for them on that date, the service length, existing bookings and the studio's
  * opening hours) — see `hooks/useBookingSlots.js`. Nothing about opening
  * hours, breaks or buffers is duplicated here any more.
  */

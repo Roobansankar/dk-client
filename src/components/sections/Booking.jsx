@@ -27,7 +27,6 @@ import {
   studioNow,
   toMinutes,
 } from '../../lib/time'
-import { describeWeek, hasAnyHours } from '../../lib/workHours'
 import { StatusLine } from '../StateViews'
 import { DateRail } from '../ui/DateRail'
 import OptionTiles from '../ui/OptionTiles'
@@ -56,12 +55,37 @@ const LABEL = 'eyebrow block'
 const offersGender = (service, gender) =>
   service.genders.includes(gender) || service.genders.includes('unisex')
 
-/** The catalogue narrowed to a set of service ids; categories left empty are dropped. */
-function narrowCatalogue(categories, offeredIds) {
+/**
+ * A service with the professional's own price and advance-to-confirm % applied
+ * (blank means the standard). `terms` is `{ "<service id>": { price, advance_percentage } }`.
+ */
+function withTerms(service, terms) {
+  const own = terms?.[service.id]
+  if (!own) return service
+
+  const price = own.price != null ? Number(own.price) : service.priceInr
+  const percentage =
+    own.advance_percentage != null ? Number(own.advance_percentage) : service.advancePercentage
+
+  return {
+    ...service,
+    priceInr: price,
+    advancePercentage: percentage,
+    advanceAmount: Math.round((price ?? 0) * percentage) / 100,
+  }
+}
+
+/**
+ * The catalogue narrowed to a set of service ids (categories left empty are
+ * dropped), with the professional's own terms applied to what remains.
+ */
+function narrowCatalogue(categories, offeredIds, terms) {
   return categories
     .map((category) => ({
       ...category,
-      services: category.services.filter((service) => offeredIds.has(String(service.id))),
+      services: category.services
+        .filter((service) => offeredIds.has(String(service.id)))
+        .map((service) => withTerms(service, terms)),
     }))
     .filter((category) => category.services.length > 0)
 }
@@ -97,6 +121,9 @@ function pruneSelection(form, narrowed) {
 
   return { ...form, gender, category, service: serviceOk ? form.service : '', time: '' }
 }
+
+/** "Fri, 25 Sep" — a date the professional is available on, for the line under the date rail. */
+const OPEN_DATE_FORMAT = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
 
 const EMPTY = {
   name: '',
@@ -467,7 +494,10 @@ export default function Booking() {
       if (key === 'stylist') {
         const picked = stylists.find((s) => String(s.id) === String(value))
         const offered = new Set((picked?.service_ids ?? []).map(String))
-        return pruneSelection(next, picked ? narrowCatalogue(categories, offered) : categories)
+        return pruneSelection(
+          next,
+          picked ? narrowCatalogue(categories, offered, picked.service_terms) : categories,
+        )
       }
       if (key === 'gender' || key === 'category') {
         next.service = ''
@@ -503,7 +533,11 @@ export default function Booking() {
   const offeredCatalogue = useMemo(
     () =>
       chosenStylist
-        ? narrowCatalogue(categories, new Set((chosenStylist.service_ids ?? []).map(String)))
+        ? narrowCatalogue(
+            categories,
+            new Set((chosenStylist.service_ids ?? []).map(String)),
+            chosenStylist.service_terms,
+          )
         : categories,
     [categories, chosenStylist],
   )
@@ -553,21 +587,19 @@ export default function Booking() {
     serviceId: form.service || null,
   })
 
-  // The professional's weekly hours: their days off are greyed out in the
-  // date rail, and the hours are shown beside it.
-  const workHours = Array.isArray(chosenStylist?.work_hours) ? chosenStylist.work_hours : null
-  // Dates the admin set on the calendar ({ "2026-10-05": [] = day off, or custom ranges }).
+  // The dates this professional can be booked on, exactly as the admin set them
+  // on the calendar ({ "2026-10-06": [{ start, end }, …] }). Nothing is open by
+  // default, so every other date is greyed out in the date rail.
   const dateHours =
     chosenStylist?.date_hours && typeof chosenStylist.date_hours === 'object' && !Array.isArray(chosenStylist.date_hours)
       ? chosenStylist.date_hours
       : null
-  const hasSpecialDates = Boolean(dateHours) && Object.keys(dateHours).length > 0
-  const isDayOff = (iso) => {
-    // A date set on the calendar decides that day; otherwise the weekly pattern does.
-    if (dateHours && Object.hasOwn(dateHours, iso)) return dateHours[iso].length === 0
-    return Boolean(workHours) && !(workHours[parseDateIso(iso).getDay()]?.length > 0)
-  }
-  const weekSummary = workHours && hasAnyHours(workHours) ? describeWeek(workHours) : null
+  const isDayOff = (iso) => Boolean(dateHours) && !(dateHours[iso]?.length > 0)
+  const openDates = dateHours
+    ? Object.keys(dateHours)
+        .filter((iso) => dateHours[iso]?.length > 0 && iso >= todayIso() && iso <= maxDateIso())
+        .sort()
+    : []
   const advanceAmount = Number(selectedService?.advanceAmount) || 0
   const advancePct = Number(selectedService?.advancePercentage) || 0
   const servicePrice =
@@ -1361,21 +1393,25 @@ export default function Booking() {
                         isDateDisabled={isDayOff}
                       />
                     </div>
-                    {(weekSummary || hasSpecialDates) && (
+                    {dateHours && (
                       <p className="mt-3 text-xs leading-relaxed text-muted">
-                        <span className="font-medium text-ink-soft">
-                          {chosenStylist.name}’s hours:
-                        </span>{' '}
-                        {weekSummary
-                          ? weekSummary.map((group, i) => (
-                              <span key={group.label}>
-                                {i > 0 && ' · '}
-                                {group.label} {group.off ? 'off' : group.text}
-                              </span>
-                            ))
-                          : 'available on selected dates'}
-                        {hasSpecialDates && weekSummary && (
-                          <span> · some dates differ — pick a date to see its times</span>
+                        {openDates.length > 0 ? (
+                          <>
+                            <span className="font-medium text-ink-soft">
+                              {chosenStylist.name} is available on:
+                            </span>{' '}
+                            {openDates
+                              .slice(0, 4)
+                              .map((iso) => OPEN_DATE_FORMAT.format(parseDateIso(iso)))
+                              .join(' · ')}
+                            {openDates.length > 4 && ` · and ${openDates.length - 4} more`} — greyed-out
+                            dates aren’t open.
+                          </>
+                        ) : (
+                          <>
+                            {chosenStylist.name} has no open dates right now. Please choose another
+                            professional.
+                          </>
                         )}
                       </p>
                     )}

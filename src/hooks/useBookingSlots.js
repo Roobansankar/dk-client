@@ -16,8 +16,9 @@ const REFRESH_MS = 60_000
  * (`GET /api/booking/slots`) — the same rules the appointment endpoint
  * enforces, so every time shown here is one the API will accept:
  *
- *   - the professional offers the service and is working then (their own
- *     weekly hours, within the studio's opening hours);
+ *   - the professional offers the service and is working then (the hours an
+ *     admin set for them on that calendar date, within the studio's opening
+ *     hours — a date nobody set is not available);
  *   - it's not in the past and doesn't clash with one of their confirmed
  *     appointments (plus the buffer between sessions).
  *

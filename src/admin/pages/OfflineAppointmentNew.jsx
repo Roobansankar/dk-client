@@ -86,8 +86,16 @@ export default function OfflineAppointmentNewPage() {
     [services.data, form.service_id],
   )
 
+  // The chosen stylist's own price / advance % for this service, if the admin set one
+  // (Stylists → Services & hours); otherwise the service's standard terms.
+  const chosenStylist = (stylists.data ?? []).find((s) => String(s.id) === String(form.stylist_id))
+  const ownTerms = selectedService ? chosenStylist?.service_terms?.[selectedService.id] : null
+  const price = ownTerms?.price != null ? ownTerms.price : selectedService?.price
+  const advancePercentage =
+    ownTerms?.advance_percentage != null ? ownTerms.advance_percentage : selectedService?.advance_percentage
+
   const advanceAmount = selectedService
-    ? Math.round(Number(selectedService.price || 0) * Number(selectedService.advance_percentage || 0)) / 100
+    ? Math.round(Number(price || 0) * Number(advancePercentage || 0)) / 100
     : 0
 
   const { mutate, pending, fieldErrors } = useMutation(
@@ -217,24 +225,14 @@ export default function OfflineAppointmentNewPage() {
             <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
               <DetailList columns={4} className="gap-y-2">
                 <Detail label="Duration" value={formatDuration(selectedService.duration_minutes)} />
-                <Detail label="Price" value={formatPrice(selectedService.price)} />
-                <Detail
-                  label="Advance %"
-                  value={
-                    selectedService.advance_percentage
-                      ? `${selectedService.advance_percentage}%`
-                      : '—'
-                  }
-                />
-                <Detail
-                  label="Advance amount"
-                  value={
-                    selectedService.advance_percentage ? formatPrice(advanceAmount) : '—'
-                  }
-                />
+                <Detail label="Price" value={formatPrice(price)} />
+                <Detail label="Advance %" value={advancePercentage ? `${advancePercentage}%` : '—'} />
+                <Detail label="Advance amount" value={advancePercentage ? formatPrice(advanceAmount) : '—'} />
               </DetailList>
               <p className="mt-2 text-xs text-[var(--color-faint)]">
-                Recorded from the current service configuration when the appointment is saved.
+                {ownTerms
+                  ? `Uses ${chosenStylist.name}'s own price and advance for this service. Recorded when the appointment is saved.`
+                  : 'Recorded from the current service configuration when the appointment is saved.'}
               </p>
             </div>
           )}

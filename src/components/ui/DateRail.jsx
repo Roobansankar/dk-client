@@ -19,8 +19,8 @@ import { parseDateIso, toDateIso } from '../../lib/time'
  * keyboard pattern, so Tab only ever stops once here regardless of how many
  * dates are in range. aria-current="date" marks the selected card.
  *
- * `isDateDisabled(iso)` greys out a day that can't be booked (e.g. the chosen
- * professional's day off): it stays in the rail so the gap is visible, but it
+ * `isDateDisabled(iso)` greys out a day that can't be booked (e.g. a date the
+ * chosen professional has no hours for): it stays in the rail so the gap is visible, but it
  * can't be selected and arrow-key navigation skips over it.
  *
  * The rail itself is a native overflow-x-auto scroller — touch swipe works
@@ -117,6 +117,20 @@ export function DateRail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
+  // With nothing picked yet, bring the first open date into view: when only a
+  // few dates are open they can sit well past the first screenful of greyed-out
+  // days. Only the rail moves sideways (scrollIntoView could scroll the page too).
+  const firstOpenIso = dates[firstOpen]
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const card = firstOpenIso ? cardRefs.current.get(firstOpenIso) : null
+
+    if (selectedIndex >= 0 || !scroller || !card) return
+
+    scroller.scrollLeft += card.getBoundingClientRect().left - scroller.getBoundingClientRect().left - 4
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstOpenIso])
+
   const choose = (index) => {
     const iso = dates[index]
 
@@ -211,7 +225,7 @@ export function DateRail({
               tabIndex={index === tabbableIndex ? 0 : -1}
               disabled={disabled}
               aria-disabled={off || undefined}
-              title={off ? 'Not working this day' : undefined}
+              title={off ? 'Not available' : undefined}
               onClick={() => choose(index)}
               className={clsx(
                 'flex w-16 shrink-0 snap-start flex-col items-center gap-0.5 rounded-lg border px-2 py-3 text-center transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
