@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ArrowRight, Check } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronRight, Scissors, Tag, UserRound } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../layout/Container'
 import { useCatalogue } from '../../context/CatalogueContext'
@@ -24,6 +24,7 @@ import {
   addDaysIso,
   formatTime12h,
   formatTimeRange12h,
+  parseDateIso,
   studioNow,
   toMinutes,
 } from '../../lib/time'
@@ -50,6 +51,9 @@ const FIELD =
 // DateRail) take their own `invalid` prop instead.
 const FIELD_ERROR = 'border-ink!'
 const LABEL = 'eyebrow block'
+
+/** `form.stylist` value for "Any professional" — sent to the API as no stylist_id. */
+const ANY_STYLIST = 'any'
 
 const EMPTY = {
   name: '',
@@ -99,8 +103,8 @@ const STEP_FIELDS = {
 /** Heading + helper text shown above each wizard step. */
 const STEP_INTRO = {
   stylist: {
-    title: 'Choose your professional',
-    text: 'Pick the stylist you would like to book with.',
+    title: 'Choose a professional',
+    text: '',
   },
   gender: {
     title: 'Who is this for?',
@@ -163,6 +167,185 @@ function SummaryRow({ label, children }) {
       <dt className="eyebrow">{label}</dt>
       <dd className="text-ink tabular-nums">{children}</dd>
     </div>
+  )
+}
+
+/** "2026-09-26" -> "Sat, 26 Sept 2026" — calendar-day math only (see lib/time.js). */
+const formatDateLong = (iso) =>
+  parseDateIso(iso).toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+
+const ICON_WRAP =
+  'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft'
+
+/**
+ * One choice in the "Choose a professional" grid — a photo (or, for
+ * "Any professional", a placeholder), the name and a one-line role. Behaves as
+ * a radio in the surrounding `role="radiogroup"`.
+ */
+function ProfessionalCard({ selected, onSelect, name, role, image, isAny }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={clsx(
+        'group flex flex-col overflow-hidden rounded-xl border bg-surface text-left transition-all duration-200',
+        selected
+          ? 'border-ink ring-1 ring-ink'
+          : 'border-line hover:border-line-strong hover:shadow-[0_12px_30px_-20px_rgb(31_26_18/0.4)]',
+      )}
+    >
+      <div className="relative aspect-square w-full overflow-hidden bg-surface-sunken">
+        {isAny ? (
+          <div aria-hidden="true" className="flex h-full w-full items-center justify-center text-muted">
+            <UserRound size={44} strokeWidth={1.25} />
+          </div>
+        ) : image ? (
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+          />
+        ) : (
+          <div aria-hidden="true" className="flex h-full w-full items-center justify-center">
+            <span className="font-serif text-4xl text-muted">{name?.[0]?.toUpperCase() || '?'}</span>
+          </div>
+        )}
+        {selected && (
+          <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-ink text-paper shadow-sm">
+            <Check size={14} aria-hidden="true" />
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col px-4 pb-5 pt-4">
+        <span className="font-semibold text-ink">{name}</span>
+        {role && <span className="mt-1 line-clamp-2 text-sm leading-snug text-muted">{role}</span>}
+      </div>
+    </button>
+  )
+}
+
+/** The sticky "Your order" panel — fills in as the visitor makes each choice. */
+function OrderSummary({ salonName, stylist, isAny, service, genderLabel, date, time, pkg, price, advance, balance }) {
+  const hasStylist = isAny || Boolean(stylist)
+  const hasAnything = hasStylist || Boolean(service) || Boolean(date) || Boolean(pkg)
+
+  return (
+    <aside aria-label="Your order" className="lg:sticky lg:top-28 lg:self-start">
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        <div className="border-b border-line px-6 py-5">
+          <h2 className="font-serif text-xl font-semibold text-ink">Your order</h2>
+          <p className="mt-1 text-sm text-muted">{salonName}</p>
+        </div>
+
+        {hasAnything ? (
+          <ul className="divide-y divide-line">
+            {hasStylist && (
+              <li className="flex items-center gap-4 px-6 py-4">
+                {stylist?.image_url ? (
+                  <img
+                    src={stylist.image_url}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-full object-cover object-top"
+                  />
+                ) : (
+                  <span aria-hidden="true" className={ICON_WRAP}>
+                    {isAny ? (
+                      <UserRound size={20} strokeWidth={1.5} />
+                    ) : (
+                      <span className="font-serif text-lg">{stylist?.name?.[0]?.toUpperCase() || '?'}</span>
+                    )}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">
+                    {isAny ? 'Any professional' : stylist.name}
+                  </p>
+                  <p className="truncate text-sm text-muted">
+                    {isAny ? 'Best available match' : stylist.bio || 'Professional'}
+                  </p>
+                </div>
+              </li>
+            )}
+
+            {service && (
+              <li className="flex items-center gap-4 px-6 py-4">
+                <span aria-hidden="true" className={ICON_WRAP}>
+                  <Scissors size={20} strokeWidth={1.5} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium leading-snug text-ink">{service.name}</p>
+                  <p className="text-sm text-muted">
+                    {[service.durationMin ? `${service.durationMin} min` : null, genderLabel]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                </div>
+                {price != null && (
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-ink">
+                    {formatInr(price)}
+                  </span>
+                )}
+              </li>
+            )}
+
+            {date && (
+              <li className="flex items-center gap-4 px-6 py-4">
+                <span aria-hidden="true" className={ICON_WRAP}>
+                  <CalendarDays size={20} strokeWidth={1.5} />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink">{formatDateLong(date)}</p>
+                  <p className="text-sm text-muted">{time ? formatTime12h(time) : 'Choose a time'}</p>
+                </div>
+              </li>
+            )}
+
+            {pkg && (
+              <li className="flex items-center gap-4 px-6 py-4">
+                <span aria-hidden="true" className={ICON_WRAP}>
+                  <Tag size={20} strokeWidth={1.5} />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink">{pkg.name}</p>
+                  <p className="text-sm text-muted">Package · {formatInr(pkg.price)}</p>
+                </div>
+              </li>
+            )}
+          </ul>
+        ) : (
+          <p className="px-6 py-8 text-sm text-muted">Your choices will appear here as you go.</p>
+        )}
+
+        {price != null && (
+          <div className="space-y-2 border-t border-line px-6 py-5 text-sm">
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-ink-soft">Total</span>
+              <span className="text-lg font-semibold tabular-nums text-ink">{formatInr(price)}</span>
+            </div>
+            {advance > 0 && (
+              <div className="flex items-baseline justify-between gap-4 text-muted">
+                <span>Advance to confirm</span>
+                <span className="tabular-nums">{formatInr(advance)}</span>
+              </div>
+            )}
+            {balance != null && (
+              <div className="flex items-baseline justify-between gap-4 text-muted">
+                <span>Balance</span>
+                <span className="tabular-nums">{formatInr(balance)}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </aside>
   )
 }
 
@@ -308,7 +491,7 @@ export default function Booking() {
     todayExhausted,
   } = useAvailableSlots({
     date: form.date,
-    stylistId: form.stylist || null,
+    stylistId: form.stylist && form.stylist !== ANY_STYLIST ? form.stylist : null,
     durationMin: selectedService?.durationMin,
     openTime: site.shopOpensAt,
     closeTime: site.shopClosesAt,
@@ -321,8 +504,11 @@ export default function Booking() {
     servicePrice != null && advanceAmount > 0
       ? Math.max(servicePrice - advanceAmount, 0)
       : null
-  const stylistName =
-    stylists.find((s) => String(s.id) === String(form.stylist))?.name || null
+  const chosenAny = form.stylist === ANY_STYLIST
+  const chosenStylist = chosenAny
+    ? null
+    : stylists.find((s) => String(s.id) === String(form.stylist)) ?? null
+  const stylistName = chosenAny ? 'Any professional' : chosenStylist?.name || null
 
   const trustPoints =
     advanceAmount > 0
@@ -511,9 +697,9 @@ export default function Booking() {
       service_id: serviceId,
       appointment_date: form.date,
       appointment_time: effectiveTime,
-      // Required — a specific stylist must be chosen before this step is
-      // reachable, so `stylist_id` is always part of the request.
-      stylist_id: Number(form.stylist),
+      // A stylist choice is required to leave the first step; "Any
+      // professional" sends no id (the API books the best available).
+      stylist_id: chosenAny ? null : Number(form.stylist),
     }
 
     try {
@@ -657,6 +843,9 @@ export default function Booking() {
 
   const currentStep = STEPS[stepIndex].key
   const stepIntro = STEP_INTRO[currentStep]
+  // The order panel stays beside the form and the review step; the finished
+  // confirmation stands on its own.
+  const showSummary = status !== 'success'
 
   return (
     <section
@@ -665,8 +854,14 @@ export default function Booking() {
       className="scroll-mt-24 border-t border-line bg-surface"
     >
       <Container className="section-y">
-        <div className="mx-auto max-w-3xl">
-          <div>
+        <div
+          className={clsx(
+            showSummary
+              ? 'grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-14 xl:grid-cols-[minmax(0,1fr)_24rem]'
+              : 'mx-auto max-w-3xl',
+          )}
+        >
+          <div className="min-w-0">
             {status === 'success' && result ? (
               <div className="border-t border-line pt-8">
                 <h3 className="font-serif text-2xl text-ink">
@@ -845,11 +1040,11 @@ export default function Booking() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="border-t border-line pt-8" noValidate>
-                {/* Stage trail — plain labels only, no step numbers.
-                    Finished stages are tappable to go back. */}
-                <div>
-                  <ol className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1" aria-label="Booking progress">
+              <form onSubmit={handleSubmit} noValidate>
+                {/* Step trail — finished steps are tappable to go back, the
+                    current one is bold, the rest stay light. */}
+                <nav aria-label="Booking progress">
+                  <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     {STEPS.map((step, i) => {
                       const done = i < stepIndex
                       const current = i === stepIndex
@@ -862,7 +1057,7 @@ export default function Booking() {
                                 setFormError(null)
                                 setStepIndex(i)
                               }}
-                              className="text-xs uppercase tracking-[0.14em] text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink"
+                              className="text-[0.9375rem] font-medium text-ink-soft transition-colors hover:text-ink"
                             >
                               {step.label}
                             </button>
@@ -870,40 +1065,26 @@ export default function Booking() {
                             <span
                               aria-current={current ? 'step' : undefined}
                               className={clsx(
-                                'text-xs uppercase tracking-[0.14em]',
-                                current && 'font-semibold text-ink',
-                                !current && 'text-muted',
+                                'text-[0.9375rem]',
+                                current ? 'font-semibold text-ink' : 'font-medium text-muted/60',
                               )}
                             >
                               {step.label}
                             </span>
                           )}
                           {i < STEPS.length - 1 && (
-                            <span aria-hidden="true" className="text-line-strong">
-                              ·
-                            </span>
+                            <ChevronRight size={14} aria-hidden="true" className="text-line-strong" />
                           )}
                         </li>
                       )
                     })}
                   </ol>
-                  <div
-                    role="progressbar"
-                    aria-valuemin={1}
-                    aria-valuemax={STEPS.length}
-                    aria-valuenow={stepIndex + 1}
-                    aria-label="Booking progress"
-                    className="mt-2 h-1 overflow-hidden rounded-full bg-line"
-                  >
-                    <div
-                      className="h-full rounded-full bg-ink transition-all duration-300"
-                      style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }}
-                    />
-                  </div>
-                </div>
+                </nav>
 
-                <h3 className="mt-5 font-serif text-2xl text-ink">{stepIntro.title}</h3>
-                <p className="mt-1.5 text-sm text-ink-soft">{stepIntro.text}</p>
+                <h1 className="mt-8 font-serif text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                  {stepIntro.title}
+                </h1>
+                {stepIntro.text && <p className="mt-2 text-ink-soft">{stepIntro.text}</p>}
 
                 {catalogueError && !catalogueLoading && (
                   <StatusLine className="mb-6 mt-6">
@@ -912,7 +1093,7 @@ export default function Booking() {
                   </StatusLine>
                 )}
 
-                <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                <div className="mt-8 grid gap-6 sm:grid-cols-2">
                   {currentStep === 'details' && (
                   <>
                   <div>
@@ -1044,90 +1225,65 @@ export default function Booking() {
                   </div>
                   )}
 
-                  {/* Professional — compact photo cards from the live roster
-                      (GET /api/stylists); the customer picks a specific
-                      stylist before anything else, and `stylist_id` is always
-                      sent on submit. */}
+                  {/* Professional — photo cards from the live roster
+                      (GET /api/stylists), plus "Any professional" (the API
+                      treats a missing stylist_id as "best available"). */}
                   {currentStep === 'stylist' && (
                   <div className="sm:col-span-2">
-                    <span id={`${uid}-stylist-label`} className={LABEL}>
+                    <span id={`${uid}-stylist-label`} className="sr-only">
                       Select professional
                     </span>
-                    <div className="mt-2.5">
-                      {stylistsLoading ? (
-                        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-                          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                            <div key={i} className="overflow-hidden rounded-lg border border-line bg-paper">
-                              <div className="aspect-[4/5] w-full animate-pulse bg-surface-sunken" />
-                              <div className="p-2">
-                                <div className="h-3 w-2/3 animate-pulse rounded bg-surface-sunken" />
-                              </div>
+                    {stylistsLoading ? (
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                          <div key={i} className="overflow-hidden rounded-xl border border-line bg-surface">
+                            <div className="aspect-square w-full animate-pulse bg-surface-sunken" />
+                            <div className="space-y-2 px-4 pb-5 pt-4">
+                              <div className="h-3.5 w-2/3 animate-pulse rounded bg-surface-sunken" />
+                              <div className="h-3 w-1/2 animate-pulse rounded bg-surface-sunken" />
                             </div>
-                          ))}
-                        </div>
-                      ) : stylists.length > 0 ? (
-                        <div
-                          role="radiogroup"
-                          aria-labelledby={`${uid}-stylist-label`}
-                          aria-invalid={Boolean(fieldErrors.stylist) || undefined}
-                          className="grid grid-cols-3 gap-2.5 sm:grid-cols-4"
-                        >
-                          {stylists.map((stylist) => {
-                            const selected = String(form.stylist) === String(stylist.id)
-                            return (
-                              <button
-                                key={stylist.id}
-                                type="button"
-                                role="radio"
-                                aria-checked={selected}
-                                onClick={() => {
-                                  updateValue('stylist')(String(stylist.id))
-                                }}
-                                className={clsx(
-                                  'group overflow-hidden rounded-lg border text-center transition-all duration-150',
-                                  selected
-                                    ? 'border-ink ring-2 ring-ink ring-offset-2 ring-offset-surface'
-                                    : 'border-line-strong bg-paper hover:border-ink',
-                                )}
-                              >
-                                {stylist.image_url ? (
-                                  <img
-                                    src={stylist.image_url}
-                                    alt={`${stylist.name} — DK StyleHub professional`}
-                                    loading="lazy"
-                                    className="aspect-[4/5] w-full object-cover"
-                                  />
-                                ) : (
-                                  <div
-                                    aria-hidden="true"
-                                    className="flex aspect-[4/5] w-full items-center justify-center bg-surface-sunken"
-                                  >
-                                    <span className="font-serif text-2xl text-muted">
-                                      {stylist.name?.[0]?.toUpperCase() || '?'}
-                                    </span>
-                                  </div>
-                                )}
-                                <span className="block truncate px-2 py-2 text-xs font-medium text-ink">
-                                  {stylist.name}
-                                </span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        role="radiogroup"
+                        aria-labelledby={`${uid}-stylist-label`}
+                        aria-invalid={Boolean(fieldErrors.stylist) || undefined}
+                        className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
+                      >
+                        <ProfessionalCard
+                          isAny
+                          name="Any professional"
+                          role="Best available match"
+                          selected={form.stylist === ANY_STYLIST}
+                          onSelect={() => updateValue('stylist')(ANY_STYLIST)}
+                        />
+                        {stylists.map((stylist) => (
+                          <ProfessionalCard
+                            key={stylist.id}
+                            name={stylist.name}
+                            role={stylist.bio}
+                            image={stylist.image_url}
+                            selected={String(form.stylist) === String(stylist.id)}
+                            onSelect={() => updateValue('stylist')(String(stylist.id))}
+                          />
+                        ))}
+                      </div>
+                    )}
 
                     {noRoster && (
                       <p
                         id={`${uid}-stylist-note`}
-                        className="mt-2 text-sm text-muted"
+                        className="mt-3 text-sm text-muted"
                       >
-                        Our team roster is being finalised — please call the
-                        studio to book with a specific stylist.
+                        Our team roster is being finalised — choose “Any
+                        professional”, or call the studio to book with a
+                        specific stylist.
                       </p>
                     )}
                     {fieldErrors.stylist && (
-                      <p className="mt-1.5 text-sm text-ink">{fieldErrors.stylist}</p>
+                      <p className="mt-3 text-sm text-ink">{fieldErrors.stylist}</p>
                     )}
                   </div>
                   )}
@@ -1337,6 +1493,22 @@ export default function Booking() {
               </form>
             )}
           </div>
+
+          {showSummary && (
+            <OrderSummary
+              salonName={site.name}
+              stylist={chosenStylist}
+              isAny={chosenAny}
+              service={selectedService}
+              genderLabel={bookingGenders.find((g) => g.value === form.gender)?.label}
+              date={form.date}
+              time={effectiveTime}
+              pkg={selectedPackage}
+              price={servicePrice}
+              advance={advanceAmount}
+              balance={balance}
+            />
+          )}
         </div>
       </Container>
 
