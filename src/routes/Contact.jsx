@@ -5,6 +5,7 @@ import FooterCta from '../components/sections/FooterCta'
 import ReviewUs from '../components/sections/ReviewUs'
 import { useSite } from '../context/SiteContext'
 import { formatTime12h } from '../lib/time'
+import contactBanner from '../assets/images/Contact-banner.webp'
 
 const BOOKING = '/booking'
 
@@ -53,7 +54,7 @@ function ContactAction({ icon: Icon, label, value, href }) {
  * WhatsApp, email — rather than a form with nowhere to send itself.
  */
 export default function Contact() {
-  const { phone, email, address, hours, shopOpensAt, shopClosesAt, socials, image } = useSite()
+  const { phone, email, address, hours, shopOpensAt, shopClosesAt, socials } = useSite()
   const whatsapp = socials.find((s) => s.label === 'WhatsApp')
   const isHHMM = (v) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)
   const opensAt = isHHMM(shopOpensAt) ? formatTime12h(shopOpensAt) : null
@@ -74,8 +75,8 @@ export default function Contact() {
           photography, unaffected by theme. */}
       <section className="relative overflow-hidden bg-scrim text-white">
         <img
-          src={image.src}
-          alt={image.alt}
+          src={contactBanner}
+          alt="The DK StyleHub studio — arched styling stations and chairs under warm light"
           loading="eager"
           fetchPriority="high"
           className="h-[46svh] min-h-[20rem] w-full object-cover object-[50%_60%] lg:h-[52svh]"

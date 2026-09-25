@@ -19,8 +19,8 @@ import {
   productAudiences,
   rangeLabel,
 } from '../data/products'
-import quoteImage from '../assets/images/new-design/opt/studio-wide.jpg'
-import closingImage from '../assets/images/new-design/opt/service-bridal.jpg'
+import quoteImage from '../assets/images/product-banner.webp'
+import closingImage from '../assets/images/product-cta.webp'
 
 const CONTACT = '/contact'
 
@@ -479,12 +479,12 @@ export default function Products() {
       {!loading && featured && <FeaturedProduct product={featured} />}
 
       {/* 6 — Closing spread: the last page of the lookbook */}
-      <section className="relative overflow-hidden border-t border-line bg-scrim text-white">
+      <section className="relative -mb-px overflow-hidden border-t border-line bg-scrim text-white">
         <img
           src={closingImage}
-          alt="A finished look at DK StyleHub"
+          alt="The DK StyleHub monogram shelf, lit and stocked with studio products"
           loading="lazy"
-          className="h-[78svh] min-h-[28rem] w-full object-cover object-[50%_35%] lg:h-[86svh]"
+          className="h-[max(21rem,50vw)] w-full object-cover object-[50%_35%] lg:h-[75svh] lg:min-h-[24.5rem]"
         />
         <span
           aria-hidden="true"
@@ -492,7 +492,7 @@ export default function Products() {
         />
         <Container className="absolute inset-0">
           <div className="flex h-full flex-col justify-end py-10 sm:py-14">
-            <p className="text-[0.7rem] font-medium uppercase tracking-[0.28em] text-accent [text-shadow:0_1px_12px_rgb(0_0_0/0.5)]">
+            <p className="text-[0.7rem] font-medium uppercase tracking-[0.28em] text-white [text-shadow:0_1px_12px_rgb(0_0_0/0.5)]">
               In the studio
             </p>
             <p className="mt-4 max-w-[20ch] font-serif leading-[1.0] text-white text-[clamp(2.5rem,8vw,5.5rem)] [text-shadow:0_2px_36px_rgb(0_0_0/0.5)]">

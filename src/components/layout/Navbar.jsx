@@ -169,7 +169,8 @@ export default function Navbar() {
 <Link
   to="/"
   aria-label="DK StyleHub"
-  className="flex shrink-0 items-center"
+  // Hidden behind the open mobile drawer, which shows its own logo.
+  className={clsx('flex shrink-0 items-center', menuOpen && 'max-lg:invisible')}
 >
   {/* Black logo on light surfaces, white on dark theme / over the hero. */}
   <img
