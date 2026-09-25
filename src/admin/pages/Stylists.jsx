@@ -377,7 +377,7 @@ function StylistFormModal({ mode, stylist, onClose, onSaved }) {
           />
         </Field>
         <Field
-          label="Short bio"
+          label="Role"
           hint="Shown under the name on the public site"
           error={fieldErrors.bio}
         >
