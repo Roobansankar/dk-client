@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { ArrowLeft, ArrowRight, Info, Pencil, Plus, Trash2, UserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarClock,
+  Info,
+  Pencil,
+  Plus,
+  Trash2,
+  UserRound,
+} from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
@@ -24,7 +34,8 @@ import {
 import { ImageInput } from '../components/ImageInput'
 
 // The homepage "Meet the team" section shows the first four visible stylists
-// (MeetTheTeam.jsx); the booking form lists every visible one.
+// (MeetTheTeam.jsx); the booking page lists every visible one that has services
+// and working hours set up (see the "Services & hours" page).
 const HOMEPAGE_SLOTS = 4
 
 const GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
@@ -132,8 +143,8 @@ export default function StylistsPage() {
               <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
               <span>
                 {canManage && 'Use the arrows to change the order. '}
-                The first {HOMEPAGE_SLOTS} visible stylists appear on the homepage; every visible
-                stylist can be chosen in the booking form.
+                The first {HOMEPAGE_SLOTS} visible stylists appear on the homepage. Clients can book
+                a visible stylist once you set their services and working hours.
               </span>
             </p>
           </div>
@@ -202,6 +213,10 @@ function StylistCard({
   onDelete,
 }) {
   const visible = Boolean(s.status)
+  const services = s.services_count ?? 0
+  // Bookable = has services AND some way to work: a weekly pattern or custom calendar days.
+  const hasHours = (s.work_hours_count ?? 0) > 0 || (s.custom_days_count ?? 0) > 0
+  const setupReady = services > 0 && hasHours
 
   return (
     <li className="card flex flex-col overflow-hidden">
@@ -256,14 +271,15 @@ function StylistCard({
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h2 className="truncate text-base font-semibold text-[var(--color-ink)]">{s.name}</h2>
-        <div>
+        <div className="flex flex-wrap gap-1.5">
           {!visible ? (
             <Pill tone="neutral">Hidden from site</Pill>
           ) : onHomepage ? (
             <Pill tone="ok">On homepage</Pill>
           ) : (
-            <Pill tone="info">Booking form only</Pill>
+            <Pill tone="info">Visible</Pill>
           )}
+          {visible && !setupReady && <Pill tone="warn">Not bookable yet</Pill>}
         </div>
         <p
           className={cn(
@@ -273,6 +289,22 @@ function StylistCard({
         >
           {s.bio || 'No bio added yet'}
         </p>
+
+        <div className="mt-auto flex flex-col gap-2 pt-2">
+          <p className="text-xs text-[var(--color-muted)]">
+            {setupReady
+              ? `${services} service${services === 1 ? '' : 's'} · working hours set`
+              : services === 0
+                ? 'No services ticked yet'
+                : 'No working hours set'}
+          </p>
+          <Link
+            to={`/admin/stylists/${s.id}/setup`}
+            className="btn btn-outline btn-sm w-full justify-center no-underline"
+          >
+            <CalendarClock size={14} /> Services &amp; hours
+          </Link>
+        </div>
       </div>
 
       {canManage && (

@@ -19,6 +19,10 @@ import { parseDateIso, toDateIso } from '../../lib/time'
  * keyboard pattern, so Tab only ever stops once here regardless of how many
  * dates are in range. aria-current="date" marks the selected card.
  *
+ * `isDateDisabled(iso)` greys out a day that can't be booked (e.g. the chosen
+ * professional's day off): it stays in the rail so the gap is visible, but it
+ * can't be selected and arrow-key navigation skips over it.
+ *
  * The rail itself is a native overflow-x-auto scroller — touch swipe works
  * for free — with prev/next arrow buttons that nudge it by one viewport
  * width. Selecting a date (by click or by keyboard) scrolls it into view, so
@@ -70,6 +74,7 @@ export function DateRail({
   maxDateIso,
   invalid = false,
   disabled = false,
+  isDateDisabled,
 }) {
   const scrollerRef = useRef(null)
   const cardRefs = useRef(new Map())
@@ -79,11 +84,23 @@ export function DateRail({
     [minDateIso, maxDateIso],
   )
 
+  const isOff = (iso) => Boolean(isDateDisabled?.(iso))
+
   const selectedIndex = dates.indexOf(value)
 
-  // The roving tab stop: the selected date if there is one, else the first —
-  // never more than one card in the whole rail is ever Tab-reachable.
-  const tabbableIndex = selectedIndex >= 0 ? selectedIndex : 0
+  // The roving tab stop: the selected date if there is one, else the first
+  // bookable one — never more than one card in the whole rail is ever
+  // Tab-reachable.
+  const firstOpen = dates.findIndex((iso) => !isOff(iso))
+  const tabbableIndex = selectedIndex >= 0 ? selectedIndex : Math.max(0, firstOpen)
+
+  // The nearest bookable index from `from` (exclusive) in `direction`, or -1.
+  const stepTo = (from, direction) => {
+    for (let i = from + direction; i >= 0 && i < dates.length; i += direction) {
+      if (!isOff(dates[i])) return i
+    }
+    return -1
+  }
 
   const scrollToIndex = (index, behavior = 'smooth') => {
     cardRefs.current.get(dates[index])?.scrollIntoView({
@@ -103,7 +120,7 @@ export function DateRail({
   const choose = (index) => {
     const iso = dates[index]
 
-    if (!iso || disabled) return
+    if (!iso || disabled || isOff(iso)) return
 
     onChange(iso)
     scrollToIndex(index)
@@ -116,22 +133,23 @@ export function DateRail({
 
     switch (event.key) {
       case 'ArrowRight':
-        next = Math.min(dates.length - 1, tabbableIndex + 1)
+        next = stepTo(tabbableIndex, 1)
         break
       case 'ArrowLeft':
-        next = Math.max(0, tabbableIndex - 1)
+        next = stepTo(tabbableIndex, -1)
         break
       case 'Home':
-        next = 0
+        next = firstOpen
         break
       case 'End':
-        next = dates.length - 1
+        next = dates.reduce((last, iso, i) => (isOff(iso) ? last : i), -1)
         break
       default:
         return
     }
 
     event.preventDefault()
+    if (next < 0) return
     choose(next)
     cardRefs.current.get(dates[next])?.focus()
   }
@@ -178,6 +196,7 @@ export function DateRail({
         {dates.map((iso, index) => {
           const date = parseDateIso(iso)
           const selected = iso === value
+          const off = isOff(iso)
 
           return (
             <button
@@ -191,12 +210,16 @@ export function DateRail({
               aria-selected={selected}
               tabIndex={index === tabbableIndex ? 0 : -1}
               disabled={disabled}
+              aria-disabled={off || undefined}
+              title={off ? 'Not working this day' : undefined}
               onClick={() => choose(index)}
               className={clsx(
                 'flex w-16 shrink-0 snap-start flex-col items-center gap-0.5 rounded-lg border px-2 py-3 text-center transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
-                selected
-                  ? 'border-ink bg-ink text-paper'
-                  : 'border-line-strong bg-paper text-ink hover:border-ink',
+                off
+                  ? 'cursor-not-allowed border-transparent bg-surface-sunken text-muted opacity-60'
+                  : selected
+                    ? 'border-ink bg-ink text-paper'
+                    : 'border-line-strong bg-paper text-ink hover:border-ink',
               )}
             >
               <span
@@ -208,7 +231,12 @@ export function DateRail({
                 {DAY_LABEL[date.getDay()]}
               </span>
 
-              <span className="text-xl font-semibold tabular-nums leading-tight">
+              <span
+                className={clsx(
+                  'text-xl font-semibold tabular-nums leading-tight',
+                  off && 'line-through decoration-1',
+                )}
+              >
                 {date.getDate()}
               </span>
 

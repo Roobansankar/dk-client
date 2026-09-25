@@ -14,7 +14,7 @@ import {
   genderForApi,
   getBookableServices,
 } from '../../data/booking'
-import { useAvailableSlots } from '../../hooks/useAvailableSlots'
+import { useBookingSlots } from '../../hooks/useBookingSlots'
 import { dayParts, maxBookingWindowDays } from '../../data/bookingTimes'
 import { formatInr } from '../../data/services'
 import { apiPost, ApiError } from '../../lib/api'
@@ -27,6 +27,7 @@ import {
   studioNow,
   toMinutes,
 } from '../../lib/time'
+import { describeWeek, hasAnyHours } from '../../lib/workHours'
 import { StatusLine } from '../StateViews'
 import { DateRail } from '../ui/DateRail'
 import OptionTiles from '../ui/OptionTiles'
@@ -50,6 +51,52 @@ const FIELD =
 // DateRail) take their own `invalid` prop instead.
 const FIELD_ERROR = 'border-ink!'
 const LABEL = 'eyebrow block'
+
+/** Does this service suit the chosen gender? (A "unisex" service suits both.) */
+const offersGender = (service, gender) =>
+  service.genders.includes(gender) || service.genders.includes('unisex')
+
+/** The catalogue narrowed to a set of service ids; categories left empty are dropped. */
+function narrowCatalogue(categories, offeredIds) {
+  return categories
+    .map((category) => ({
+      ...category,
+      services: category.services.filter((service) => offeredIds.has(String(service.id))),
+    }))
+    .filter((category) => category.services.length > 0)
+}
+
+/**
+ * After the professional changes, keep the visitor's gender / category /
+ * service only where the new professional still offers them (and always clear
+ * the time — it was picked from the previous person's calendar).
+ */
+function pruneSelection(form, narrowed) {
+  const genderOk =
+    Boolean(form.gender) &&
+    narrowed.some((category) => category.services.some((s) => offersGender(s, form.gender)))
+  const gender = genderOk ? form.gender : ''
+
+  const category =
+    gender &&
+    narrowed.some(
+      (c) => c.id === form.category && c.services.some((s) => offersGender(s, gender)),
+    )
+      ? form.category
+      : ''
+
+  const serviceOk =
+    category &&
+    narrowed.some(
+      (c) =>
+        c.id === category &&
+        c.services.some(
+          (s) => String(s.id) === String(form.service) && offersGender(s, gender),
+        ),
+    )
+
+  return { ...form, gender, category, service: serviceOk ? form.service : '', time: '' }
+}
 
 const EMPTY = {
   name: '',
@@ -341,7 +388,13 @@ export default function Booking() {
     error: catalogueError,
   } = useCatalogue()
   const { stylists, loading: stylistsLoading } = useStylists()
-  const noRoster = !stylistsLoading && stylists.length === 0
+  // Only professionals an admin has set up (they offer services and have
+  // working hours) can be booked; the rest still appear on "Meet the team".
+  const bookableStylists = useMemo(
+    () => stylists.filter((s) => s.bookable !== false),
+    [stylists],
+  )
+  const noRoster = !stylistsLoading && bookableStylists.length === 0
   const { user: authUser, status: authStatus } = useAuth()
 
   const [form, setForm] = useState(() => {
@@ -411,6 +464,11 @@ export default function Booking() {
     const { value } = event.target
     setForm((prev) => {
       const next = { ...prev, [key]: value }
+      if (key === 'stylist') {
+        const picked = stylists.find((s) => String(s.id) === String(value))
+        const offered = new Set((picked?.service_ids ?? []).map(String))
+        return pruneSelection(next, picked ? narrowCatalogue(categories, offered) : categories)
+      }
       if (key === 'gender' || key === 'category') {
         next.service = ''
         next.time = ''
@@ -438,10 +496,36 @@ export default function Booking() {
     setFieldErrors((prev) => (prev.time ? { ...prev, time: undefined } : prev))
   }
 
-  const categoryOptions = useMemo(() => bookingCategories(categories), [categories])
+  const chosenStylist = stylists.find((s) => String(s.id) === String(form.stylist)) ?? null
+
+  // Everything the service step offers comes from what THIS professional
+  // does — set up per person in the admin's "Services & hours" page.
+  const offeredCatalogue = useMemo(
+    () =>
+      chosenStylist
+        ? narrowCatalogue(categories, new Set((chosenStylist.service_ids ?? []).map(String)))
+        : categories,
+    [categories, chosenStylist],
+  )
+  const genderOptions = useMemo(
+    () =>
+      bookingGenders.filter((g) =>
+        offeredCatalogue.some((c) => c.services.some((s) => offersGender(s, g.value))),
+      ),
+    [offeredCatalogue],
+  )
+  const categoryOptions = useMemo(
+    () =>
+      bookingCategories(
+        offeredCatalogue.filter(
+          (c) => !form.gender || c.services.some((s) => offersGender(s, form.gender)),
+        ),
+      ),
+    [offeredCatalogue, form.gender],
+  )
   const services = useMemo(
-    () => getBookableServices(categories, form.gender, form.category),
-    [categories, form.gender, form.category],
+    () => getBookableServices(offeredCatalogue, form.gender, form.category),
+    [offeredCatalogue, form.gender, form.category],
   )
   const selectedService = services.find((s) => String(s.id) === String(form.service))
 
@@ -456,18 +540,34 @@ export default function Booking() {
   // stylist has no tile-based replacement, so it keeps the native
   // <select>/<MobileListbox> split the other fields moved off of.
 
-  const readyForSlots = Boolean(form.service && form.date)
+  const readyForSlots = Boolean(form.service && form.date && form.stylist)
   const {
     slots: timeSlots,
     relation: dateRelation,
     todayExhausted,
-  } = useAvailableSlots({
+    working: stylistWorking,
+    loading: slotsLoading,
+  } = useBookingSlots({
     date: form.date,
     stylistId: form.stylist || null,
-    durationMin: selectedService?.durationMin,
-    openTime: site.shopOpensAt,
-    closeTime: site.shopClosesAt,
+    serviceId: form.service || null,
   })
+
+  // The professional's weekly hours: their days off are greyed out in the
+  // date rail, and the hours are shown beside it.
+  const workHours = Array.isArray(chosenStylist?.work_hours) ? chosenStylist.work_hours : null
+  // Dates the admin set on the calendar ({ "2026-10-05": [] = day off, or custom ranges }).
+  const dateHours =
+    chosenStylist?.date_hours && typeof chosenStylist.date_hours === 'object' && !Array.isArray(chosenStylist.date_hours)
+      ? chosenStylist.date_hours
+      : null
+  const hasSpecialDates = Boolean(dateHours) && Object.keys(dateHours).length > 0
+  const isDayOff = (iso) => {
+    // A date set on the calendar decides that day; otherwise the weekly pattern does.
+    if (dateHours && Object.hasOwn(dateHours, iso)) return dateHours[iso].length === 0
+    return Boolean(workHours) && !(workHours[parseDateIso(iso).getDay()]?.length > 0)
+  }
+  const weekSummary = workHours && hasAnyHours(workHours) ? describeWeek(workHours) : null
   const advanceAmount = Number(selectedService?.advanceAmount) || 0
   const advancePct = Number(selectedService?.advancePercentage) || 0
   const servicePrice =
@@ -476,7 +576,6 @@ export default function Booking() {
     servicePrice != null && advanceAmount > 0
       ? Math.max(servicePrice - advanceAmount, 0)
       : null
-  const chosenStylist = stylists.find((s) => String(s.id) === String(form.stylist)) ?? null
   const stylistName = chosenStylist?.name || null
 
   const trustPoints =
@@ -517,9 +616,14 @@ export default function Booking() {
   // Nothing left to pick: every remaining slot is booked or past closing (or,
   // on today, they've all passed). The field still renders — it shows a
   // polished empty state instead of a grid of uniformly disabled slots.
+  // The professional isn't working on the chosen date at all (a day off).
+  const isOffDay = readyForSlots && !dateHasPassed && !slotsLoading && stylistWorking === false
+
   const noSlotsAvailable =
     readyForSlots &&
     !dateHasPassed &&
+    !slotsLoading &&
+    !isOffDay &&
     !visibleSlots.some((slot) => slot.status === 'available')
 
   // All of today's remaining hours are gone (vs. genuinely nothing free).
@@ -1111,7 +1215,7 @@ export default function Booking() {
                         labelledBy={`${uid}-gender-label`}
                         value={form.gender}
                         onChange={updateValue('gender')}
-                        options={bookingGenders}
+                        options={genderOptions}
                         columns="grid-cols-2"
                         invalid={Boolean(fieldErrors.gender)}
                       />
@@ -1206,7 +1310,7 @@ export default function Booking() {
                         aria-invalid={Boolean(fieldErrors.stylist) || undefined}
                         className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
                       >
-                        {stylists.map((stylist) => (
+                        {bookableStylists.map((stylist) => (
                           <ProfessionalCard
                             key={stylist.id}
                             name={stylist.name}
@@ -1254,8 +1358,27 @@ export default function Booking() {
                         minDateIso={todayIso()}
                         maxDateIso={maxDateIso()}
                         invalid={Boolean(fieldErrors.date)}
+                        isDateDisabled={isDayOff}
                       />
                     </div>
+                    {(weekSummary || hasSpecialDates) && (
+                      <p className="mt-3 text-xs leading-relaxed text-muted">
+                        <span className="font-medium text-ink-soft">
+                          {chosenStylist.name}’s hours:
+                        </span>{' '}
+                        {weekSummary
+                          ? weekSummary.map((group, i) => (
+                              <span key={group.label}>
+                                {i > 0 && ' · '}
+                                {group.label} {group.off ? 'off' : group.text}
+                              </span>
+                            ))
+                          : 'available on selected dates'}
+                        {hasSpecialDates && weekSummary && (
+                          <span> · some dates differ — pick a date to see its times</span>
+                        )}
+                      </p>
+                    )}
                     {fieldErrors.date && (
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.date}</p>
                     )}
@@ -1285,6 +1408,21 @@ export default function Booking() {
                         </div>
                       )}
 
+                      {readyForSlots && !dateHasPassed && slotsLoading && (
+                        <p className="text-sm text-muted">Checking availability…</p>
+                      )}
+
+                      {isOffDay && (
+                        <div className="rounded-sm border border-line bg-surface px-4 py-6 text-center">
+                          <p className="text-sm text-ink">
+                            {stylistName || 'This professional'} isn’t working on this day
+                          </p>
+                          <p className="mt-1 text-sm text-muted">
+                            Choose another date to see available times.
+                          </p>
+                        </div>
+                      )}
+
                       {noSlotsAvailable && (
                         <div className="rounded-sm border border-line bg-surface px-4 py-6 text-center">
                           <p className="text-sm text-ink">
@@ -1300,7 +1438,7 @@ export default function Booking() {
                         </div>
                       )}
 
-                      {readyForSlots && !dateHasPassed && !noSlotsAvailable && (
+                      {readyForSlots && !dateHasPassed && !slotsLoading && !isOffDay && !noSlotsAvailable && (
                         <div
                           role="group"
                           aria-labelledby={`${uid}-time-label`}
