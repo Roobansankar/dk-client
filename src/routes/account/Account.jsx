@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
-import { CalendarClock, CalendarDays, LogOut, RefreshCw, Sparkles } from 'lucide-react'
+import { BadgeCheck, CalendarCheck, CalendarClock, CalendarDays, Clock, History, LogOut, RefreshCw, Sparkles, User, Wallet } from 'lucide-react'
 import Container from '../../components/layout/Container'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../lib/api'
@@ -31,11 +31,6 @@ const PAYMENT_LABEL = {
   advance_paid: 'Confirmation fee paid',
   paid: 'Fully paid',
 }
-/** Statuses/payment states that read as "settled" — a quiet accent border
- *  instead of the neutral hairline, so the eye finds what's actually done. */
-const SETTLED_STATUS = new Set(['confirmed', 'completed'])
-const SETTLED_PAYMENT = new Set(['advance_paid', 'paid'])
-
 function initials(name) {
   if (!name) return '?'
   return name
@@ -89,14 +84,24 @@ function memberSince(createdAt) {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-function Pill({ children, settled }) {
+/** Status dot colours — solid dots read in both themes without extra text. */
+const STATUS_DOT = {
+  pending: 'bg-amber-500',
+  confirmed: 'bg-emerald-500',
+  completed: 'bg-emerald-500',
+  cancelled: 'bg-red-400',
+  rejected: 'bg-red-400',
+}
+const PAYMENT_DOT = {
+  unpaid: 'bg-line-strong',
+  advance_paid: 'bg-emerald-500',
+  paid: 'bg-emerald-500',
+}
+
+function Pill({ children, dot }) {
   return (
-    <span
-      className={clsx(
-        'rounded-full border px-2.5 py-0.5 text-xs',
-        settled ? 'border-accent/50 text-ink' : 'border-line text-ink-soft',
-      )}
-    >
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-1 text-xs text-ink-soft">
+      {dot && <span aria-hidden="true" className={clsx('h-1.5 w-1.5 rounded-full', dot)} />}
       {children}
     </span>
   )
@@ -108,23 +113,34 @@ function Pill({ children, settled }) {
 
 function AccountHeader({ user, onLogout }) {
   const since = memberSince(user?.created_at)
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'there'
   return (
-    <div className="flex flex-wrap items-start justify-between gap-6">
-      <div className="flex items-center gap-5">
-        <Avatar user={user} size={20} />
-        <div>
-          <p className="eyebrow">My Account</p>
-          <h1 className="mt-1 font-serif text-2xl text-ink sm:text-3xl">{user?.name || 'Your profile'}</h1>
-          <p className="mt-1.5 text-sm text-ink-soft">
-            {[user?.email, user?.phone].filter(Boolean).join(' · ') || '—'}
-          </p>
-          {since && <p className="mt-0.5 text-xs text-muted">Member since {since}</p>}
+    <div className="overflow-hidden rounded-2xl border border-line bg-paper">
+      <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div className="flex items-center gap-4 sm:gap-5">
+          <Avatar user={user} size={20} />
+          <div>
+            <p className="eyebrow">My Account</p>
+            <h1 className="mt-1 font-serif text-2xl text-ink sm:text-3xl">Hello, {firstName}</h1>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-soft">
+              {user?.email && <span className="inline-flex min-w-0 break-all">{user.email}</span>}
+              {user?.phone && (
+                <span className="inline-flex items-center gap-1.5 tabular-nums">{user.phone}</span>
+              )}
+            </div>
+            {since && <p className="mt-1 text-xs text-muted">Member since {since}</p>}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          <Link to={BOOKING} className="btn justify-center rounded-full">
+            Book a visit
+          </Link>
+          <button type="button" onClick={onLogout} className="btn btn-outline justify-center rounded-full">
+            <LogOut size={15} aria-hidden="true" />
+            Log out
+          </button>
         </div>
       </div>
-      <button type="button" onClick={onLogout} className="btn btn-outline shrink-0">
-        <LogOut size={15} aria-hidden="true" />
-        Log out
-      </button>
     </div>
   )
 }
@@ -133,15 +149,23 @@ function AccountHeader({ user, onLogout }) {
 /* Overview                                                            */
 /* ------------------------------------------------------------------ */
 
-function StatTile({ label, value, loading }) {
+function StatTile({ label, value, loading, icon: Icon }) {
   return (
-    <div className="border border-line bg-surface px-4 py-4 text-center sm:px-5">
-      {loading ? (
-        <Skeleton className="mx-auto h-7 w-12" />
-      ) : (
-        <p className="font-serif text-2xl text-ink sm:text-3xl">{value}</p>
-      )}
-      <p className="eyebrow mt-1.5">{label}</p>
+    <div className="flex items-center gap-4 rounded-2xl border border-line bg-paper px-5 py-4">
+      <span
+        aria-hidden="true"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft"
+      >
+        <Icon size={18} strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0">
+        {loading ? (
+          <Skeleton className="h-7 w-12" />
+        ) : (
+          <p className="truncate font-serif text-2xl tabular-nums text-ink">{value}</p>
+        )}
+        <p className="eyebrow mt-0.5">{label}</p>
+      </div>
     </div>
   )
 }
@@ -160,10 +184,10 @@ function OverviewStats({ appointments }) {
   }, [appointments])
 
   const tiles = [
-    { label: 'Appointments', value: stats?.total ?? 0 },
-    { label: 'Upcoming', value: stats?.upcoming ?? 0 },
-    { label: 'Completed', value: stats?.completed ?? 0 },
-    { label: 'Total spent', value: stats ? formatInr(stats.totalSpent) : formatInr(0) },
+    { label: 'Appointments', value: stats?.total ?? 0, icon: CalendarDays },
+    { label: 'Upcoming', value: stats?.upcoming ?? 0, icon: CalendarCheck },
+    { label: 'Completed', value: stats?.completed ?? 0, icon: BadgeCheck },
+    { label: 'Total spent', value: stats ? formatInr(stats.totalSpent) : formatInr(0), icon: Wallet },
   ]
 
   return (
@@ -183,25 +207,25 @@ function BookingCta({ compact }) {
   return (
     <div
       className={clsx(
-        'flex flex-col items-start gap-4 border border-dashed border-line-strong bg-surface px-6 text-left sm:flex-row sm:items-center sm:justify-between',
-        compact ? 'py-6' : 'py-10 text-center sm:text-left',
+        'flex flex-col items-start gap-5 rounded-2xl border border-dashed border-line-strong bg-paper px-6 text-left sm:flex-row sm:items-center sm:justify-between',
+        compact ? 'py-6' : 'py-10',
       )}
     >
       <div className="flex items-start gap-4">
         <span
           aria-hidden="true"
-          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink-soft sm:flex"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft sm:flex"
         >
-          <Sparkles size={16} strokeWidth={1.75} />
+          <Sparkles size={18} strokeWidth={1.75} />
         </span>
         <div>
-          <p className="font-serif text-lg text-ink">No upcoming appointment</p>
-          <p className="mt-1 text-sm text-muted">
+          <p className="font-serif text-lg text-ink">No upcoming visit yet</p>
+          <p className="mt-1 max-w-prose text-sm text-muted">
             Book your next visit and it will show up here with its status and payment record.
           </p>
         </div>
       </div>
-      <Link to={BOOKING} className="btn shrink-0">
+      <Link to={BOOKING} className="btn shrink-0 rounded-full">
         Book an appointment
       </Link>
     </div>
@@ -209,49 +233,58 @@ function BookingCta({ compact }) {
 }
 
 function UpcomingAppointmentCard({ appointment }) {
+  const facts = [
+    { icon: User, label: 'Stylist', value: appointment.stylist_name || 'To be assigned' },
+    { icon: CalendarDays, label: 'Date', value: appointment.appointment_date || '—', tabular: true },
+    {
+      icon: Clock,
+      label: 'Time',
+      value: appointment.appointment_time ? formatTime12h(appointment.appointment_time) : '—',
+      tabular: true,
+    },
+    {
+      icon: Wallet,
+      label: 'Price',
+      value: appointment.service_price != null ? formatInr(appointment.service_price) : '—',
+      tabular: true,
+    },
+  ]
   return (
-    <div className="border border-line-strong bg-surface p-6 sm:p-7">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="overflow-hidden rounded-2xl border border-line-strong bg-paper">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-6 py-4 sm:px-7">
         <span className="eyebrow flex items-center gap-1.5 text-muted">
-          <CalendarClock size={13} aria-hidden="true" /> Next appointment
+          <CalendarClock size={13} aria-hidden="true" /> Next visit
         </span>
         <span className="text-xs uppercase tracking-[0.12em] text-muted">{appointment.reference}</span>
       </div>
 
-      <p className="mt-3 font-serif text-xl text-ink sm:text-2xl">
-        {appointment.service_name || 'Appointment'}
-      </p>
+      <div className="px-6 py-5 sm:px-7">
+        <p className="font-serif text-xl text-ink sm:text-2xl">
+          {appointment.service_name || 'Appointment'}
+        </p>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-        <div>
-          <dt className="eyebrow">Stylist</dt>
-          <dd className="mt-1 text-ink-soft">{appointment.stylist_name || 'Any available'}</dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Date</dt>
-          <dd className="mt-1 tabular-nums text-ink-soft">{appointment.appointment_date || '—'}</dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Time</dt>
-          <dd className="mt-1 tabular-nums text-ink-soft">
-            {appointment.appointment_time ? formatTime12h(appointment.appointment_time) : '—'}
-          </dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Price</dt>
-          <dd className="mt-1 tabular-nums text-ink-soft">
-            {appointment.service_price != null ? formatInr(appointment.service_price) : '—'}
-          </dd>
-        </div>
-      </dl>
+        <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {facts.map((fact) => (
+            <div key={fact.label} className="min-w-0 rounded-xl bg-surface-sunken/60 px-3.5 py-3">
+              <dt className="flex items-center gap-1.5 text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted">
+                <fact.icon size={12} aria-hidden="true" />
+                {fact.label}
+              </dt>
+              <dd className={clsx('mt-1 truncate text-sm font-medium text-ink', fact.tabular && 'tabular-nums')}>
+                {fact.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
 
-      <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-5">
-        <Pill settled={SETTLED_STATUS.has(appointment.status)}>
-          {STATUS_LABEL[appointment.status] || appointment.status}
-        </Pill>
-        <Pill settled={SETTLED_PAYMENT.has(appointment.payment_status)}>
-          {PAYMENT_LABEL[appointment.payment_status] || appointment.payment_status}
-        </Pill>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Pill dot={STATUS_DOT[appointment.status]}>
+            {STATUS_LABEL[appointment.status] || appointment.status}
+          </Pill>
+          <Pill dot={PAYMENT_DOT[appointment.payment_status]}>
+            {PAYMENT_LABEL[appointment.payment_status] || appointment.payment_status}
+          </Pill>
+        </div>
       </div>
     </div>
   )
@@ -262,47 +295,33 @@ function UpcomingAppointmentCard({ appointment }) {
 /* ------------------------------------------------------------------ */
 
 function AppointmentRow({ appointment }) {
+  const meta = [
+    appointment.category_name,
+    appointment.stylist_name || 'To be assigned',
+    appointment.appointment_date,
+    appointment.appointment_time ? formatTime12h(appointment.appointment_time) : null,
+    appointment.service_price != null ? formatInr(appointment.service_price) : null,
+  ].filter(Boolean)
   return (
-    <li className="border-t border-line py-5 first:border-t-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="font-serif text-lg text-ink">{appointment.service_name || 'Appointment'}</p>
-        <span className="text-xs uppercase tracking-[0.12em] text-muted">{appointment.reference}</span>
+    <li className="rounded-2xl border border-line bg-paper px-5 py-4 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <p className="flex min-w-0 items-center gap-2.5 font-serif text-lg text-ink">
+          <span
+            aria-hidden="true"
+            className={clsx('h-2 w-2 shrink-0 rounded-full', STATUS_DOT[appointment.status] || 'bg-line-strong')}
+          />
+          <span className="truncate">{appointment.service_name || 'Appointment'}</span>
+        </p>
+        <span className="shrink-0 text-xs uppercase tracking-[0.12em] text-muted">{appointment.reference}</span>
       </div>
-      <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-soft">
-        {appointment.category_name && (
-          <div className="flex gap-1.5">
-            <dt className="text-muted">Category</dt>
-            <dd>{appointment.category_name}</dd>
-          </div>
-        )}
-        <div className="flex gap-1.5">
-          <dt className="text-muted">Stylist</dt>
-          <dd>{appointment.stylist_name || 'Any available'}</dd>
-        </div>
-        {appointment.appointment_date && (
-          <div className="flex gap-1.5">
-            <dt className="text-muted">Date</dt>
-            <dd className="tabular-nums">{appointment.appointment_date}</dd>
-          </div>
-        )}
-        {appointment.appointment_time && (
-          <div className="flex gap-1.5">
-            <dt className="text-muted">Time</dt>
-            <dd className="tabular-nums">{formatTime12h(appointment.appointment_time)}</dd>
-          </div>
-        )}
-        {appointment.service_price != null && (
-          <div className="flex gap-1.5">
-            <dt className="text-muted">Price</dt>
-            <dd className="tabular-nums">{formatInr(appointment.service_price)}</dd>
-          </div>
-        )}
-      </dl>
+      {meta.length > 0 && (
+        <p className="mt-1.5 truncate text-sm tabular-nums text-muted">{meta.join(' · ')}</p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
-        <Pill settled={SETTLED_STATUS.has(appointment.status)}>
+        <Pill dot={STATUS_DOT[appointment.status]}>
           {STATUS_LABEL[appointment.status] || appointment.status}
         </Pill>
-        <Pill settled={SETTLED_PAYMENT.has(appointment.payment_status)}>
+        <Pill dot={PAYMENT_DOT[appointment.payment_status]}>
           {PAYMENT_LABEL[appointment.payment_status] || appointment.payment_status}
         </Pill>
       </div>
@@ -313,11 +332,11 @@ function AppointmentRow({ appointment }) {
 function AppointmentsPanel({ appointments }) {
   if (appointments.loading) {
     return (
-      <ul aria-hidden="true">
+      <ul aria-hidden="true" className="space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <li key={i} className="border-t border-line py-5 first:border-t-0">
+          <li key={i} className="rounded-2xl border border-line bg-paper px-5 py-4 sm:px-6">
             <Skeleton className="h-5 w-2/3" />
-            <Skeleton className="mt-4 h-3 w-full max-w-sm" />
+            <Skeleton className="mt-3 h-3 w-full max-w-sm" />
             <Skeleton className="mt-3 h-5 w-40" />
           </li>
         ))}
@@ -327,13 +346,13 @@ function AppointmentsPanel({ appointments }) {
 
   if (appointments.error) {
     return (
-      <div className="flex flex-col items-start gap-3 border border-line bg-surface px-6 py-8 text-sm">
+      <div className="flex flex-col items-start gap-3 rounded-2xl border border-line bg-paper px-6 py-8 text-sm">
         <p className="text-ink-soft">
           {appointments.error instanceof ApiError && appointments.error.network
             ? 'We couldn’t reach the server. Please check your connection and try again.'
             : 'Something went wrong loading your appointments.'}
         </p>
-        <button type="button" onClick={appointments.refetch} className="btn btn-outline">
+        <button type="button" onClick={appointments.refetch} className="btn btn-outline rounded-full">
           <RefreshCw size={14} aria-hidden="true" /> Try again
         </button>
       </div>
@@ -352,19 +371,19 @@ function AppointmentsPanel({ appointments }) {
   const next = upcoming[0] || null
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       <section>
         <h2 className="flex items-center gap-2 font-serif text-xl text-ink">
-          <CalendarClock size={18} aria-hidden="true" className="text-muted" /> Upcoming appointment
+          <CalendarClock size={18} aria-hidden="true" className="text-muted" /> Upcoming visit
         </h2>
-        <div className="mt-5">{next ? <UpcomingAppointmentCard appointment={next} /> : <BookingCta compact />}</div>
+        <div className="mt-4">{next ? <UpcomingAppointmentCard appointment={next} /> : <BookingCta compact />}</div>
       </section>
 
       <section>
         <h2 className="flex items-center gap-2 font-serif text-xl text-ink">
-          <CalendarDays size={18} aria-hidden="true" className="text-muted" /> Appointment history
+          <History size={18} aria-hidden="true" className="text-muted" /> Past visits
         </h2>
-        <ul className="mt-5">
+        <ul className="mt-4 space-y-3">
           {sorted.map((a) => (
             <AppointmentRow key={a.id} appointment={a} />
           ))}
@@ -430,15 +449,15 @@ function ProfileSection() {
         <dl className="border-t border-line">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 border-b border-line py-3">
             <dt className="eyebrow">Name</dt>
-            <dd className="text-ink">{user?.name}</dd>
+            <dd className="min-w-0 break-words text-ink">{user?.name}</dd>
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 border-b border-line py-3">
             <dt className="eyebrow">Email</dt>
-            <dd className="text-ink">{user?.email}</dd>
+            <dd className="min-w-0 break-all text-ink">{user?.email}</dd>
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 border-b border-line py-3">
             <dt className="eyebrow">Phone</dt>
-            <dd className="text-ink">{user?.phone || '—'}</dd>
+            <dd className="min-w-0 break-words text-ink">{user?.phone || '—'}</dd>
           </div>
         </dl>
         <button type="button" onClick={startEdit} className="btn btn-outline mt-6">
@@ -655,16 +674,18 @@ export default function Account() {
             </div>
 
             <div className="order-1 lg:order-2 lg:col-span-5">
-              <h2 className="font-serif text-xl text-ink">Profile details</h2>
-              <div className="mt-6">
-                <ProfileSection />
-              </div>
-              <div className="mt-10 border-t border-line pt-8">
+              <section className="rounded-2xl border border-line bg-paper px-6 py-6 sm:px-7">
+                <h2 className="font-serif text-xl text-ink">Profile details</h2>
+                <div className="mt-5">
+                  <ProfileSection />
+                </div>
+              </section>
+              <section className="mt-5 rounded-2xl border border-line bg-paper px-6 py-6 sm:px-7">
                 <h2 className="font-serif text-xl text-ink">Password</h2>
-                <div className="mt-6">
+                <div className="mt-5">
                   <PasswordSection />
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </Container>
