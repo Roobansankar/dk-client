@@ -63,7 +63,7 @@ export default function DashboardPage() {
       show: can('appointments.view'),
     },
     {
-      label: 'Payments & completed',
+      label: 'Payment report',
       to: adminPath('payments'),
       icon: ReceiptText,
       show: can('payments.view'),

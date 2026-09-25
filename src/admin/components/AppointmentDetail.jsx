@@ -35,6 +35,7 @@ const PAYMENT_OPTIONS = [
   ['advance_paid', 'Advance paid'],
   ['paid', 'Paid in full'],
 ]
+const PAYMENT_METHOD_LABELS = { upi: 'UPI', cash: 'Cash', card: 'Card' }
 
 const labelGender = (g) =>
   ({ male: 'Male', female: 'Female', unisex: 'Not specified' })[g] ?? g
@@ -240,6 +241,12 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
                 />
                 <Detail label="Received" value={formatPrice(appt.amount_received)} />
                 <Detail label="Remaining" value={formatPrice(appt.remaining_amount)} />
+                {appt.source === 'offline' && (
+                  <Detail
+                    label="Payment method"
+                    value={PAYMENT_METHOD_LABELS[appt.payment_method] || '—'}
+                  />
+                )}
               </dl>
               {canManage && (
                 <div className="mt-3 flex items-center gap-2">
