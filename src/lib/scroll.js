@@ -36,12 +36,20 @@ export function getLenis() {
   return lenis
 }
 
-/** Jump to the very top immediately — used on route changes. */
+/**
+ * Jump to the very top immediately — used on route changes and logo clicks.
+ * Does BOTH the Lenis jump and a native jump: Lenis keeps its own virtual
+ * scroll position, so calling only one of the two leaves the other one
+ * behind and the page visibly lingers / sweeps from the old position.
+ */
 export function scrollTopInstant() {
   if (lenis) {
     lenis.scrollTo(0, { immediate: true, force: true })
-  } else {
-    window.scrollTo(0, 0)
+  }
+  window.scrollTo(0, 0)
+  if (typeof document !== 'undefined') {
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
   }
 }
 

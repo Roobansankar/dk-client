@@ -8,6 +8,7 @@ import AccountMenu from './AccountMenu'
 import SearchOverlay from './SearchOverlay'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
+import { scrollTopInstant } from '../../lib/scroll'
 import logoDark from '../../assets/images/Black-logo.webp'
 import logoLight from '../../assets/images/White-logo.png'
 
@@ -52,6 +53,17 @@ export default function Navbar() {
     setMenuOpen(false)
     setServicesOpen(false)
     setSearchOpen(true)
+  }
+
+  // Logo → home must feel instant from a scrolled page like /products.
+  // Cross-route: jump now (synchronously on click) so the old scrolled
+  // position never lingers; RootLayout re-asserts top after render.
+  // Same-route (already on /): the router renders nothing, so this manual
+  // jump is the ONLY scroll-to-top — without it the click looks dead.
+  const handleLogoClick = () => {
+    setMenuOpen(false)
+    setServicesOpen(false)
+    scrollTopInstant()
   }
 
   // Close the drawer and Services dropdown on navigation.
@@ -169,6 +181,7 @@ export default function Navbar() {
 <Link
   to="/"
   aria-label="DK StyleHub"
+  onClick={handleLogoClick}
   // Hidden behind the open mobile drawer, which shows its own logo.
   className={clsx('flex shrink-0 items-center', menuOpen && 'max-lg:invisible')}
 >
@@ -362,7 +375,7 @@ export default function Navbar() {
   to="/"
   aria-label="DK StyleHub"
   className="flex items-center"
-  onClick={() => setMenuOpen(false)}
+  onClick={handleLogoClick}
 >
   <img
     src={logoDark}

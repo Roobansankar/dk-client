@@ -1,6 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet } from '../lib/api'
 
+/** GET requests currently on the wire, by path. */
+const inFlight = new Map()
+
+/**
+ * `apiGet`, but callers asking for the same path while it is still loading
+ * share ONE request. React StrictMode (development) mounts every component
+ * twice; without this each load was sent, cancelled and sent again — the red
+ * "(canceled)" rows in the Network tab — and two components wanting the same
+ * resource paid for it twice.
+ */
+function sharedGet(path) {
+  let request = inFlight.get(path)
+
+  if (!request) {
+    request = apiGet(path).finally(() => {
+      if (inFlight.get(path) === request) inFlight.delete(path)
+    })
+    inFlight.set(path, request)
+  }
+
+  return request
+}
+
 /**
  * Fetch a public GET resource once on mount.
  *
@@ -32,10 +55,11 @@ export function useApiResource(path, { transform, revalidateOnFocus = false } = 
   const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
-    const ctrl = new AbortController()
+    // Not aborted on cleanup: a stale result is simply ignored (`alive`), and
+    // the request may still be wanted by the remount or by another component.
     let alive = true
 
-    apiGet(path, { signal: ctrl.signal })
+    sharedGet(path)
       .then((raw) => {
         if (!alive) return
         const data = transform ? transform(raw) : raw
@@ -50,7 +74,6 @@ export function useApiResource(path, { transform, revalidateOnFocus = false } = 
 
     return () => {
       alive = false
-      ctrl.abort()
     }
     // `transform` is a stable module-level value by contract.
     // eslint-disable-next-line react-hooks/exhaustive-deps

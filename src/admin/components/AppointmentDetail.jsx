@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { User } from 'lucide-react'
+import { Download, User } from 'lucide-react'
 import { api } from '../lib/api'
 import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
@@ -101,6 +101,17 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
       refetch()
     },
   })
+  // Bill / invoice PDF for this appointment — offered once it is paid in
+  // full (the PDF itself stamps PAID IN FULL). Same record the dialog shows.
+  const billMut = useMutation(
+    () =>
+      api.download(
+        `/admin/appointments/${id}/bill`,
+        {},
+        `bill-${appt?.reference || id}.pdf`,
+      ),
+    { successMessage: 'Bill downloaded.' },
+  )
 
   const currentNotes = notesDirty ? notes : (appt?.notes ?? '')
   const actions = appt ? (NEXT_ACTIONS[appt.status] ?? []) : []
@@ -248,6 +259,18 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
                   />
                 )}
               </dl>
+              {appt.payment_status === 'paid' && (
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    loading={billMut.pending}
+                    onClick={() => billMut.mutate()}
+                  >
+                    <Download size={15} /> Download Bill (PDF)
+                  </Button>
+                </div>
+              )}
               {canManage && (
                 <div className="mt-3 flex items-center gap-2">
                   <label className="label mb-0" htmlFor="pay-status">

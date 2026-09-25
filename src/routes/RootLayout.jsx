@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
-import { initSmoothScroll, scrollToHash, scrollTopInstant } from '../lib/scroll'
+import { initSmoothScroll, scrollToHash, scrollTopInstant, ScrollTrigger } from '../lib/scroll'
 
 /**
  * Application shell: fixed Navbar, routed page content, Footer.
@@ -20,15 +20,27 @@ export default function RootLayout() {
 
   useEffect(() => {
     initSmoothScroll()
+    // Stop the browser restoring the previous page's scroll position —
+    // we always manage it ourselves (top on route change, target on hash).
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
   }, [])
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the jump happens BEFORE first paint:
+  // with useEffect the new page first flashes at the old scroll position and
+  // then visibly sweeps to the top through Lenis' smoothing, which reads as
+  // "logo click is slow". Layout effect runs synchronously after DOM
+  // mutation but before paint, so /products (scrolled) → / lands at top.
+  useLayoutEffect(() => {
     if (hash) {
       // Let the new page paint before measuring the target.
       requestAnimationFrame(() => scrollToHash(hash))
       return
     }
     scrollTopInstant()
+    // Re-measure ScrollTrigger positions for the freshly rendered route.
+    requestAnimationFrame(() => ScrollTrigger.refresh())
   }, [pathname, hash])
 
   return (

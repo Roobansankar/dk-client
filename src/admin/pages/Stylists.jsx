@@ -293,10 +293,10 @@ function StylistCard({
         <div className="mt-auto flex flex-col gap-2 pt-2">
           <p className="text-xs text-[var(--color-muted)]">
             {setupReady
-              ? `${services} service${services === 1 ? '' : 's'} · available on ${upcomingDays} upcoming day${upcomingDays === 1 ? '' : 's'}`
+              ? `${services} service${services === 1 ? '' : 's'} · working hours set`
               : services === 0
                 ? 'No services ticked yet'
-                : 'No dates set on the calendar yet'}
+                : 'No working hours set'}
           </p>
           <Link
             to={`/admin/stylists/${s.id}/setup`}
