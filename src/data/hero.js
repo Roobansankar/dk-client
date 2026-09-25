@@ -14,11 +14,11 @@
  * @property {{ src: string, alt: string }} image  full-bleed background photo
  */
 
-import studioTwo from '../assets/images/Studio-1.webp'
+import studioTwo from '../assets/images/Studio-3.webp'
 /** @type {Hero} */
 export const hero = {
   eyebrow: 'Beauty · Style · Experience',
-  title: 'The DK StyleHub',
+  title: 'DK StyleHub',
   bodyLead: 'Beauty begins the moment you decide to be ',
   bodyEmphasis: 'yourself.',
   image: {
