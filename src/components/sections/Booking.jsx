@@ -1,13 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ArrowRight, CalendarDays, Check, ChevronRight, Scissors, Tag, UserRound } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronRight, Scissors } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../layout/Container'
 import { useCatalogue } from '../../context/CatalogueContext'
 import { useSite } from '../../context/SiteContext'
 import { useStylists } from '../../context/StylistsContext'
 import { useAuth } from '../../context/AuthContext'
-import { usePricingPlanList } from '../../context/PricingPlansContext'
 import BookingAuthGate from '../account/BookingAuthGate'
 import {
   bookingGenders,
@@ -52,9 +51,6 @@ const FIELD =
 const FIELD_ERROR = 'border-ink!'
 const LABEL = 'eyebrow block'
 
-/** `form.stylist` value for "Any professional" — sent to the API as no stylist_id. */
-const ANY_STYLIST = 'any'
-
 const EMPTY = {
   name: '',
   phone: '',
@@ -64,8 +60,6 @@ const EMPTY = {
   stylist: '',
   date: '',
   time: '',
-  // Selected pricing plan (display only — never part of the appointment payload).
-  package: '',
 }
 
 /** Every field the studio needs before the trust/review step — all required. */
@@ -183,11 +177,11 @@ const ICON_WRAP =
   'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft'
 
 /**
- * One choice in the "Choose a professional" grid — a photo (or, for
- * "Any professional", a placeholder), the name and a one-line role. Behaves as
- * a radio in the surrounding `role="radiogroup"`.
+ * One choice in the "Choose a professional" grid — a photo (or an initial
+ * placeholder), the name and a one-line role. Behaves as a radio in the
+ * surrounding `role="radiogroup"`.
  */
-function ProfessionalCard({ selected, onSelect, name, role, image, isAny }) {
+function ProfessionalCard({ selected, onSelect, name, role, image }) {
   return (
     <button
       type="button"
@@ -202,11 +196,7 @@ function ProfessionalCard({ selected, onSelect, name, role, image, isAny }) {
       )}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-surface-sunken">
-        {isAny ? (
-          <div aria-hidden="true" className="flex h-full w-full items-center justify-center text-muted">
-            <UserRound size={44} strokeWidth={1.25} />
-          </div>
-        ) : image ? (
+        {image ? (
           <img
             src={image}
             alt=""
@@ -233,9 +223,9 @@ function ProfessionalCard({ selected, onSelect, name, role, image, isAny }) {
 }
 
 /** The sticky "Your order" panel — fills in as the visitor makes each choice. */
-function OrderSummary({ salonName, stylist, isAny, service, genderLabel, date, time, pkg, price, advance, balance }) {
-  const hasStylist = isAny || Boolean(stylist)
-  const hasAnything = hasStylist || Boolean(service) || Boolean(date) || Boolean(pkg)
+function OrderSummary({ salonName, stylist, service, genderLabel, date, time, price, advance, balance }) {
+  const hasStylist = Boolean(stylist)
+  const hasAnything = hasStylist || Boolean(service) || Boolean(date)
 
   return (
     <aside aria-label="Your order" className="lg:sticky lg:top-28 lg:self-start">
@@ -257,19 +247,15 @@ function OrderSummary({ salonName, stylist, isAny, service, genderLabel, date, t
                   />
                 ) : (
                   <span aria-hidden="true" className={ICON_WRAP}>
-                    {isAny ? (
-                      <UserRound size={20} strokeWidth={1.5} />
-                    ) : (
-                      <span className="font-serif text-lg">{stylist?.name?.[0]?.toUpperCase() || '?'}</span>
-                    )}
+                    <span className="font-serif text-lg">{stylist?.name?.[0]?.toUpperCase() || '?'}</span>
                   </span>
                 )}
                 <div className="min-w-0">
                   <p className="truncate font-medium text-ink">
-                    {isAny ? 'Any professional' : stylist.name}
+                    {stylist.name}
                   </p>
                   <p className="truncate text-sm text-muted">
-                    {isAny ? 'Best available match' : stylist.bio || 'Professional'}
+                    {stylist.bio || 'Professional'}
                   </p>
                 </div>
               </li>
@@ -308,17 +294,6 @@ function OrderSummary({ salonName, stylist, isAny, service, genderLabel, date, t
               </li>
             )}
 
-            {pkg && (
-              <li className="flex items-center gap-4 px-6 py-4">
-                <span aria-hidden="true" className={ICON_WRAP}>
-                  <Tag size={20} strokeWidth={1.5} />
-                </span>
-                <div className="min-w-0">
-                  <p className="font-medium text-ink">{pkg.name}</p>
-                  <p className="text-sm text-muted">Package · {formatInr(pkg.price)}</p>
-                </div>
-              </li>
-            )}
           </ul>
         ) : (
           <p className="px-6 py-8 text-sm text-muted">Your choices will appear here as you go.</p>
@@ -368,8 +343,6 @@ export default function Booking() {
   const { stylists, loading: stylistsLoading } = useStylists()
   const noRoster = !stylistsLoading && stylists.length === 0
   const { user: authUser, status: authStatus } = useAuth()
-  // Active pricing plans from the shared app-wide fetch — no extra request.
-  const { plans } = usePricingPlanList()
 
   const [form, setForm] = useState(() => {
     const prefill = state?.prefill
@@ -471,7 +444,6 @@ export default function Booking() {
     [categories, form.gender, form.category],
   )
   const selectedService = services.find((s) => String(s.id) === String(form.service))
-  const selectedPackage = plans.find((p) => String(p.id) === String(form.package))
 
   // `{ value, label }` option list for the Category <OptionTiles> below —
   // same source data as `categoryOptions`, just reshaped once. `bookingGenders`
@@ -491,7 +463,7 @@ export default function Booking() {
     todayExhausted,
   } = useAvailableSlots({
     date: form.date,
-    stylistId: form.stylist && form.stylist !== ANY_STYLIST ? form.stylist : null,
+    stylistId: form.stylist || null,
     durationMin: selectedService?.durationMin,
     openTime: site.shopOpensAt,
     closeTime: site.shopClosesAt,
@@ -504,11 +476,8 @@ export default function Booking() {
     servicePrice != null && advanceAmount > 0
       ? Math.max(servicePrice - advanceAmount, 0)
       : null
-  const chosenAny = form.stylist === ANY_STYLIST
-  const chosenStylist = chosenAny
-    ? null
-    : stylists.find((s) => String(s.id) === String(form.stylist)) ?? null
-  const stylistName = chosenAny ? 'Any professional' : chosenStylist?.name || null
+  const chosenStylist = stylists.find((s) => String(s.id) === String(form.stylist)) ?? null
+  const stylistName = chosenStylist?.name || null
 
   const trustPoints =
     advanceAmount > 0
@@ -697,9 +666,9 @@ export default function Booking() {
       service_id: serviceId,
       appointment_date: form.date,
       appointment_time: effectiveTime,
-      // A stylist choice is required to leave the first step; "Any
-      // professional" sends no id (the API books the best available).
-      stylist_id: chosenAny ? null : Number(form.stylist),
+      // Required — a specific stylist must be chosen before this step is
+      // reachable, so `stylist_id` is always part of the request.
+      stylist_id: Number(form.stylist),
     }
 
     try {
@@ -971,11 +940,6 @@ export default function Booking() {
                   <SummaryRow label="Service">
                     {selectedService?.name || '—'}
                   </SummaryRow>
-                  {selectedPackage && (
-                    <SummaryRow label="Package">
-                      {selectedPackage.name} · {formatInr(selectedPackage.price)}
-                    </SummaryRow>
-                  )}
                   <SummaryRow label="Stylist">
                     {stylistName || '—'}
                   </SummaryRow>
@@ -1206,19 +1170,9 @@ export default function Booking() {
                           services={services}
                           formatPrice={formatInr}
                           invalid={Boolean(fieldErrors.service)}
-                          packages={plans}
-                          packageValue={form.package}
-                          // Packages are informational only — choosing one sets
-                          // `form.package` and never touches service or time.
-                          onPackageChange={updateValue('package')}
                         />
                       )}
                     </div>
-                    {selectedPackage && !form.service && (
-                      <p className="mt-1.5 text-xs text-muted">
-                        Also choose the service for this visit — appointments are booked per service.
-                      </p>
-                    )}
                     {fieldErrors.service && (
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.service}</p>
                     )}
@@ -1226,8 +1180,8 @@ export default function Booking() {
                   )}
 
                   {/* Professional — photo cards from the live roster
-                      (GET /api/stylists), plus "Any professional" (the API
-                      treats a missing stylist_id as "best available"). */}
+                      (GET /api/stylists); a specific stylist must be picked
+                      before continuing. */}
                   {currentStep === 'stylist' && (
                   <div className="sm:col-span-2">
                     <span id={`${uid}-stylist-label`} className="sr-only">
@@ -1252,13 +1206,6 @@ export default function Booking() {
                         aria-invalid={Boolean(fieldErrors.stylist) || undefined}
                         className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
                       >
-                        <ProfessionalCard
-                          isAny
-                          name="Any professional"
-                          role="Best available match"
-                          selected={form.stylist === ANY_STYLIST}
-                          onSelect={() => updateValue('stylist')(ANY_STYLIST)}
-                        />
                         {stylists.map((stylist) => (
                           <ProfessionalCard
                             key={stylist.id}
@@ -1277,9 +1224,8 @@ export default function Booking() {
                         id={`${uid}-stylist-note`}
                         className="mt-3 text-sm text-muted"
                       >
-                        Our team roster is being finalised — choose “Any
-                        professional”, or call the studio to book with a
-                        specific stylist.
+                        Our team roster is being finalised — please call the
+                        studio to book.
                       </p>
                     )}
                     {fieldErrors.stylist && (
@@ -1498,12 +1444,10 @@ export default function Booking() {
             <OrderSummary
               salonName={site.name}
               stylist={chosenStylist}
-              isAny={chosenAny}
               service={selectedService}
               genderLabel={bookingGenders.find((g) => g.value === form.gender)?.label}
               date={form.date}
               time={effectiveTime}
-              pkg={selectedPackage}
               price={servicePrice}
               advance={advanceAmount}
               balance={balance}
