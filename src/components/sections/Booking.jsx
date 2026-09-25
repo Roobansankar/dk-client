@@ -66,14 +66,58 @@ const EMPTY = {
 
 /** Every field the studio needs before the trust/review step — all required. */
 const REQUIRED_FIELDS = {
-  name: 'Your name',
-  phone: 'A phone number',
+  stylist: 'A stylist',
   gender: 'Gender',
   category: 'Category',
   service: 'Service',
-  stylist: 'A stylist',
   date: 'Preferred date',
   time: 'Preferred time',
+  name: 'Your name',
+  phone: 'A phone number',
+}
+
+/**
+ * Step-by-step booking flow. The professional (stylist) comes first —
+ * shown as photo cards — then everything about the service together,
+ * then date + time together, and finally the visitor's details.
+ */
+const STEPS = [
+  { key: 'stylist', label: 'Professional' },
+  { key: 'service', label: 'Service' },
+  { key: 'schedule', label: 'Time' },
+  { key: 'details', label: 'Done' },
+]
+
+/** The form fields checked before leaving each step. */
+const STEP_FIELDS = {
+  stylist: ['stylist'],
+  service: ['gender', 'category', 'service'],
+  schedule: ['date', 'time'],
+  details: ['name', 'phone'],
+}
+
+/** Heading + helper text shown above each wizard step. */
+const STEP_INTRO = {
+  stylist: {
+    title: 'Choose your professional',
+    text: 'Pick the stylist you would like to book with.',
+  },
+  gender: {
+    title: 'Who is this for?',
+    text: 'Choose which menu to browse.',
+  },
+  service: {
+    title: 'Choose your service',
+    text: 'Tell us who it is for, pick a category, then the service.',
+  },
+  schedule: {
+    title: 'Choose date & time',
+    text: 'Pick a day and a time that suits you.',
+  },
+  details: {
+    title: 'Almost done',
+    text: 'Tell us who is booking so the studio can reach you.',
+  },
 }
 
 const prefersReducedMotion = () =>
@@ -176,6 +220,8 @@ export default function Booking() {
 
   // idle | review | submitting | success | error
   const [status, setStatus] = useState('idle')
+  // Index into STEPS — which wizard step the form is showing.
+  const [stepIndex, setStepIndex] = useState(0)
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState(null)
   const [result, setResult] = useState(null)
@@ -331,15 +377,77 @@ export default function Booking() {
     }))
     .filter((group) => group.slots.length > 0)
 
-  // Move a scrolled-down visitor back to the top of the section when the view
-  // changes (form → review → confirmation), so the new step is in view.
+  // Move the visitor back to the top of the section when the view
+  // changes (wizard step → review → confirmation), so the new step is in view.
   useEffect(() => {
-    if (status !== 'review' && status !== 'success') return
+    if (status !== 'idle' && status !== 'review' && status !== 'success') return
+    if (status === 'idle' && stepIndex === 0) return
     sectionRef.current?.scrollIntoView({
       behavior: prefersReducedMotion() ? 'auto' : 'smooth',
       block: 'start',
     })
-  }, [status])
+  }, [status, stepIndex])
+
+  // Validate a subset of fields. `time` reads the availability-checked
+  // value — a stale selection that recomputed availability has since
+  // invalidated must not pass.
+  const validateFields = (keys) => {
+    const errs = {}
+    for (const key of keys) {
+      const value = key === 'time' ? effectiveTime : form[key]
+      if (!String(value ?? '').trim()) {
+        errs[key] = `${REQUIRED_FIELDS[key]} is required.`
+      }
+    }
+    return errs
+  }
+
+  const goBack = () => {
+    setFormError(null)
+    setStepIndex((i) => Math.max(i - 1, 0))
+  }
+
+  // Advance one wizard step after validating just that step's fields.
+  // From the last (details) step this runs the same gate as the old
+  // single-page submit: guests see the sign-in gate, customers go to review.
+  const goNext = () => {
+    const step = STEPS[stepIndex]
+    const errs = validateFields(STEP_FIELDS[step.key] ?? [])
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...errs }))
+      setFormError('Please complete the highlighted fields to continue.')
+      return false
+    }
+    setFieldErrors({})
+    setFormError(null)
+
+    if (step.key !== 'details') {
+      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1))
+      return true
+    }
+
+    // Details step: everything must hold together before review —
+    // a stale time/service pick from an earlier step must not slip through.
+    const allErrs = validateFields(Object.keys(REQUIRED_FIELDS))
+    if (Object.keys(allErrs).length > 0) {
+      setFieldErrors(allErrs)
+      setFormError('Please complete the highlighted fields to continue.')
+      // Send the visitor back to the first step that still needs attention.
+      const firstBad = STEPS.findIndex((s) =>
+        (STEP_FIELDS[s.key] ?? []).some((k) => allErrs[k]),
+      )
+      if (firstBad >= 0) setStepIndex(firstBad)
+      return false
+    }
+
+    if (authStatus !== 'authed') {
+      saveBookingDraft({ ...form, time: effectiveTime })
+      setShowAuthGate(true)
+      return false
+    }
+    setStatus('review')
+    return true
+  }
 
   // Step 1: validate locally, then either show the trust/review step or —
   // for a guest — the sign-in gate (booking creation itself requires an
@@ -347,29 +455,7 @@ export default function Booking() {
   // either way.
   const handleSubmit = (event) => {
     event.preventDefault()
-    const errs = {}
-    for (const key of Object.keys(REQUIRED_FIELDS)) {
-      // `time` reads the availability-checked value — a stale selection that
-      // recomputed availability has since invalidated must not pass.
-      const value = key === 'time' ? effectiveTime : form[key]
-      if (!String(value ?? '').trim()) {
-        errs[key] = `${REQUIRED_FIELDS[key]} is required.`
-      }
-    }
-    if (Object.keys(errs).length > 0) {
-      setFieldErrors(errs)
-      setFormError('Please complete the highlighted fields to continue.')
-      return
-    }
-    setFieldErrors({})
-    setFormError(null)
-
-    if (authStatus !== 'authed') {
-      saveBookingDraft({ ...form, time: effectiveTime })
-      setShowAuthGate(true)
-      return
-    }
-    setStatus('review')
+    goNext()
   }
 
   // Step 2: from the trust step, create the appointment (once — a retry
@@ -554,17 +640,23 @@ export default function Booking() {
     setResult(null)
     setFormError(null)
     setBookingRef(null)
+    setForm(EMPTY)
+    setStepIndex(0)
   }
 
   const backToForm = () => {
     setStatus('idle')
     setFormError(null)
     setBookingRef(null)
+    setStepIndex(STEPS.length - 1)
   }
 
   const submitting = status === 'submitting'
 
   const reviewing = status === 'review' || status === 'submitting'
+
+  const currentStep = STEPS[stepIndex].key
+  const stepIntro = STEP_INTRO[currentStep]
 
   return (
     <section
@@ -573,20 +665,8 @@ export default function Booking() {
       className="scroll-mt-24 border-t border-line bg-surface"
     >
       <Container className="section-y">
-        <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
-          <header className="lg:col-span-4">
-            <p className="eyebrow">Booking</p>
-            <h2 className="mt-4">
-              {reviewing ? 'Review & confirm' : 'Book an appointment'}
-            </h2>
-            <p className="mt-4 text-ink-soft">
-              {reviewing
-                ? 'A quick look at what you are requesting before it goes to the studio.'
-                : 'Tell us what you would like and when. The studio confirms every appointment before it is final.'}
-            </p>
-          </header>
-
-          <div className="lg:col-span-8">
+        <div className="mx-auto max-w-3xl">
+          <div>
             {status === 'success' && result ? (
               <div className="border-t border-line pt-8">
                 <h3 className="font-serif text-2xl text-ink">
@@ -766,14 +846,75 @@ export default function Booking() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="border-t border-line pt-8" noValidate>
+                {/* Stage trail — plain labels only, no step numbers.
+                    Finished stages are tappable to go back. */}
+                <div>
+                  <ol className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1" aria-label="Booking progress">
+                    {STEPS.map((step, i) => {
+                      const done = i < stepIndex
+                      const current = i === stepIndex
+                      return (
+                        <li key={step.key} className="flex items-center gap-2">
+                          {done ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormError(null)
+                                setStepIndex(i)
+                              }}
+                              className="text-xs uppercase tracking-[0.14em] text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink"
+                            >
+                              {step.label}
+                            </button>
+                          ) : (
+                            <span
+                              aria-current={current ? 'step' : undefined}
+                              className={clsx(
+                                'text-xs uppercase tracking-[0.14em]',
+                                current && 'font-semibold text-ink',
+                                !current && 'text-muted',
+                              )}
+                            >
+                              {step.label}
+                            </span>
+                          )}
+                          {i < STEPS.length - 1 && (
+                            <span aria-hidden="true" className="text-line-strong">
+                              ·
+                            </span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                  <div
+                    role="progressbar"
+                    aria-valuemin={1}
+                    aria-valuemax={STEPS.length}
+                    aria-valuenow={stepIndex + 1}
+                    aria-label="Booking progress"
+                    className="mt-2 h-1 overflow-hidden rounded-full bg-line"
+                  >
+                    <div
+                      className="h-full rounded-full bg-ink transition-all duration-300"
+                      style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <h3 className="mt-5 font-serif text-2xl text-ink">{stepIntro.title}</h3>
+                <p className="mt-1.5 text-sm text-ink-soft">{stepIntro.text}</p>
+
                 {catalogueError && !catalogueLoading && (
-                  <StatusLine className="mb-6">
+                  <StatusLine className="mb-6 mt-6">
                     We couldn’t load the service list. Please refresh the page,
                     or call the studio to book.
                   </StatusLine>
                 )}
 
-                <div className="grid gap-6 sm:grid-cols-2">
+                <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                  {currentStep === 'details' && (
+                  <>
                   <div>
                     <label htmlFor={`${uid}-name`} className={LABEL}>
                       Name
@@ -811,10 +952,13 @@ export default function Booking() {
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.phone}</p>
                     )}
                   </div>
+                  </>
+                  )}
 
-                  <div>
+                  {currentStep === 'service' && (
+                  <div className="sm:col-span-2">
                     <span id={`${uid}-gender-label`} className={LABEL}>
-                      Gender
+                      Who is this for?
                     </span>
                     <div className="mt-2.5">
                       <OptionTiles
@@ -831,8 +975,10 @@ export default function Booking() {
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.gender}</p>
                     )}
                   </div>
+                  )}
 
-                  <div>
+                  {currentStep === 'service' && (
+                  <div className="sm:col-span-2">
                     <span id={`${uid}-category-label`} className={LABEL}>
                       Category
                     </span>
@@ -856,7 +1002,9 @@ export default function Booking() {
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.category}</p>
                     )}
                   </div>
+                  )}
 
+                  {currentStep === 'service' && (
                   <div className="sm:col-span-2">
                     <span id={`${uid}-service-label`} className={LABEL}>
                       Service
@@ -894,40 +1042,80 @@ export default function Booking() {
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.service}</p>
                     )}
                   </div>
+                  )}
 
-                  {/* Stylist — required. Lists the live roster from
-                      GET /api/stylists; the customer must pick a specific
-                      stylist before continuing, and `stylist_id` is always
+                  {/* Professional — compact photo cards from the live roster
+                      (GET /api/stylists); the customer picks a specific
+                      stylist before anything else, and `stylist_id` is always
                       sent on submit. */}
+                  {currentStep === 'stylist' && (
                   <div className="sm:col-span-2">
-                    <label
-                      id={`${uid}-stylist-label`}
-                      htmlFor={`${uid}-stylist`}
-                      className={LABEL}
-                    >
-                      Select stylist
-                    </label>
+                    <span id={`${uid}-stylist-label`} className={LABEL}>
+                      Select professional
+                    </span>
                     <div className="mt-2.5">
-  {stylistsLoading ? (
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-      <div className="min-h-16 rounded-lg border border-line-strong bg-paper" />
-      <div className="min-h-16 rounded-lg border border-line-strong bg-paper" />
-    </div>
-  ) : stylists.length > 0 ? (
-    <OptionTiles
-      id={`${uid}-stylist`}
-      labelledBy={`${uid}-stylist-label`}
-      value={form.stylist}
-      onChange={updateValue('stylist')}
-      options={stylists.map((stylist) => ({
-        value: stylist.id,
-        label: stylist.name,
-      }))}
-      invalid={Boolean(fieldErrors.stylist)}
-      columns="grid-cols-2 sm:grid-cols-3"
-    />
-  ) : null}
-</div>
+                      {stylistsLoading ? (
+                        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                            <div key={i} className="overflow-hidden rounded-lg border border-line bg-paper">
+                              <div className="aspect-[4/5] w-full animate-pulse bg-surface-sunken" />
+                              <div className="p-2">
+                                <div className="h-3 w-2/3 animate-pulse rounded bg-surface-sunken" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : stylists.length > 0 ? (
+                        <div
+                          role="radiogroup"
+                          aria-labelledby={`${uid}-stylist-label`}
+                          aria-invalid={Boolean(fieldErrors.stylist) || undefined}
+                          className="grid grid-cols-3 gap-2.5 sm:grid-cols-4"
+                        >
+                          {stylists.map((stylist) => {
+                            const selected = String(form.stylist) === String(stylist.id)
+                            return (
+                              <button
+                                key={stylist.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                onClick={() => {
+                                  updateValue('stylist')(String(stylist.id))
+                                }}
+                                className={clsx(
+                                  'group overflow-hidden rounded-lg border text-center transition-all duration-150',
+                                  selected
+                                    ? 'border-ink ring-2 ring-ink ring-offset-2 ring-offset-surface'
+                                    : 'border-line-strong bg-paper hover:border-ink',
+                                )}
+                              >
+                                {stylist.image_url ? (
+                                  <img
+                                    src={stylist.image_url}
+                                    alt={`${stylist.name} — DK StyleHub professional`}
+                                    loading="lazy"
+                                    className="aspect-[4/5] w-full object-cover"
+                                  />
+                                ) : (
+                                  <div
+                                    aria-hidden="true"
+                                    className="flex aspect-[4/5] w-full items-center justify-center bg-surface-sunken"
+                                  >
+                                    <span className="font-serif text-2xl text-muted">
+                                      {stylist.name?.[0]?.toUpperCase() || '?'}
+                                    </span>
+                                  </div>
+                                )}
+                                <span className="block truncate px-2 py-2 text-xs font-medium text-ink">
+                                  {stylist.name}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
 
                     {noRoster && (
                       <p
@@ -942,6 +1130,7 @@ export default function Booking() {
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.stylist}</p>
                     )}
                   </div>
+                  )}
 
                   {/* `min-w-0`: without it, this grid item's automatic
                       minimum width defaults to DateRail's full unscrolled
@@ -949,7 +1138,8 @@ export default function Booking() {
                       column width, blowing the whole form out sideways —
                       `overflow-x-auto` inside DateRail can't clip content its
                       own container refuses to shrink for. */}
-                  <div className="min-w-0">
+                  {currentStep === 'schedule' && (
+                  <div className="min-w-0 sm:col-span-2">
                     <span id={`${uid}-date-label`} className={LABEL}>
                       Preferred date
                     </span>
@@ -968,7 +1158,9 @@ export default function Booking() {
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.date}</p>
                     )}
                   </div>
+                  )}
 
+                  {currentStep === 'schedule' && (
                   <div className="sm:col-span-2">
                     <span className={LABEL} id={`${uid}-time-label`}>
                       Preferred time
@@ -976,7 +1168,9 @@ export default function Booking() {
                     <div className="mt-2.5">
                       {!readyForSlots && (
                         <p className="text-sm text-muted">
-                          Select a service and date to see available times.
+                          {!form.service
+                            ? 'Choose a service in the previous step to see available times.'
+                            : 'Choose a date above to see available times.'}
                         </p>
                       )}
 
@@ -1101,9 +1295,10 @@ export default function Booking() {
                       )}
                     </div>
                   </div>
+                  )}
                 </div>
 
-                {advanceAmount > 0 && (
+                {advanceAmount > 0 && (currentStep === 'service' || currentStep === 'details') && (
                   <p className="mt-6 border-t border-line pt-4 text-sm">
                     <span className="text-ink-soft">
                       Advance to confirm (set by the studio):{' '}
@@ -1128,9 +1323,17 @@ export default function Booking() {
                   </p>
                 )}
 
-                <button type="submit" className="btn mt-8" disabled={submitting}>
-                  {submitting ? 'Sending…' : 'Request appointment'}
-                </button>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  {stepIndex > 0 && (
+                    <button type="button" onClick={goBack} className="btn btn-outline">
+                      Back
+                    </button>
+                  )}
+                  <button type="submit" className="btn" disabled={submitting}>
+                    {currentStep === 'details' ? 'Request appointment' : 'Continue'}
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </button>
+                </div>
               </form>
             )}
           </div>
