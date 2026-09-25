@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Globe, MessageCircle } from 'lucide-react'
 import Container from './Container'
 import { useSite } from '../../context/SiteContext'
-import siteLogo from '../../assets/images/logo.webp'
+import siteLogo from '../../assets/images/White-logo.png'
 
 /**
  * Site footer — the dark editorial foundation: a brand + contact + social

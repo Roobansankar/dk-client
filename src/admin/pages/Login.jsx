@@ -4,6 +4,8 @@ import { ApiError } from '../lib/api'
 import { Button, Field, TextInput } from '../components/ui'
 import { useTheme } from '../lib/theme'
 import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
+import logoDark from '../../assets/images/Black-logo.webp'
+import logoLight from '../../assets/images/White-logo.png'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -47,9 +49,17 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-4 pb-24">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent-soft)] text-sm font-bold tracking-[0.04em] text-[var(--color-accent)]">
-              DK
-            </span>
+            {/* Black logo on the light theme, white on the dark theme. */}
+            <img
+              src={logoDark}
+              alt="DK StyleHub"
+              className="mx-auto mb-4 h-11 w-auto object-contain dark:hidden"
+            />
+            <img
+              src={logoLight}
+              alt="DK StyleHub"
+              className="mx-auto mb-4 hidden h-11 w-auto object-contain dark:block"
+            />
             <h1 className="text-2xl font-bold tracking-[-0.025em] text-[var(--color-ink)]">
               DK StyleHub Admin
             </h1>
