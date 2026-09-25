@@ -35,6 +35,8 @@ import {
 import { useAuth } from '../lib/auth'
 import { ApiError } from '../lib/api'
 import { useTheme } from '../lib/theme'
+import logoDark from '../../assets/images/Black-logo.webp'
+import logoLight from '../../assets/images/White-logo.png'
 import { Button, cn, Dropdown, DropdownItem, Field, TextInput } from './ui'
 import { Modal } from './Modal'
 import { initials } from '../lib/format'
@@ -173,12 +175,19 @@ function Sidebar({ collapsed = false, onNavigate }) {
           collapsed ? 'justify-center px-0' : 'px-5',
         )}
       >
-        <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent-soft)] text-xs font-bold tracking-[0.04em] text-[var(--color-accent)]"
+        {/* Black logo on the light theme, white on the dark theme. */}
+        <img
+          src={logoDark}
+          alt="DK StyleHub Admin"
           title="DK StyleHub Admin"
-        >
-          DK
-        </span>
+          className="h-8 w-auto shrink-0 object-contain dark:hidden"
+        />
+        <img
+          src={logoLight}
+          alt="DK StyleHub Admin"
+          title="DK StyleHub Admin"
+          className="hidden h-8 w-auto shrink-0 object-contain dark:block"
+        />
         {!collapsed && (
           <div className="sidebar-label leading-tight">
             <p className="text-sm font-bold tracking-[-0.01em] text-[var(--color-ink)]">

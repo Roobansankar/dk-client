@@ -8,7 +8,8 @@ import AccountMenu from './AccountMenu'
 import SearchOverlay from './SearchOverlay'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
-import siteLogo from '../../assets/images/logo.webp'
+import logoDark from '../../assets/images/Black-logo.webp'
+import logoLight from '../../assets/images/White-logo.png'
 
 /**
  * Primary navigation.
@@ -170,10 +171,16 @@ export default function Navbar() {
   aria-label="DK StyleHub"
   className="flex shrink-0 items-center"
 >
+  {/* Black logo on light surfaces, white on dark theme / over the hero. */}
   <img
-    src={siteLogo}
+    src={logoDark}
     alt="DK StyleHub"
-    className="h-10 w-auto object-contain md:h-12"
+    className={clsx('h-10 w-auto object-contain md:h-12 dark:hidden', onDark && 'lg:hidden')}
+  />
+  <img
+    src={logoLight}
+    alt="DK StyleHub"
+    className={clsx('hidden h-10 w-auto object-contain md:h-12 dark:block', onDark && 'lg:block')}
   />
 </Link>
 
@@ -357,9 +364,14 @@ export default function Navbar() {
   onClick={() => setMenuOpen(false)}
 >
   <img
-    src={siteLogo}
+    src={logoDark}
     alt="DK StyleHub"
-    className="h-9 w-auto object-contain"
+    className="h-9 w-auto object-contain dark:hidden"
+  />
+  <img
+    src={logoLight}
+    alt="DK StyleHub"
+    className="hidden h-9 w-auto object-contain dark:block"
   />
 </Link>
 

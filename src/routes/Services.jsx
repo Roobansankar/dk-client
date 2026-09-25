@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, ImageOff } from 'lucide-react'
 import clsx from 'clsx'
@@ -12,28 +12,6 @@ import serviceBanner from '../assets/images/service-banner.png'
 
 const BOOKING = '/booking'
 const pad = (n) => String(n).padStart(2, '0')
-
-// `lg` (64rem/1024px) — matches Tailwind's default breakpoint used
-// throughout this route/index.css. Gates whether the (1.5MB) banner photo
-// is even mounted: below `lg` it isn't shown (see the banner section below),
-// and an eager/high-priority <img> still triggers its network fetch purely
-// from being in the DOM, CSS `hidden` or not — so it must not render there.
-const LG_QUERY = '(min-width: 64rem)'
-
-function useIsLgUp() {
-  const [isLgUp, setIsLgUp] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(LG_QUERY).matches,
-  )
-
-  useEffect(() => {
-    const mql = window.matchMedia(LG_QUERY)
-    const onChange = (e) => setIsLgUp(e.matches)
-    mql.addEventListener('change', onChange)
-    return () => mql.removeEventListener('change', onChange)
-  }, [])
-
-  return isLgUp
-}
 
 const GENDER_LABEL = { women: 'Women', men: 'Men' }
 const genderLabel = (genders) =>
@@ -257,7 +235,6 @@ export default function Services({ gender: pageGender }) {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [type, setType] = useState('all')
-  const isLgUp = useIsLgUp()
 
   const gender = pageGender ?? 'all'
   const genderName = pageGender ? GENDER_LABEL[pageGender] : null
@@ -307,16 +284,9 @@ export default function Services({ gender: pageGender }) {
             `object-right` crops surplus blank canvas from the left as the
             viewport's own ratio departs from the photo's, so the fanned
             tools — flush against the image's right edge — are never cropped;
-            the text column narrows to match. Below `lg` the photo is dropped
-            entirely (`hidden lg:block`) rather than reflowed underneath the
-            copy: at native aspect it's mostly the deliberate blank silk
-            column with the tools squeezed into a sliver, and cropping it
-            tighter to keep the tools in frame still left it feeling like a
-            second, disconnected banner glued under the CTA. Simpler and
-            calmer to let the copy stand alone on the section's own
-            `surface-sunken` ground on mobile; the photo's real job — the
-            full-bleed hero — only makes sense once there's room for it at
-            `lg`. The photo's tones are fixed
+            the text column narrows to match. Below `lg` the photo sits under
+            the copy at its natural aspect ratio (`h-auto`), so the whole
+            image — fanned tools included — shows at every width. The photo's tones are fixed
             regardless of theme (a photograph, like the homepage Hero — see
             Hero.jsx), so the overlay copy is pinned to light-theme ink
             colours rather than the ink/paper tokens, which invert in dark
@@ -347,17 +317,15 @@ export default function Services({ gender: pageGender }) {
             </Container>
           </div>
 
-          {isLgUp && (
-            <img
-              src={serviceBanner}
-              alt="Salon styling tools — combs, shears and clips fanned across a silk backdrop"
-              width={1737}
-              height={906}
-              loading="eager"
-              fetchPriority="high"
-              className="lg:absolute lg:inset-0 lg:z-0 lg:h-full lg:w-full lg:object-cover lg:object-right"
-            />
-          )}
+          <img
+            src={serviceBanner}
+            alt="Salon styling tools — combs, shears and clips fanned across a silk backdrop"
+            width={1737}
+            height={906}
+            loading="eager"
+            fetchPriority="high"
+            className="block h-auto w-full object-cover object-right lg:absolute lg:inset-0 lg:z-0 lg:h-full lg:w-full lg:object-cover lg:object-right"
+          />
         </section>
 
         <Container className="section-y !pt-0">
