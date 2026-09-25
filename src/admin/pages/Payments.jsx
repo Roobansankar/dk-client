@@ -187,7 +187,7 @@ export default function PaymentsPage() {
   return (
     <div>
       <PageHeader
-        title="Payments & Completed"
+        title="Payment Report"
         description="Appointments with a verified payment, plus every completed appointment, with their advance / balance record."
       >
         {canExport && (

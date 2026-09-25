@@ -51,10 +51,10 @@ const NAV = [
   { section: 'Appointments' },
   { to: '/admin/appointments', label: 'All Appointments', icon: CalendarDays, perm: 'appointments.view', end: true },
   { to: '/admin/appointments/history', label: 'Appointment History', icon: History, perm: 'appointments.view' },
-  { to: '/admin/appointments/offline/new', label: 'New Offline Appointment', icon: CalendarPlus, perm: 'appointments.offline' },
+  { to: '/admin/appointments/offline/new', label: 'Offline Appointment', icon: CalendarPlus, perm: 'appointments.offline' },
 
   { section: 'Payments & Reports' },
-  { to: '/admin/payments', label: 'Payments & Completed', icon: ReceiptText, perm: 'payments.view' },
+  { to: '/admin/payments', label: 'Payment Report', icon: ReceiptText, perm: 'payments.view' },
 
   { section: 'Shop' },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, perm: 'orders.view' },

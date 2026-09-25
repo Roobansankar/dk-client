@@ -6,6 +6,7 @@ import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
 import {
   Button,
+  ChipButton,
   Detail,
   DetailList,
   EmptyState,
@@ -13,7 +14,6 @@ import {
   PageHeader,
   SectionCard,
   Select,
-  Textarea,
   TextInput,
 } from '../components/ui'
 import { ShieldAlert } from 'lucide-react'
@@ -21,9 +21,13 @@ import { formatDuration, formatPrice } from '../lib/format'
 
 const STATUSES = ['confirmed', 'completed', 'cancelled']
 const PAYMENT_STATUSES = [
-  ['unpaid', 'Unpaid'],
   ['advance_paid', 'Advance paid'],
   ['paid', 'Paid in full'],
+]
+const PAYMENT_METHODS = [
+  ['upi', 'UPI'],
+  ['cash', 'Cash'],
+  ['card', 'Card'],
 ]
 const cap = (s) => s[0].toUpperCase() + s.slice(1)
 
@@ -39,13 +43,12 @@ const EMPTY = {
   appointment_date: todayIso(),
   appointment_time: '',
   status: 'confirmed',
-  payment_status: 'unpaid',
-  message: '',
-  notes: '',
+  payment_status: 'advance_paid',
+  payment_method: '',
 }
 
 /**
- * New Offline Appointment — a dedicated page (not a modal) for staff to register
+ * Offline Appointment — a dedicated page (not a modal) for staff to register
  * a walk-in / phone / in-person booking. Uses the live service catalogue; the
  * backend snapshots duration / price / advance from the chosen service, so those
  * are shown read-only here and never sent in the payload.
@@ -56,7 +59,16 @@ export default function OfflineAppointmentNewPage() {
   const canSeeCatalogue = can('services.view')
 
   const [form, setForm] = useState(EMPTY)
-  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const [localErrors, setLocalErrors] = useState({})
+  const set = (patch) => {
+    setForm((f) => ({ ...f, ...patch }))
+    setLocalErrors((e) => {
+      if (!Object.keys(patch).some((k) => e[k])) return e
+      const next = { ...e }
+      Object.keys(patch).forEach((k) => delete next[k])
+      return next
+    })
+  }
 
   const categories = useQuery('/admin/service-categories', {
     params: { per_page: 100 },
@@ -91,8 +103,7 @@ export default function OfflineAppointmentNewPage() {
         appointment_time: form.appointment_time,
         status: form.status,
         payment_status: form.payment_status,
-        message: form.message.trim() || null,
-        notes: form.notes.trim() || null,
+        payment_method: form.payment_method,
       }),
     {
       successMessage: 'Offline appointment created.',
@@ -113,7 +124,7 @@ export default function OfflineAppointmentNewPage() {
   return (
     <div>
       <PageHeader
-        title="New Offline Appointment"
+        title="Offline Appointment"
         description="Register a walk-in, phone booking or in-person appointment. It is recorded as an offline / admin-created appointment."
       />
 
@@ -121,7 +132,11 @@ export default function OfflineAppointmentNewPage() {
         className="mx-auto flex max-w-2xl flex-col gap-5"
         onSubmit={(e) => {
           e.preventDefault()
-          mutate()
+          const errors = {}
+          if (!form.stylist_id) errors.stylist_id = 'Select a stylist.'
+          if (!form.payment_method) errors.payment_method = 'Select a payment method.'
+          setLocalErrors(errors)
+          if (Object.keys(errors).length === 0) mutate()
         }}
       >
         <SectionCard title="Customer" bodyClassName="grid gap-4 sm:grid-cols-2">
@@ -183,12 +198,12 @@ export default function OfflineAppointmentNewPage() {
             </Field>
             <Field
               label="Stylist"
-              hint="Leave as “Any available” if not assigned"
-              error={fieldErrors.stylist_id}
+              required
+              error={localErrors.stylist_id || fieldErrors.stylist_id}
               reserveMessage
             >
               <Select value={form.stylist_id} onChange={(e) => set({ stylist_id: e.target.value })}>
-                <option value="">Any available stylist</option>
+                <option value="">Select a stylist</option>
                 {(stylists.data ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -263,28 +278,24 @@ export default function OfflineAppointmentNewPage() {
           </Field>
         </SectionCard>
 
-        <SectionCard title="Notes" bodyClassName="flex flex-col gap-4">
+        <SectionCard title="Payment">
           <Field
-            label="Customer message"
-            hint="Anything the customer asked for"
-            error={fieldErrors.message}
+            label="Payment method"
+            required
+            error={localErrors.payment_method || fieldErrors.payment_method}
           >
-            <Textarea
-              rows={2}
-              value={form.message}
-              onChange={(e) => set({ message: e.target.value })}
-            />
-          </Field>
-          <Field
-            label="Internal notes"
-            hint="Staff only — not shown to the customer"
-            error={fieldErrors.notes}
-          >
-            <Textarea
-              rows={2}
-              value={form.notes}
-              onChange={(e) => set({ notes: e.target.value })}
-            />
+            <div role="group" aria-label="Payment method" className="grid grid-cols-3 gap-2">
+              {PAYMENT_METHODS.map(([v, l]) => (
+                <ChipButton
+                  key={v}
+                  active={form.payment_method === v}
+                  className="min-h-10 justify-center text-sm"
+                  onClick={() => set({ payment_method: v })}
+                >
+                  {l}
+                </ChipButton>
+              ))}
+            </div>
           </Field>
         </SectionCard>
 
