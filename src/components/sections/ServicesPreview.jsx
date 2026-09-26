@@ -219,18 +219,30 @@ export default function ServicesPreview() {
               </Link>
             </div>
 
-            <ul className="mt-10 hidden grid-cols-1 gap-6 border-t border-line-strong pt-8 sm:grid sm:grid-cols-3 xl:mt-auto">
+            <ul className="mt-10 hidden border-t border-line-strong sm:block xl:mt-auto">
               {TRUST.map(({ icon: Icon, title, text, href, cta }) => (
-                <li key={title}>
-                  <span className="grid h-10 w-10 place-items-center rounded-full border border-line-strong text-ink">
-                    <Icon size={17} strokeWidth={1.75} aria-hidden="true" />
-                  </span>
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-ink">
-                    {title}
-                  </p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{text}</p>
-                  <a href={href} className="mt-2 inline-block text-xs font-semibold text-ink">
-                    {cta}
+                <li key={title} className="border-b border-line">
+                  <a
+                    href={href}
+                    className="group flex items-center gap-3 py-4 no-underline"
+                  >
+                    <Icon
+                      size={16}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                      className="shrink-0 text-muted transition-colors group-hover:text-ink"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-ink">
+                        {title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted">
+                        {text}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full border border-line-strong px-3.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-ink transition-colors duration-200 group-hover:border-ink group-hover:bg-ink group-hover:text-paper">
+                      {cta}
+                    </span>
                   </a>
                 </li>
               ))}
