@@ -33,10 +33,9 @@ import {
 } from '../components/ui'
 import { ImageInput } from '../components/ImageInput'
 
-// The homepage "Meet the team" section shows the first four visible stylists
-// (MeetTheTeam.jsx); the booking page lists every visible one that has services
-// and working hours set up (see the "Services & hours" page).
-const HOMEPAGE_SLOTS = 4
+// The homepage "Meet the team" section shows every visible stylist, in this
+// order (MeetTheTeam.jsx); the booking page lists every visible one that has
+// services and working hours set up (see the "Services & hours" page).
 
 const GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
 
@@ -86,7 +85,6 @@ export default function StylistsPage() {
   }
 
   const visible = ordered.filter((s) => s.status)
-  const homepageIds = new Set(visible.slice(0, HOMEPAGE_SLOTS).map((s) => s.id))
   const hiddenCount = ordered.length - visible.length
 
   const newButton = canManage && (
@@ -143,7 +141,7 @@ export default function StylistsPage() {
               <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
               <span>
                 {canManage && 'Use the arrows to change the order. '}
-                The first {HOMEPAGE_SLOTS} visible stylists appear on the homepage. Clients can book
+                Every visible stylist appears on the homepage. Clients can book
                 a visible stylist once you set their services and working hours.
               </span>
             </p>
@@ -156,7 +154,6 @@ export default function StylistsPage() {
                 stylist={s}
                 index={i}
                 count={ordered.length}
-                onHomepage={homepageIds.has(s.id)}
                 canManage={canManage}
                 busy={reorderMut.pending}
                 toggling={toggleMut.pending}
@@ -203,7 +200,6 @@ function StylistCard({
   stylist: s,
   index,
   count,
-  onHomepage,
   canManage,
   busy,
   toggling,
@@ -274,10 +270,8 @@ function StylistCard({
         <div className="flex flex-wrap gap-1.5">
           {!visible ? (
             <Pill tone="neutral">Hidden from site</Pill>
-          ) : onHomepage ? (
-            <Pill tone="ok">On homepage</Pill>
           ) : (
-            <Pill tone="info">Visible</Pill>
+            <Pill tone="ok">On homepage</Pill>
           )}
           {visible && !setupReady && <Pill tone="warn">Not bookable yet</Pill>}
         </div>

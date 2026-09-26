@@ -1,42 +1,30 @@
-import { useState } from 'react'
 import clsx from 'clsx'
 import Container from '../layout/Container'
 import { useStylists } from '../../context/StylistsContext'
 import { Skeleton } from '../StateViews'
 
 /**
- * Homepage "Meet the Team": an editorial header and a portrait line-up, built
- * entirely from `GET /api/stylists` — one large, prominent card beside
- * several narrower, taller cards for the rest (see
- * design-references/meet-our-team-ref.png). Every card shares one row height
- * on `sm`+ (set on the `<ul>`, not the individual photos); the image is
- * absolutely positioned to always fill that box exactly, whether the box's
- * height comes from the row's fixed height (desktop) or the card's own aspect
- * ratio (mobile stack) — the same pattern used by ServicesPreview's tiles, so
- * a differently-sized card never leaves bare background showing through.
+ * Homepage "Meet the Team": an editorial header and a portrait grid of every
+ * visible stylist from `GET /api/stylists`, in the admin's order. The grid is
+ * three columns on desktop (`lg`+), so extra stylists wrap onto new rows
+ * (4 → 3 + 1, 7 → 3 + 3 + 1, …) instead of squeezing every card narrower;
+ * two columns on `sm`, and a single stack below that. On `sm`+ every card
+ * shares one fixed height; the image is absolutely positioned to always fill
+ * that box exactly, whether the box's height comes from that fixed height or
+ * the card's own aspect ratio (mobile stack, where the first card is a
+ * taller portrait) — the same pattern used by ServicesPreview's tiles, so no
+ * bare background ever shows through.
  *
- * Desktop (`sm`+, `flex-row`): which card is large is driven by hover, not a
- * fixed index. Width is a `flex-grow` CSS variable (`--card-grow`) rather
- * than a swapped Tailwind class, so the browser smoothly interpolates the
- * width change (`transition-[flex-grow]`) instead of jump-cutting between
- * two fixed layouts — no reflow flicker. Hovering off any card reverts to
- * the first stylist as large again. Below `sm` the row becomes a vertical
- * stack (`flex-col`) where `flex-grow` has no free space to distribute, so
- * the same markup is inert there: touch devices simply get the static
- * first-large/rest-narrow layout, with no hover state to get stuck in and no
- * horizontal growth to overflow.
- *
- * Loading → portrait-shaped skeletons in the same large/narrow rhythm (no
- * photos/names rendered yet). Failed/empty roster → the section shows a quiet
+ * Loading → portrait-shaped skeletons in the same grid (no photos/names
+ * rendered yet). Failed/empty roster → the section shows a quiet
  * placeholder message rather than inventing team members; there is no static
  * "sample staff" fallback — a name and photo shown here always belongs to a
  * real stylist.
  */
 export default function MeetTheTeam() {
   const { stylists, loading, error } = useStylists()
-  const [hovered, setHovered] = useState(null)
 
-  const members = stylists.slice(0, 4).map((s) => ({
+  const members = stylists.map((s) => ({
     id: `stylist-${s.id}`,
     name: s.name,
     role: s.bio || '',
@@ -64,15 +52,14 @@ export default function MeetTheTeam() {
         {loading ? (
           <ul
             aria-hidden="true"
-            className="mt-12 flex flex-col gap-3 sm:mt-16 sm:h-[26rem] sm:flex-row sm:gap-4 lg:h-[30rem]"
+            className="mt-12 grid grid-cols-1 gap-3 sm:mt-16 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
           >
             {Array.from({ length: 3 }).map((_, i) => (
               <li
                 key={i}
                 className={clsx(
-                  i === 0
-                    ? 'aspect-[4/5] sm:aspect-auto sm:flex-[1.6]'
-                    : 'aspect-[16/10] sm:aspect-auto sm:flex-1',
+                  'sm:h-[26rem] lg:h-[30rem]',
+                  i === 0 ? 'aspect-[4/5] sm:aspect-auto' : 'aspect-[16/10] sm:aspect-auto',
                 )}
               >
                 <Skeleton className="h-full w-full rounded-2xl" />
@@ -86,17 +73,13 @@ export default function MeetTheTeam() {
               : 'Our team roster is being finalised — check back soon, or ask us in the studio.'}
           </p>
         ) : (
-          <ul className="mt-12 flex flex-col gap-3 sm:mt-16 sm:h-[26rem] sm:flex-row sm:gap-4 lg:h-[30rem]">
+          <ul className="mt-12 grid grid-cols-1 gap-3 sm:mt-16 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {members.map((member, i) => {
-              const active = (hovered ?? 0) === i
               return (
                 <li
                   key={member.id}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{ '--card-grow': active ? 1.6 : 1 }}
                   className={clsx(
-                    'group relative overflow-hidden cursor-pointer rounded-2xl border border-line bg-scrim sm:flex-[var(--card-grow)] sm:transition-[flex-grow] sm:duration-500 sm:ease-out',
+                    'group relative overflow-hidden cursor-pointer rounded-2xl border border-line bg-scrim sm:h-[26rem] lg:h-[30rem]',
                     i === 0
                       ? 'aspect-[4/5] sm:aspect-auto'
                       : 'aspect-[16/10] sm:aspect-auto',
