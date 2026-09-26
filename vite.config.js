@@ -156,7 +156,7 @@ export default defineConfig(({ mode }) => {
       // IPv6, artisan over IPv4) and removes CORS from local development.
       // Production builds don't run a dev server, so they're unaffected.
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'https://dkstylehub.com',
         changeOrigin: true,
       },
     },
