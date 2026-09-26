@@ -5,6 +5,7 @@ import CartLines from '../components/shop/CartLines'
 import { useCart } from '../context/CartContext'
 import { useCartPricing } from '../hooks/useCartPricing'
 import CartTotals from '../components/shop/CartTotals'
+import Seo from '../components/Seo'
 
 /**
  * Cart (/cart): normal products and combo selections with quantities,
@@ -18,7 +19,7 @@ export default function Cart() {
 
   return (
     <>
-      <title>Your Cart — DK StyleHub</title>
+      <Seo title="Your Cart — DK StyleHub" noindex />
 
       <div className="texture-lines">
         <Container className="section-y">

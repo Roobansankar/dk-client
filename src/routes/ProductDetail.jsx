@@ -11,6 +11,8 @@ import QuantityStepper from '../components/shop/QuantityStepper'
 import { useCart } from '../context/CartContext'
 import { clampQtyToStock, MAX_QUANTITY, productLine } from '../lib/cart'
 import { taxLabel, withTax } from '../lib/pricing'
+import Seo from '../components/Seo'
+import { absoluteUrl, breadcrumbSchema } from '../lib/seo'
 
 const PRODUCTS = '/products'
 const CONTACT = '/contact'
@@ -57,10 +59,11 @@ function DetailSkeleton() {
   )
 }
 
-function NotFound() {
+function NotFound({ loadFailed = false }) {
   return (
     <>
-      <title>Product not found — DK StyleHub</title>
+      {/* noindex only a genuine miss — never a page the API failed to load. */}
+      <Seo title="Product not found — DK StyleHub" noindex={!loadFailed} />
       <div className="texture-lines">
         <Container className="section-y">
           <p className="eyebrow">Not found</p>
@@ -94,7 +97,7 @@ function NotFound() {
  */
 export default function ProductDetail() {
   const { slug } = useParams()
-  const { items, loading } = useProductCatalogue()
+  const { items, loading, error } = useProductCatalogue()
   const navigate = useNavigate()
   const { add, setBuyNow, lines } = useCart()
   const [quantity, setQuantity] = useState(1)
@@ -134,7 +137,7 @@ export default function ProductDetail() {
     )
   }
 
-  if (!product) return <NotFound />
+  if (!product) return <NotFound loadFailed={Boolean(error)} />
 
   const onSale =
     product.price != null &&
@@ -178,10 +181,45 @@ export default function ProductDetail() {
 
   return (
     <>
-      <title>{`${product.name} — DK StyleHub`}</title>
-      <meta
-        name="description"
-        content={product.description || `${product.name} — from the DK StyleHub shelf.`}
+      <Seo
+        title={`${product.name} — DK StyleHub`}
+        // Very short admin descriptions make poor snippets — lead with the
+        // name and studio context instead.
+        description={
+          (product.description?.length ?? 0) >= 50
+            ? product.description
+            : `${product.name} — from the DK StyleHub shelf, the products we use in the studio in Coimbatore.${product.description ? ` ${product.description}` : ''}`
+        }
+        path={`/products/${product.slug}`}
+        type="product"
+        {...(product.image && { image: product.image, imageAlt: product.name })}
+        jsonLd={[
+          {
+            '@type': 'Product',
+            name: product.name,
+            url: absoluteUrl(`/products/${product.slug}`),
+            ...(product.description && { description: product.description }),
+            ...(product.image && { image: product.image }),
+            ...(product.price != null && {
+              offers: {
+                '@type': 'Offer',
+                url: absoluteUrl(`/products/${product.slug}`),
+                price: product.price,
+                priceCurrency: 'INR',
+                ...(stock != null && {
+                  availability: outOfStock
+                    ? 'https://schema.org/OutOfStock'
+                    : 'https://schema.org/InStock',
+                }),
+              },
+            }),
+          },
+          breadcrumbSchema([
+            { name: 'Home', path: '/' },
+            { name: 'Products', path: '/products' },
+            { name: product.name, path: `/products/${product.slug}` },
+          ]),
+        ]}
       />
 
       <div className="texture-lines">

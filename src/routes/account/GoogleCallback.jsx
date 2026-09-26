@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import AuthCard from '../../components/account/AuthCard'
 import { useAuth } from '../../context/AuthContext'
+import Seo from '../../components/Seo'
 
 /**
  * Lands here after the full-page round trip to Google and back
@@ -39,8 +40,11 @@ export default function GoogleCallback() {
   if (done) return <Navigate to={redirectTo} replace />
 
   return (
-    <AuthCard eyebrow="Account" title="Signing you in…">
-      <p className="text-center text-ink-soft">One moment while we finish signing you in.</p>
-    </AuthCard>
+    <>
+      <Seo title="Signing in — DK StyleHub" noindex />
+      <AuthCard eyebrow="Account" title="Signing you in…">
+        <p className="text-center text-ink-soft">One moment while we finish signing you in.</p>
+      </AuthCard>
+    </>
   )
 }

@@ -22,7 +22,7 @@ import {
   TextInput,
   Toolbar,
 } from '../components/ui'
-import { formatDate, formatDateTime } from '../lib/format'
+import { formatDate, formatDateTime, formatTime } from '../lib/format'
 
 const STATUSES = ['confirmed', 'completed', 'cancelled']
 const cap = (s) => s[0].toUpperCase() + s.slice(1)
@@ -173,7 +173,12 @@ export default function AppointmentHistoryPage() {
       header: 'Appointment',
       cell: (r) => (
         <div className="whitespace-nowrap text-xs text-[var(--color-muted)]">
-          <p className="text-sm text-[var(--color-ink-soft)]">{formatDate(r.appointment_date)}</p>
+          <p className="text-sm font-medium text-[var(--color-ink)]">
+            {r.appointment_end_time
+              ? `${formatTime(r.appointment_time)} – ${formatTime(r.appointment_end_time)}`
+              : formatTime(r.appointment_time)}
+          </p>
+          <p>{formatDate(r.appointment_date)}</p>
           <p>created {formatDateTime(r.created_at)}</p>
         </div>
       ),

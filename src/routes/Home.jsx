@@ -7,6 +7,9 @@ import ProductShowcase from '../components/sections/ProductShowcase'
 import VideoMarquee from '../components/sections/VideoMarquee'
 import CustomerReviews from '../components/sections/CustomerReviews'
 import FooterCta from '../components/sections/FooterCta'
+import Seo from '../components/Seo'
+import { useSite } from '../context/SiteContext'
+import { SALON_ID, SITE_NAME, SITE_URL, WEBSITE_ID, salonSchema } from '../lib/seo'
 
 /**
  * Homepage. Fixed section order:
@@ -23,12 +26,25 @@ import FooterCta from '../components/sections/FooterCta'
  * `/gallery` route (linked from the navbar).
  */
 export default function Home() {
+  const site = useSite()
+
   return (
     <div className="home-page">
-      <title>DK StyleHub</title>
-      <meta
-        name="description"
-        content="DK StyleHub — a premium unisex beauty and styling studio."
+      <Seo
+        title="DK StyleHub — Premium Unisex Salon in Coimbatore"
+        description="DK StyleHub is a premium unisex beauty and styling studio in Coimbatore — hair, colour, skin and massage for everyone. Book your appointment online."
+        path="/"
+        jsonLd={[
+          salonSchema(site),
+          {
+            '@type': 'WebSite',
+            '@id': WEBSITE_ID,
+            name: SITE_NAME,
+            url: `${SITE_URL}/`,
+            inLanguage: 'en-IN',
+            publisher: { '@id': SALON_ID },
+          },
+        ]}
       />
 
       <Hero />

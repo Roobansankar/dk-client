@@ -6,6 +6,7 @@ import { Skeleton, StatusLine } from '../components/StateViews'
 import GalleryWheel from '../components/gallery/GalleryWheel'
 import GalleryMasonry from '../components/gallery/GalleryMasonry'
 import Lightbox from '../components/gallery/Lightbox'
+import Seo from '../components/Seo'
 
 // The bundled sample set, normalised to the `{ id, src, alt }` shape the
 // sections render. Used when the live feed's images can't be displayed.
@@ -62,10 +63,10 @@ export default function Gallery() {
 
   return (
     <>
-      <title>Gallery — DK StyleHub</title>
-      <meta
-        name="description"
-        content="Gallery — DK StyleHub, a premium unisex beauty and styling studio."
+      <Seo
+        title="Gallery — Inside DK StyleHub Salon, Coimbatore"
+        description="Photos from DK StyleHub in Coimbatore — cuts, colour and styling, and the studio space itself."
+        path="/gallery"
       />
 
       {loading ? (

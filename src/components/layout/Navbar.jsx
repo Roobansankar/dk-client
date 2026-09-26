@@ -9,8 +9,8 @@ import SearchOverlay from './SearchOverlay'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { scrollTopInstant } from '../../lib/scroll'
-import logoDark from '../../assets/images/Black-logo.webp'
-import logoLight from '../../assets/images/White-logo.png'
+import logoDark from '../../assets/images/Black-logo-384.webp'
+import logoLight from '../../assets/images/White-logo-384.webp'
 
 /**
  * Primary navigation.
@@ -189,11 +189,15 @@ export default function Navbar() {
   <img
     src={logoDark}
     alt="DK StyleHub"
+    width={384}
+    height={256}
     className={clsx('h-10 w-auto object-contain md:h-12 dark:hidden', onDark && 'lg:hidden')}
   />
   <img
     src={logoLight}
     alt="DK StyleHub"
+    width={384}
+    height={256}
     className={clsx('hidden h-10 w-auto object-contain md:h-12 dark:block', onDark && 'lg:block')}
   />
 </Link>
@@ -380,11 +384,15 @@ export default function Navbar() {
   <img
     src={logoDark}
     alt="DK StyleHub"
+    width={384}
+    height={256}
     className="h-9 w-auto object-contain dark:hidden"
   />
   <img
     src={logoLight}
     alt="DK StyleHub"
+    width={384}
+    height={256}
     className="hidden h-9 w-auto object-contain dark:block"
   />
 </Link>

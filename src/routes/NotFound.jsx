@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
 import Container from '../components/layout/Container'
+import Seo from '../components/Seo'
 
 export default function NotFound() {
   return (
     <>
-      <title>Page not found — DK StyleHub</title>
+      <Seo title="Page not found — DK StyleHub" noindex />
 
       <Container className="section-y">
         <p className="eyebrow">Error 404</p>

@@ -10,6 +10,8 @@ import { useCart } from '../context/CartContext'
 import { clampQtyToStock, MAX_QUANTITY, comboLine } from '../lib/cart'
 import { comboBasePrice, taxLabel, withTax } from '../lib/pricing'
 import { formatInr } from '../data/services'
+import Seo from '../components/Seo'
+import { breadcrumbSchema } from '../lib/seo'
 
 const PRODUCTS = '/products'
 const CONTACT = '/contact'
@@ -44,10 +46,11 @@ function DetailSkeleton() {
   )
 }
 
-function NotFound() {
+function NotFound({ loadFailed = false }) {
   return (
     <>
-      <title>Combo not found — DK StyleHub</title>
+      {/* noindex only a genuine miss — never a page the API failed to load. */}
+      <Seo title="Combo not found — DK StyleHub" noindex={!loadFailed} />
       <div className="texture-lines">
         <Container className="section-y">
           <p className="eyebrow">Not found</p>
@@ -80,7 +83,7 @@ function NotFound() {
  */
 export default function ComboDetail() {
   const { slug } = useParams()
-  const { combos, loading } = useCombos()
+  const { combos, loading, error } = useCombos()
   const navigate = useNavigate()
   const { add, setBuyNow } = useCart()
   const uid = useId()
@@ -130,7 +133,7 @@ export default function ComboDetail() {
     )
   }
 
-  if (!combo) return <NotFound />
+  if (!combo) return <NotFound loadFailed={Boolean(error)} />
 
   const chosen = selectable.filter((item) => selection.has(item.productId))
   const empty = chosen.length === 0
@@ -174,10 +177,20 @@ export default function ComboDetail() {
 
   return (
     <>
-      <title>{`${combo.name} — DK StyleHub`}</title>
-      <meta
-        name="description"
-        content={combo.description || `${combo.name} — a DK StyleHub combo.`}
+      <Seo
+        title={`${combo.name} — DK StyleHub Combo`}
+        description={
+          (combo.description?.length ?? 0) >= 50
+            ? combo.description
+            : `${combo.name} — a DK StyleHub product combo, picked from the products we use in the studio.${combo.description ? ` ${combo.description}` : ''}`
+        }
+        path={`/combos/${combo.slug}`}
+        {...(combo.image && { image: combo.image, imageAlt: combo.name })}
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Products', path: '/products' },
+          { name: combo.name, path: `/combos/${combo.slug}` },
+        ])}
       />
 
       <div className="texture-lines">

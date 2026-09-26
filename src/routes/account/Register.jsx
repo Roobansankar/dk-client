@@ -5,6 +5,7 @@ import AuthCard from '../../components/account/AuthCard'
 import GoogleButton from '../../components/account/GoogleButton'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../lib/api'
+import Seo from '../../components/Seo'
 
 const FIELD =
   'mt-2 w-full rounded-sm border border-line-strong bg-paper px-3.5 py-2.5 text-ink transition-colors focus-visible:border-ink disabled:cursor-not-allowed disabled:text-muted'
@@ -59,8 +60,7 @@ export default function Register() {
 
   return (
     <>
-      <title>Create Account — DK StyleHub</title>
-      <meta name="description" content="Create a DK StyleHub account." />
+      <Seo title="Create Account — DK StyleHub" description="Create a DK StyleHub account." noindex />
 
       <AuthCard
         eyebrow="Account"

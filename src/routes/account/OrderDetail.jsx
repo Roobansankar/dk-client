@@ -10,6 +10,7 @@ import {
 import { Skeleton } from '../../components/StateViews'
 import { useApiResource } from '../../hooks/useApi'
 import { formatInr } from '../../data/services'
+import Seo from '../../components/Seo'
 
 /** One of the customer's own orders (GET /account/orders/{id}; 404 for anyone else's). */
 export default function OrderDetail() {
@@ -18,7 +19,7 @@ export default function OrderDetail() {
 
   return (
     <>
-      <title>{order ? `Order ${order.order_number} — DK StyleHub` : 'Order — DK StyleHub'}</title>
+      <Seo title={order ? `Order ${order.order_number} — DK StyleHub` : 'Order — DK StyleHub'} noindex />
 
       <div className="border-t border-line bg-surface">
         <Container className="section-y">

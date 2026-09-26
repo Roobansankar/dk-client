@@ -634,8 +634,8 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
             <span className="text-sm text-[var(--color-ink-soft)]">
               Featured product
               <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
-                Highlighted on the Products page. Only one product can be featured — turning
-                this on removes it from any other product.
+                Highlighted on the Products page. Up to 3 products can be featured — turning
+                this on for a 4th removes the one featured longest ago.
               </span>
             </span>
             <Toggle

@@ -21,6 +21,7 @@ import { formatDuration, formatPrice } from '../lib/format'
 
 const STATUSES = ['confirmed', 'completed', 'cancelled']
 const PAYMENT_STATUSES = [
+  ['unpaid', 'Unpaid'],
   ['advance_paid', 'Advance paid'],
   ['paid', 'Paid in full'],
 ]
@@ -111,7 +112,8 @@ export default function OfflineAppointmentNewPage() {
         appointment_time: form.appointment_time,
         status: form.status,
         payment_status: form.payment_status,
-        payment_method: form.payment_method,
+        // Nothing collected yet → no payment method to record.
+        payment_method: form.payment_status === 'unpaid' ? null : form.payment_method,
       }),
     {
       successMessage: 'Offline appointment created.',
@@ -142,7 +144,7 @@ export default function OfflineAppointmentNewPage() {
           e.preventDefault()
           const errors = {}
           if (!form.stylist_id) errors.stylist_id = 'Select a stylist.'
-          if (!form.payment_method) errors.payment_method = 'Select a payment method.'
+          if (form.payment_status !== 'unpaid' && !form.payment_method) errors.payment_method = 'Select a payment method.'
           setLocalErrors(errors)
           if (Object.keys(errors).length === 0) mutate()
         }}
@@ -279,7 +281,7 @@ export default function OfflineAppointmentNewPage() {
         <SectionCard title="Payment">
           <Field
             label="Payment method"
-            required
+            required={form.payment_status !== 'unpaid'}
             error={localErrors.payment_method || fieldErrors.payment_method}
           >
             <div role="group" aria-label="Payment method" className="grid grid-cols-3 gap-2">

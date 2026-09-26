@@ -107,7 +107,7 @@ export default function PaymentsPage() {
           date_from: params.date_from,
           date_to: params.date_to,
         },
-        `dk-stylehub-payments-${new Date().toISOString().slice(0, 10)}.pdf`,
+        `dk-stylehub-payments-${new Date().toISOString().slice(0, 10)}.xlsx`,
       ),
     { successMessage: 'Report downloaded.' },
   )
@@ -198,7 +198,7 @@ export default function PaymentsPage() {
             disabled={!data?.length}
             onClick={() => exportMut.mutate()}
           >
-            <Download size={15} /> Download PDF
+            <Download size={15} /> Download Excel
           </Button>
         )}
       </PageHeader>

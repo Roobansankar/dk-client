@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+// Drop index.html's static SEO defaults (kept for non-JS crawlers/link
+// previews) so each route's own <Seo> tags are the only ones in <head>.
+document.querySelectorAll('head [data-seo-default]').forEach((node) => node.remove())
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

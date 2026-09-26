@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../components/layout/Container'
 import SegmentedFilter from '../components/ui/SegmentedFilter'
@@ -19,8 +19,10 @@ import {
   productAudiences,
   rangeLabel,
 } from '../data/products'
-import quoteImage from '../assets/images/product-banner.webp'
+import quoteImage from '../assets/images/product-banner-2560.webp'
 import closingImage from '../assets/images/product-cta.webp'
+import Seo from '../components/Seo'
+import { assetUrl, absoluteUrl, breadcrumbSchema } from '../lib/seo'
 
 const CONTACT = '/contact'
 
@@ -152,7 +154,10 @@ function CombosSection() {
 }
 
 /* -- Featured product moment ------------------------------------------- */
-function FeaturedProduct({ product }) {
+const CAROUSEL_ARROW =
+  'grid h-11 w-11 place-items-center rounded-full border border-accent/40 bg-white text-[#201e1b] transition-opacity disabled:cursor-not-allowed disabled:opacity-40'
+
+function FeaturedProduct({ product, onPrev, onNext, atStart = true, atEnd = true }) {
   const onSale =
     product.price != null &&
     product.mrp != null &&
@@ -172,15 +177,40 @@ function FeaturedProduct({ product }) {
             <ProductImage
               src={product.image}
               alt={product.name}
-              ratio="aspect-[4/5] sm:aspect-[5/4]"
+              ratio="aspect-[4/3]"
               imgClassName={ZOOM}
             />
           </figure>
 
           <div className="lg:col-span-5 lg:col-start-8">
-            <p className="text-[0.62rem] font-medium uppercase tracking-[0.24em] text-accent">
-              Featured
-            </p>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[0.62rem] font-medium uppercase tracking-[0.24em] text-accent">
+                Featured
+              </p>
+              {/* Only when more than one product is featured. */}
+              {onPrev && onNext && (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    aria-label="Previous featured product"
+                    onClick={onPrev}
+                    disabled={atStart}
+                    className={CAROUSEL_ARROW}
+                  >
+                    <ChevronLeft size={18} strokeWidth={1.5} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next featured product"
+                    onClick={onNext}
+                    disabled={atEnd}
+                    className={CAROUSEL_ARROW}
+                  >
+                    <ChevronRight size={18} strokeWidth={1.5} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
             {meta && (
               <p className="mt-4 text-[0.62rem] font-medium uppercase tracking-[0.16em] text-muted">
                 {meta}
@@ -227,6 +257,28 @@ function FeaturedProduct({ product }) {
         </div>
       </Container>
     </div>
+  )
+}
+
+/**
+ * Featured product moment, one product at a time. With more than one
+ * featured product the arrows step through them; any number is supported.
+ */
+function FeaturedCarousel({ products }) {
+  const [index, setIndex] = useState(0)
+  // The featured list can shrink (filters, refetch) — keep the index in range.
+  const current = Math.min(index, products.length - 1)
+  const multiple = products.length > 1
+
+  return (
+    <FeaturedProduct
+      key={products[current].id}
+      product={products[current]}
+      onPrev={multiple ? () => setIndex(Math.max(0, current - 1)) : undefined}
+      onNext={multiple ? () => setIndex(Math.min(products.length - 1, current + 1)) : undefined}
+      atStart={current === 0}
+      atEnd={current === products.length - 1}
+    />
   )
 }
 
@@ -297,15 +349,14 @@ export default function Products() {
       .filter((g) => g.items.length)
   }, [visible])
 
-  // The "featured product moment" shows the one product an admin has flagged
-  // `is_featured` (exactly one is enforced server-side). Nothing is featured →
-  // the section is simply omitted. Prefer the flagged product that has a photo,
-  // but still honour the flag if it has none.
+  // The "featured product moment" shows every product an admin has flagged
+  // `is_featured` (at most 3 are enforced server-side) as a carousel. Nothing
+  // is featured → the section is simply omitted. Photographed products lead.
   const featured = useMemo(
-    () =>
-      visible.find((p) => p.featured && p.image) ||
-      visible.find((p) => p.featured) ||
-      null,
+    () => [
+      ...visible.filter((p) => p.featured && p.image),
+      ...visible.filter((p) => p.featured && !p.image),
+    ],
     [visible],
   )
 
@@ -316,10 +367,28 @@ export default function Products() {
 
   return (
     <>
-      <title>Products — DK StyleHub</title>
-      <meta
-        name="description"
-        content="The DK StyleHub retail shelf — the care and styling products we use in the studio and recommend for home."
+      <Seo
+        title="Salon Care & Styling Products — DK StyleHub, Coimbatore"
+        description="The DK StyleHub retail shelf — the care and styling products we use in the studio in Coimbatore and recommend for home."
+        path="/products"
+        image={assetUrl(quoteImage)}
+        imageAlt="The DK StyleHub studio floor — styling stations in warm daylight"
+        jsonLd={[
+          items.length > 0 && {
+            '@type': 'ItemList',
+            name: 'DK StyleHub products',
+            itemListElement: items.map((item, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              name: item.name,
+              url: absoluteUrl(`/products/${item.slug}`),
+            })),
+          },
+          breadcrumbSchema([
+            { name: 'Home', path: '/' },
+            { name: 'Products', path: '/products' },
+          ]),
+        ]}
       />
 
       {/* 1 — Campaign hero: full-bleed photograph, oversized display type */}
@@ -476,7 +545,7 @@ export default function Products() {
       </div>
 
       {/* 5 — Featured product moment (only when a product has photography) */}
-      {!loading && featured && <FeaturedProduct product={featured} />}
+      {!loading && featured.length > 0 && <FeaturedCarousel products={featured} />}
 
       {/* 6 — Closing spread: the last page of the lookbook */}
       <section className="relative -mb-px overflow-hidden border-t border-line bg-scrim text-white">

@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import AuthCard from '../../components/account/AuthCard'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError } from '../../lib/api'
+import Seo from '../../components/Seo'
 
 const FIELD =
   'mt-2 w-full rounded-sm border border-line-strong bg-paper px-3.5 py-2.5 text-ink transition-colors focus-visible:border-ink disabled:cursor-not-allowed disabled:text-muted'
@@ -43,8 +44,7 @@ export default function ForgotPassword() {
 
   return (
     <>
-      <title>Forgot Password — DK StyleHub</title>
-      <meta name="description" content="Reset your DK StyleHub account password." />
+      <Seo title="Forgot Password — DK StyleHub" description="Reset your DK StyleHub account password." noindex />
 
       <AuthCard
         eyebrow="Account"
