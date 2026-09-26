@@ -28,7 +28,7 @@ import {
 import { ImageGalleryInput } from '../components/ImageGalleryInput'
 import { appendGalleryFields, galleryError, galleryFromServer } from '../lib/gallery'
 import { formatMoney as money } from '../lib/format'
-import { withTax } from '../../lib/pricing'
+import { taxIncluded } from '../../lib/pricing'
 
 /**
  * Admin → Combos (/api/admin/combos).
@@ -39,7 +39,7 @@ import { withTax } from '../../lib/pricing'
  * - Proper subset → sum of selected combo prices.
  * - Complete set → configured bundle price, when present.
  *
- * The combo's tax % is added on top of either amount at checkout.
+ * The combo's tax % is already inside either amount — nothing is added at checkout.
  */
 
 const num = (v) => (v == null || v === '' ? 0 : Number(v))
@@ -50,7 +50,7 @@ const itemsOf = (c) => c.items ?? []
 const itemsTotal = (c) => itemsOf(c).reduce((sum, i) => sum + num(i.price), 0)
 const unavailableOf = (c) => itemsOf(c).filter((i) => !i.available)
 const hasIssue = (c) => unavailableOf(c).length > 0
-/** The price a customer pays for the whole combo, before tax. */
+/** The price a customer pays for the whole combo (tax included). */
 const wholePrice = (c) => (c.bundle_price != null ? num(c.bundle_price) : itemsTotal(c))
 
 const VISIBILITY_OPTIONS = [
@@ -215,7 +215,7 @@ export default function CombosPage() {
             </p>
             <p className="whitespace-nowrap text-xs text-[var(--color-muted)]">
               {hasTax
-                ? `${money(withTax(wholePrice(c), c.tax_percent).total)} incl. tax`
+                ? 'incl. tax'
                 : hasSet
                   ? `Items total ${money(itemsTotal(c))}`
                   : 'No complete-set price'}
@@ -531,10 +531,10 @@ function ComboProducts({ combo }) {
           {hasTax && (
             <tr className="border-t border-[var(--color-line)]">
               <td className={foot}>
-                Customer pays for the whole combo (incl. {taxText(combo.tax_percent)} tax)
+                Tax included in the whole combo ({taxText(combo.tax_percent)})
               </td>
-              <td className={cn(foot, 'text-right font-semibold text-[var(--color-ink)]')}>
-                {money(withTax(wholePrice(combo), combo.tax_percent).total)}
+              <td className={cn(foot, 'text-right font-medium')}>
+                {money(taxIncluded(wholePrice(combo), combo.tax_percent).tax)}
               </td>
               <td />
             </tr>
@@ -614,8 +614,8 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
   const bundleNum = form.bundlePrice === '' ? null : Number(form.bundlePrice)
   const taxNum = form.taxPercent === '' ? 0 : Number(form.taxPercent)
   const taxOk = !Number.isNaN(taxNum) && taxNum >= 0 && taxNum <= 100
-  const wholeBase = bundleNum != null && !Number.isNaN(bundleNum) ? bundleNum : itemsSum
-  const wholeWithTax = taxOk ? withTax(wholeBase, taxNum) : null
+  const wholeAmount = bundleNum != null && !Number.isNaN(bundleNum) ? bundleNum : itemsSum
+  const wholeSplit = taxOk ? taxIncluded(wholeAmount, taxNum) : null
   const saving = bundleNum != null && !Number.isNaN(bundleNum) ? itemsSum - bundleNum : 0
 
   const { mutate, pending, fieldErrors } = useMutation(
@@ -745,7 +745,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
 
         <FormSection
           title="Included products & combo prices"
-          hint="Set each product's price when bought as part of this combo. A customer who picks only some products pays the sum of those prices."
+          hint="Set each product's price (tax included) when bought as part of this combo. A customer who picks only some products pays the sum of those prices."
         >
           {items.length > 0 && (
             <ul className="divide-y divide-[var(--color-line)] rounded-[var(--radius-md)] border border-[var(--color-line)]">
@@ -875,7 +875,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
             label="Complete set price"
             htmlFor="combo-bundle-price"
             error={fieldErrors.bundle_price}
-            hint="Charged when the customer selects every product in this combo. Leave empty to use the individual combo prices."
+            hint="Charged (tax included) when the customer selects every product in this combo. Leave empty to use the individual combo prices."
           >
             <div className="flex items-center gap-1.5">
               <span className="text-sm text-[var(--color-muted)]">₹</span>
@@ -901,7 +901,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
             label="Taxes (%)"
             htmlFor="combo-tax"
             error={fieldErrors.tax_percent}
-            hint="Added on top of the complete-set price or the selected combo prices at checkout."
+            hint="Already included in the complete-set price and the combo prices — not added on top at checkout."
             className="sm:w-1/2"
           >
             <TextInput
@@ -918,16 +918,14 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
             />
           </Field>
 
-          {pricesFilled && wholeWithTax && (
+          {pricesFilled && wholeSplit && (
             <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs tabular-nums text-[var(--color-ink-soft)]">
               <p>
                 Whole combo: customer pays{' '}
                 <strong className="font-semibold text-[var(--color-ink)]">
-                  {money(wholeWithTax.total)}
+                  {money(wholeSplit.total)}
                 </strong>
-                {Number(taxNum) > 0 && (
-                  <> = {money(wholeWithTax.base)} + {money(wholeWithTax.tax)} tax</>
-                )}
+                {Number(taxNum) > 0 && <> · includes {money(wholeSplit.tax)} tax</>}
               </p>
               <p className="mt-0.5 text-[var(--color-muted)]">
                 Products add up to {money(itemsSum)} at their combo prices

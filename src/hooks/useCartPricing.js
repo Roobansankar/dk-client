@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useProductCatalogue } from '../context/ProductsContext'
 import { useCombos } from './useCombos'
-import { comboBasePrice, withTax } from '../lib/pricing'
+import { comboBasePrice, taxIncluded } from '../lib/pricing'
 
 /**
  * Resolve cart/buy-now lines against the live public catalogue for DISPLAY:
@@ -9,12 +9,14 @@ import { comboBasePrice, withTax } from '../lib/pricing'
  * inactive/removed, combo withdrawn, a selected combo product unavailable).
  *
  * Unit prices include tax, exactly as POST /api/checkout charges them:
- * - Product → selling price + product tax %.
- * - Combo, complete set + bundle price configured → bundle price + combo tax %.
- * - Combo, proper subset → sum of selected combo-specific prices + combo tax %.
+ * - Product → the selling price; its tax % is already inside it (nothing added).
+ * - Combo, complete set + bundle price configured → the bundle price.
+ * - Combo, proper subset → the sum of the selected combo-specific prices.
+ *   (A combo's tax % is likewise already inside those prices.)
  *
- * Each priced line also carries `unitBase` / `unitTax` (pre-tax and tax per
- * unit) so the summary can show subtotal, taxes and total separately.
+ * Each priced line also carries `unitBase` / `unitTax` (the tax-free part and
+ * the tax part of the unit price) so the summary can say how much tax the
+ * total includes.
  *
  * Nothing here is sent to the backend — POST /api/checkout prices every line
  * itself and rejects anything unavailable.
@@ -67,7 +69,7 @@ export function useCartPricing(lines) {
           }
         }
         if (stock != null && line.quantity > stock) {
-          const unitOver = withTax(product.sellingPrice, product.taxPercent)
+          const unitOver = taxIncluded(product.sellingPrice, product.taxPercent)
           return {
             ...line,
             name: product.name,
@@ -80,7 +82,7 @@ export function useCartPricing(lines) {
           }
         }
 
-        const unit = withTax(product.sellingPrice, product.taxPercent)
+        const unit = taxIncluded(product.sellingPrice, product.taxPercent)
 
         return {
           ...line,
@@ -136,7 +138,7 @@ export function useCartPricing(lines) {
         }
       }
 
-      const unit = withTax(comboBasePrice(combo, selected), combo.taxPercent)
+      const unit = taxIncluded(comboBasePrice(combo, selected), combo.taxPercent)
 
       // Every selected product consumes `quantity` units — the scarcest one caps it.
       const knownStocks = selected
@@ -194,7 +196,8 @@ export function useCartPricing(lines) {
         : null
 
     // `subtotal` is the tax-inclusive amount charged at checkout (kept under
-    // this name for existing callers); `baseSubtotal` + `taxTotal` break it down.
+    // this name for existing callers); `baseSubtotal` + `taxTotal` split it
+    // into its tax-free part and the tax it includes.
     const subtotal = sum('unitPrice')
 
     return {

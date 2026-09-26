@@ -1,7 +1,6 @@
 import { useApiResource } from './useApi'
 import { resolveMediaUrl } from '../lib/env'
 import { photosOf } from '../lib/photos'
-import { withTax } from '../lib/pricing'
 
 /**
  * Retail range for the /products page, from `GET /api/products` (active
@@ -9,17 +8,18 @@ import { withTax } from '../lib/pricing'
  * unavailable or empty — callers render their own loading/error/empty state
  * from `loading`/`error`/`items.length` (see Products.jsx, ProductShowcase.jsx).
  *
-  * Normalised to:
-  *   { id, slug, name, category?, size?, family?, description, blurb, info?,
-  *     image, images, mrp, sellingPrice, taxPercent, price, stock, gstInclusive, range?, audience? }
-  *
-  * `image` is the cover; `images` is every photo (up to four) in the order the
-  * detail page shows them.
-  *
-  * `stock` is the live `stock_quantity` from the API (units available).
+ * Normalised to:
+ *   { id, slug, name, category?, size?, family?, description, blurb, info?,
+ *     image, images, mrp, sellingPrice, taxPercent, price, stock, gstInclusive, range?, audience? }
  *
- * `sellingPrice` is the pre-tax selling price; `price` is what the customer
- * pays per unit (selling price + product tax %), matching checkout.
+ * `image` is the cover; `images` is every photo (up to four) in the order the
+ * detail page shows them.
+ *
+ * `stock` is the live `stock_quantity` from the API (units available).
+ *
+ * `sellingPrice` and `price` are the same amount: what the customer pays per
+ * unit, matching checkout. The product's tax % (`taxPercent`) is the tax already
+ * inside that price, not something added on top.
  *
  * `size` is parsed from a trailing "— 250 ml" in the name when present, and
  * `family` groups the size variants of one product; both degrade to
@@ -79,10 +79,7 @@ function transform(rows) {
       mrp: row.mrp ?? null,
       sellingPrice: row.selling_price ?? null,
       taxPercent: Number(row.tax_percent ?? 0),
-      price:
-        row.selling_price == null
-          ? null
-          : withTax(row.selling_price, row.tax_percent).total,
+      price: row.selling_price ?? null,
       gstInclusive: row.gst_inclusive ?? null,
       stock: row.stock_quantity == null ? null : Number(row.stock_quantity),
       featured: Boolean(row.is_featured),

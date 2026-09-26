@@ -7,16 +7,16 @@ import QuantityStepper from './QuantityStepper'
 import { useCart } from '../../context/CartContext'
 import { clampQtyToStock, MAX_QUANTITY, comboLine } from '../../lib/cart'
 import { formatInr } from '../../data/services'
-import { comboBasePrice, taxLabel, withTax } from '../../lib/pricing'
+import { comboBasePrice, taxIncluded, taxLabel } from '../../lib/pricing'
 
 /**
  * One combo product: its included products with their combo-specific
  * prices, a checkbox per product (any non-empty subset may be bought),
  * a quantity, the display subtotal, and Add to Cart / Buy Now.
  *
- * Pricing display (combo tax % is added on top, as at checkout):
- * - Complete set selected + bundle price configured → bundle price + tax.
- * - Proper subset selected → sum of selected combo-specific prices + tax.
+ * Pricing display (the combo's tax % is already inside the price, as at checkout):
+ * - Complete set selected + bundle price configured → the bundle price.
+ * - Proper subset selected → the sum of the selected combo-specific prices.
  *
  * The displayed amount is informational only. The backend recalculates
  * the authoritative price at checkout.
@@ -41,7 +41,7 @@ export default function ComboCard({ combo }) {
 
   const allProductsSelected =
     chosen.length === combo.items.length && combo.items.length > 0
-  const unit = withTax(comboBasePrice(combo, chosen), combo.taxPercent)
+  const unit = taxIncluded(comboBasePrice(combo, chosen), combo.taxPercent)
   const tax = taxLabel(combo.taxPercent)
 
   const empty = chosen.length === 0
@@ -244,8 +244,7 @@ export default function ComboCard({ combo }) {
 
             {tax && !empty && (
               <p className="mt-0.5 text-xs tabular-nums text-muted">
-                {formatInr(unit.base * clampedQty)} + {tax}{' '}
-                ({formatInr(unit.tax * clampedQty)})
+                Incl. {tax} ({formatInr(unit.tax * clampedQty)})
               </p>
             )}
 

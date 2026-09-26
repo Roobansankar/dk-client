@@ -9,7 +9,7 @@ import QuantityStepper from '../components/shop/QuantityStepper'
 import { useCombos } from '../hooks/useCombos'
 import { useCart } from '../context/CartContext'
 import { clampQtyToStock, MAX_QUANTITY, comboLine } from '../lib/cart'
-import { comboBasePrice, taxLabel, withTax } from '../lib/pricing'
+import { comboBasePrice, taxIncluded, taxLabel } from '../lib/pricing'
 import { formatInr } from '../data/services'
 import Seo from '../components/Seo'
 import { breadcrumbSchema } from '../lib/seo'
@@ -141,9 +141,8 @@ export default function ComboDetail() {
   const allSelected = chosen.length === combo.items.length && combo.items.length > 0
   const completeSet = allSelected && combo.bundlePrice != null
 
-  const unit = withTax(comboBasePrice(combo, chosen), combo.taxPercent)
-  const breakdown =
-    combo.taxPercent > 0 ? withTax(comboBasePrice(combo, chosen), combo.taxPercent) : null
+  const unit = taxIncluded(comboBasePrice(combo, chosen), combo.taxPercent)
+  const breakdown = combo.taxPercent > 0 ? unit : null
   const tax = taxLabel(combo.taxPercent)
 
   // Every chosen product consumes `quantity` units — the scarcest caps it.
@@ -242,8 +241,7 @@ export default function ComboDetail() {
                 )}
                 {breakdown && !empty && (
                   <p className="mt-1.5 text-[0.68rem] uppercase tracking-[0.14em] tabular-nums text-muted">
-                    {formatInr(breakdown.base * clampedQty)} + {tax} (
-                    {formatInr(breakdown.tax * clampedQty)})
+                    Incl. {tax} ({formatInr(breakdown.tax * clampedQty)})
                   </p>
                 )}
               </div>

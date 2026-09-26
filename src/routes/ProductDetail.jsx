@@ -11,7 +11,7 @@ import { formatInr } from '../data/services'
 import QuantityStepper from '../components/shop/QuantityStepper'
 import { useCart } from '../context/CartContext'
 import { clampQtyToStock, MAX_QUANTITY, productLine } from '../lib/cart'
-import { taxLabel, withTax } from '../lib/pricing'
+import { taxIncluded, taxLabel } from '../lib/pricing'
 import Seo from '../components/Seo'
 import { absoluteUrl, breadcrumbSchema } from '../lib/seo'
 
@@ -165,7 +165,7 @@ export default function ProductDetail() {
   const tax = taxLabel(product.taxPercent)
   const breakdown =
     tax && product.sellingPrice != null
-      ? withTax(product.sellingPrice, product.taxPercent)
+      ? taxIncluded(product.sellingPrice, product.taxPercent)
       : null
   const title = baseName(product)
 
@@ -299,7 +299,7 @@ export default function ProductDetail() {
                 )}
                 {breakdown && (
                   <p className="mt-1.5 text-[0.68rem] uppercase tracking-[0.14em] tabular-nums text-muted">
-                    {formatInr(breakdown.base)} + {tax} ({formatInr(breakdown.tax)})
+                    Incl. {tax} ({formatInr(breakdown.tax)})
                   </p>
                 )}
               </div>

@@ -28,7 +28,7 @@ import {
 import { ImageGalleryInput } from '../components/ImageGalleryInput'
 import { appendGalleryFields, galleryError, galleryFromServer } from '../lib/gallery'
 import { formatMoney } from '../lib/format'
-import { withTax } from '../../lib/pricing'
+import { taxIncluded } from '../../lib/pricing'
 
 /** Products at or below this many units are treated as low stock. */
 const LOW_STOCK_THRESHOLD = 3
@@ -178,8 +178,7 @@ export default function ProductsPage() {
       header: 'Price',
       hideBelow: 'md',
       cell: (p) => {
-        const hasTax = Number(p.tax_percent) > 0
-        const total = p.selling_price != null ? withTax(p.selling_price, p.tax_percent).total : null
+        const hasTax = Number(p.tax_percent) > 0 && p.selling_price != null
         const off = discountPct(p.mrp, p.selling_price)
         return (
           <div className="tabular-nums">
@@ -193,13 +192,13 @@ export default function ProductsPage() {
                 </span>
               )}
             </p>
-            {(off > 0 || (hasTax && total != null)) && (
+            {(off > 0 || hasTax) && (
               <p className="whitespace-nowrap text-xs text-[var(--color-muted)]">
                 {off > 0 && (
                   <span className="font-medium text-[var(--color-ok)]">{off}% off</span>
                 )}
-                {off > 0 && hasTax && total != null && ' · '}
-                {hasTax && total != null && `${formatMoney(total)} incl. tax`}
+                {off > 0 && hasTax && ' · '}
+                {hasTax && 'incl. tax'}
               </p>
             )}
           </div>
@@ -466,7 +465,7 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
   const taxNum = form.tax_percent === '' ? 0 : Number(form.tax_percent)
   const preview =
     sellingNum != null && !Number.isNaN(sellingNum) && taxNum >= 0 && taxNum <= 100
-      ? withTax(sellingNum, taxNum)
+      ? taxIncluded(sellingNum, taxNum)
       : null
   const discount = priceOrderInvalid ? 0 : discountPct(mrpNum, sellingNum)
 
@@ -543,7 +542,7 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
           </Field>
         </FormSection>
 
-        <FormSection title="Pricing" hint="Enter amounts before tax.">
+        <FormSection title="Pricing" hint="Enter prices as the customer pays them — tax is included in the selling price.">
           <div className="grid grid-cols-2 gap-4">
             <Field label="MRP (₹)" required error={fieldErrors.mrp}>
               <TextInput
@@ -577,7 +576,7 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
           <Field
             label="Taxes (%)"
             error={fieldErrors.tax_percent}
-            hint="Added on top of the selling price at checkout."
+            hint="Already included in the selling price — not added on top at checkout."
             className="sm:w-1/2"
           >
             <TextInput
@@ -596,8 +595,8 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
               Customer pays{' '}
               <strong className="font-semibold text-[var(--color-ink)]">
                 {formatMoney(preview.total)}
-              </strong>{' '}
-              = {formatMoney(preview.base)} + {formatMoney(preview.tax)} tax
+              </strong>
+              {preview.tax > 0 && <> · includes {formatMoney(preview.tax)} tax</>}
               {discount > 0 && <> · {discount}% off MRP</>}
             </p>
           )}
