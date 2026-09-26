@@ -14,7 +14,7 @@
  * @property {{ src: string, alt: string }} image  full-bleed background photo
  */
 
-import studioTwo from '../assets/images/Studio-5.webp'
+import studioTwo from '../assets/images/hero.png'
 /** @type {Hero} */
 export const hero = {
   eyebrow: 'Beauty · Style · Experience',
