@@ -71,7 +71,7 @@ function mergeApiCategories(apiCategories) {
 export function useServiceCatalogue() {
   const { data, loading, error, reload } = useApiResource(
     '/service-categories?with_services=1',
-    { transform: mergeApiCategories, revalidateOnFocus: true },
+    { transform: mergeApiCategories },
   )
 
   return {

@@ -27,10 +27,26 @@
     <meta data-seo-default name="twitter:image" content="https://dkstylehub.com/og-image.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Non-blocking font load: preload + print-media trick so the
+         stylesheet never blocks first paint; display=swap avoids invisible
+         text while Manrope downloads. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <!-- Homepage hero LCP is handled by the <img> itself in
          src/components/sections/Hero.jsx (loading="eager" +
          fetchpriority="high"). No static preload here: this file serves every

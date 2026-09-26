@@ -1,8 +1,4 @@
 import Lenis from 'lenis'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
 
 let lenis = null
 
@@ -11,22 +7,23 @@ const prefersReducedMotion = () =>
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /**
- * Start Lenis smooth scroll, driven by GSAP's ticker so ScrollTrigger stays
- * in sync. No-op on re-call and skipped entirely for reduced-motion users
- * (native instant scrolling is used instead). Returns the instance.
+ * Start Lenis smooth scroll with its own rAF loop (no GSAP — nothing else
+ * used it, and it cost ~120KB of initial JS). No-op on re-call and skipped
+ * entirely for reduced-motion users (native instant scrolling instead).
+ * Returns the instance.
  */
 export function initSmoothScroll() {
   if (lenis || typeof window === 'undefined' || prefersReducedMotion()) return lenis
 
   lenis = new Lenis({
-    duration: 1.1,
+    // Snappy but smooth: shorter duration + expo easing. (1.1+ feels floaty
+    // and "slow" on this content-heavy page; 0.9 keeps the butter feel
+    // without the lag behind the wheel.)
+    duration: 0.9,
     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
     smoothWheel: true,
+    autoRaf: true,
   })
-
-  lenis.on('scroll', ScrollTrigger.update)
-  gsap.ticker.add((time) => lenis.raf(time * 1000))
-  gsap.ticker.lagSmoothing(0)
 
   return lenis
 }
@@ -64,7 +61,7 @@ export function scrollToHash(hash) {
     return
   }
   if (lenis) {
-    lenis.scrollTo(target, { offset: -80, duration: 1.1 })
+    lenis.scrollTo(target, { offset: -80, duration: 0.9 })
   } else if (prefersReducedMotion()) {
     target.scrollIntoView({ block: 'start' })
   } else {
@@ -72,4 +69,8 @@ export function scrollToHash(hash) {
   }
 }
 
-export { gsap, ScrollTrigger }
+/**
+ * No scroll animations use ScrollTrigger anymore (kept as a no-op so
+ * existing callers don't break).
+ */
+export const ScrollTrigger = { refresh: () => {} }

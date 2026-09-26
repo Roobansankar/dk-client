@@ -27,6 +27,7 @@ export default function Hero() {
         alt={hero.image.alt}
         loading="eager"
         fetchPriority="high"
+        decoding="async"
         className="absolute inset-0 h-full w-full object-cover"
       />
 

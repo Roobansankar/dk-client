@@ -64,9 +64,10 @@ function mergeSettings(raw) {
 }
 
 export function SiteProvider({ children }) {
+  // No revalidateOnFocus: site settings change rarely, and refetching on
+  // every tab focus fires a request storm alongside all sibling providers.
   const { data } = useApiResource('/site-settings', {
     transform: mergeSettings,
-    revalidateOnFocus: true,
   })
 
   return <SiteContext.Provider value={data ?? UNAVAILABLE}>{children}</SiteContext.Provider>

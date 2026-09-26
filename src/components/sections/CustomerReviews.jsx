@@ -66,6 +66,11 @@ export default function CustomerReviews() {
     let raf = 0
     let last = 0
     let loopDistance = 0
+    let inView = true
+    const io = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting
+    }, { rootMargin: '200px' })
+    io.observe(el)
 
     const measure = () => {
       const kids = el.children
@@ -79,7 +84,7 @@ export default function CustomerReviews() {
       if (!last) last = now
       const dt = Math.min(now - last, 64)
       last = now
-      if (!pausedRef.current && !document.hidden && loopDistance > 0) {
+      if (!pausedRef.current && !document.hidden && inView && loopDistance > 0) {
         posRef.current += (DRIFT_PX_PER_SEC * dt) / 1000
         if (posRef.current >= loopDistance) posRef.current -= loopDistance
         el.scrollLeft = posRef.current
@@ -109,6 +114,7 @@ export default function CustomerReviews() {
 
     return () => {
       stop()
+      io.disconnect()
       ro.disconnect()
       clearTimeout(resumeTimer.current)
     }

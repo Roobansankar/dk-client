@@ -57,6 +57,14 @@ function useMarqueeRow(direction) {
     let pos = 0
     let pitch = 0
     let paused = false
+    let inView = true
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting
+      },
+      { rootMargin: '200px' },
+    )
+    io.observe(viewport)
 
     const measure = () => {
       const kids = track.children
@@ -77,10 +85,11 @@ function useMarqueeRow(direction) {
       if (!lastTs) lastTs = ts
       const dt = Math.min(ts - lastTs, 64)
       lastTs = ts
-      if (!paused && !document.hidden) {
+      // Offscreen / hidden / paused: skip work entirely (smooth + free CPU).
+      if (!paused && !document.hidden && inView) {
         pos += sign * ((SPEED_PX_PER_SEC * dt) / 1000)
+        render()
       }
-      render()
       raf = requestAnimationFrame(step)
     }
 
@@ -129,6 +138,7 @@ function useMarqueeRow(direction) {
 
     return () => {
       stop()
+      io.disconnect()
       resizeObserver.disconnect()
       reduce.removeEventListener('change', onReduceChange)
       events.forEach(([type, fn]) => viewport.removeEventListener(type, fn))
@@ -170,7 +180,8 @@ function MarqueeRow({ items, direction, rowIndex, onPlay }) {
             className="aspect-[4/5] w-[clamp(150px,24vw,240px)] shrink-0 overflow-hidden rounded-2xl border border-line bg-scrim sm:w-[clamp(200px,20vw,280px)]"
           >
             {/* Poster-only preview — playback happens in the player overlay,
-                so the scrolling row stays light (metadata preload only). */}
+                so the scrolling row stays light (preload="none": no video
+                bytes fetched until the user actually presses play). */}
             <button
               type="button"
               onClick={() => onPlay(item)}
@@ -183,7 +194,7 @@ function MarqueeRow({ items, direction, rowIndex, onPlay }) {
                 poster={item.poster || undefined}
                 className="h-full w-full object-cover"
                 playsInline
-                preload="metadata"
+                preload="none"
                 muted
                 tabIndex={-1}
                 aria-hidden="true"

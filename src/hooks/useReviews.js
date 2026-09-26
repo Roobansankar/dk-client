@@ -31,7 +31,6 @@ function transform(rows) {
 export function useReviews() {
   const { data, loading, error, reload } = useApiResource('/reviews', {
     transform,
-    revalidateOnFocus: true,
   })
 
   return { items: data ?? [], loading, error, reload }

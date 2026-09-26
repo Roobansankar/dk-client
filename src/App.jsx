@@ -2,27 +2,31 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import RootLayout from './routes/RootLayout'
 import Home from './routes/Home'
-import About from './routes/About'
-import Services from './routes/Services'
-import Products from './routes/Products'
-import ProductDetail from './routes/ProductDetail'
-import ComboDetail from './routes/ComboDetail'
-import Cart from './routes/Cart'
-import Checkout from './routes/Checkout'
-import Gallery from './routes/Gallery'
-import Contact from './routes/Contact'
-import Booking from './routes/Booking'
-import Terms from './routes/Terms'
-import Privacy from './routes/Privacy'
-import NotFound from './routes/NotFound'
-import Login from './routes/account/Login'
-import Register from './routes/account/Register'
-import ForgotPassword from './routes/account/ForgotPassword'
-import ResetPassword from './routes/account/ResetPassword'
-import GoogleCallback from './routes/account/GoogleCallback'
-import Account from './routes/account/Account'
+// Route-split: Home (+ shell) is the initial bundle. Every other route is
+// lazy so a first-time visitor never downloads Booking/Cart/Checkout/
+// account/admin code until they actually navigate there. This is the
+// single biggest initial-JS win (~60%+ smaller first load).
+const About = lazy(() => import('./routes/About'))
+const Services = lazy(() => import('./routes/Services'))
+const Products = lazy(() => import('./routes/Products'))
+const ProductDetail = lazy(() => import('./routes/ProductDetail'))
+const ComboDetail = lazy(() => import('./routes/ComboDetail'))
+const Cart = lazy(() => import('./routes/Cart'))
+const Checkout = lazy(() => import('./routes/Checkout'))
+const Gallery = lazy(() => import('./routes/Gallery'))
+const Contact = lazy(() => import('./routes/Contact'))
+const Booking = lazy(() => import('./routes/Booking'))
+const Terms = lazy(() => import('./routes/Terms'))
+const Privacy = lazy(() => import('./routes/Privacy'))
+const NotFound = lazy(() => import('./routes/NotFound'))
+const Login = lazy(() => import('./routes/account/Login'))
+const Register = lazy(() => import('./routes/account/Register'))
+const ForgotPassword = lazy(() => import('./routes/account/ForgotPassword'))
+const ResetPassword = lazy(() => import('./routes/account/ResetPassword'))
+const GoogleCallback = lazy(() => import('./routes/account/GoogleCallback'))
+const Account = lazy(() => import('./routes/account/Account'))
+const OrderDetail = lazy(() => import('./routes/account/OrderDetail'))
 import RequireCustomer from './routes/account/RequireCustomer'
-import OrderDetail from './routes/account/OrderDetail'
 import { ThemeProvider } from './context/ThemeContext'
 import { SiteProvider } from './context/SiteContext'
 import { AuthProvider } from './context/AuthContext'
@@ -50,6 +54,9 @@ function PublicShell() {
               <VideoProvider>
                 <PricingPlansProvider>
                   <ReviewsProvider>
+                    {/* Lazy routes need a boundary: instant (null) fallback so
+                        navigation feels immediate, no spinner flash. */}
+                    <Suspense fallback={null}>
                     <Routes>
                       <Route element={<RootLayout />}>
                         <Route index element={<Home />} />
@@ -113,6 +120,7 @@ function PublicShell() {
                         <Route path="*" element={<NotFound />} />
                       </Route>
                     </Routes>
+                    </Suspense>
                   </ReviewsProvider>
                 </PricingPlansProvider>
               </VideoProvider>

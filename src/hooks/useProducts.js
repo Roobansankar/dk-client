@@ -95,10 +95,6 @@ function transform(rows) {
 export function useProducts() {
   const { data, loading, error, reload } = useApiResource('/products', {
     transform,
-    // An admin can create/feature a product in another tab — re-pull on focus
-    // (and bfcache restore) so the public shelf reflects it without a manual
-    // reload. Event-driven, not interval polling.
-    revalidateOnFocus: true,
   })
 
   return { items: data ?? [], loading, error, reload }

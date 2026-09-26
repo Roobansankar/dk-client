@@ -47,16 +47,18 @@ export default function GalleryWheel({ items, onOpen, onImageError, heading, blu
     let lastTs = 0
     let pos = 0
     let pitch = 0
+    let cellWidth = 0
     let baseOffset = 0
     let viewportWidth = 0
     let paused = false
+    let inView = true
 
     const measure = () => {
       const kids = track.children
       if (kids.length < 2) return
       pitch = kids[1].offsetLeft - kids[0].offsetLeft
       viewportWidth = viewport.clientWidth
-      const cellWidth = kids[0].offsetWidth
+      cellWidth = kids[0].offsetWidth
       const focusIndex = Math.floor(halfCount / 2)
       baseOffset = viewportWidth / 2 - (focusIndex * pitch + cellWidth / 2)
     }
@@ -67,11 +69,13 @@ export default function GalleryWheel({ items, onOpen, onImageError, heading, blu
       pos = ((pos % loopWidth) + loopWidth) % loopWidth
       track.style.transform = `translate3d(${(baseOffset - pos).toFixed(2)}px, -50%, 0)`
 
-      const kids = track.children
       const half = viewportWidth / 2 || 1
+      const kids = track.children
       for (let i = 0; i < kids.length; i += 1) {
         const el = kids[i]
-        const centre = baseOffset - pos + i * pitch + el.offsetWidth / 2
+        // Cached cellWidth — never read offsetWidth here (that forces a
+        // layout per child per frame and janks the whole page).
+        const centre = baseOffset - pos + i * pitch + cellWidth / 2
         const n = (centre - half) / (half * 0.6)
         const clamped = Math.max(-1.8, Math.min(1.8, n))
         const rotateY = Math.max(
@@ -89,10 +93,11 @@ export default function GalleryWheel({ items, onOpen, onImageError, heading, blu
       if (!lastTs) lastTs = ts
       const dt = Math.min(ts - lastTs, 64)
       lastTs = ts
-      if (!paused && !document.hidden) {
+      // Offscreen / hidden / paused: skip per-child style writes entirely.
+      if (!paused && !document.hidden && inView) {
         pos += (SPEED_PX_PER_SEC * dt) / 1000
+        render()
       }
-      render()
       raf = requestAnimationFrame(step)
     }
 
@@ -109,6 +114,13 @@ export default function GalleryWheel({ items, onOpen, onImageError, heading, blu
     }
 
     start()
+
+    // Pause the loop when the wheel is offscreen — free CPU/GPU for the
+    // section the user is actually looking at (smooth scrolling).
+    const io = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting
+    }, { rootMargin: '200px' })
+    io.observe(viewport)
 
     const resizeObserver = new ResizeObserver(() => {
       measure()
@@ -141,6 +153,7 @@ export default function GalleryWheel({ items, onOpen, onImageError, heading, blu
 
     return () => {
       stop()
+      io.disconnect()
       resizeObserver.disconnect()
       reduce.removeEventListener('change', onReduceChange)
       events.forEach(([type, fn]) => viewport.removeEventListener(type, fn))

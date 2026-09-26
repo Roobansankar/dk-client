@@ -4,8 +4,8 @@ import { ApiError } from '../lib/api'
 import { Button, Field, TextInput } from '../components/ui'
 import { useTheme } from '../lib/theme'
 import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
-import logoDark from '../../assets/images/Black-logo.webp'
-import logoLight from '../../assets/images/White-logo.png'
+import logoDark from '../../assets/images/Black-logo-384.webp'
+import logoLight from '../../assets/images/White-logo-384.webp'
 
 export default function LoginPage() {
   const { login } = useAuth()

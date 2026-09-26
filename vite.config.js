@@ -114,6 +114,31 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react(), tailwindcss(), seoFiles(siteUrl, apiUrl)],
+  // --- Performance: small initial bundle, smooth long-term caching ---
+  build: {
+    target: 'es2020',
+    sourcemap: false,
+    cssCodeSplit: true,
+    // Don't inline big images as base64 (default 4KB keeps tiny icons
+    // inline but forces photos/logos into separate cacheable files).
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 600,
+    modulePreload: { polyfill: false },
+    rollupOptions: {
+      output: {
+        // Vendor split: react/router/motion change rarely → cached for
+        // months; route chunks change often → small re-downloads.
+        // (Function form — required by Vite 8's Rolldown bundler.)
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/[\\/]react(-dom|-router)?[\\/]/.test(id) || id.includes('react-router-dom')) return 'vendor-react'
+          if (/[\\/]node_modules[\\/](gsap|lenis)[\\/]/.test(id)) return 'vendor-motion'
+          if (/[\\/]node_modules[\\/](lucide-react|clsx|tailwind-merge)[\\/]/.test(id)) return 'vendor-ui'
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     // Pinned (not `strictPort`, so it still auto-increments with a warning if
     // 5175 is genuinely taken) rather than left to Vite's default 5173: the

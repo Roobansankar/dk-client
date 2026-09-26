@@ -30,10 +30,6 @@ function transform(rows) {
 export function usePricingPlans() {
   const { data, loading, error, reload } = useApiResource('/pricing-plans', {
     transform,
-    // An admin can add / edit / toggle a plan in another tab — re-pull on focus
-    // (and bfcache restore) so the homepage reflects it without a manual
-    // reload. Event-driven, mirrors useProducts / useGallery.
-    revalidateOnFocus: true,
   })
 
   return { plans: data ?? [], loading, error, reload }

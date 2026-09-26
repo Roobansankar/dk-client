@@ -36,7 +36,6 @@ function transform(rows) {
 export function useCombos() {
   const { data, loading, error, reload } = useApiResource('/combos', {
     transform,
-    revalidateOnFocus: true,
   })
 
   return { combos: data ?? [], loading, error, reload }

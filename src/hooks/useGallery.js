@@ -26,7 +26,6 @@ function transform(rows) {
 export function useGallery() {
   const { data, loading, error } = useApiResource('/gallery', {
     transform,
-    revalidateOnFocus: true,
   })
 
   return { items: data ?? [], loading, error }
