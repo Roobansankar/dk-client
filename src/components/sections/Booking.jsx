@@ -1006,7 +1006,7 @@ export default function Booking() {
                       <>
                         A confirmation fee of{' '}
                         <span className="text-ink">{formatInr(result.advance_amount)}</span>{' '}
-                        was received via Razorpay.{' '}
+                        was received via Razorpay (Test Mode.{' '}
                         {result.remaining_amount > 0 && (
                           <>
                             The remaining balance of{' '}

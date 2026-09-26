@@ -313,7 +313,7 @@ export default function Checkout({ buyNowMode = false }) {
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-muted">
                     The amount you pay is calculated by the studio’s system and shown in
-                    Razorpay’s secure checkout.
+                    Razorpay’s secure checkout (Test Mode.
                   </p>
 
                   {pricing.hasUnavailable && (
