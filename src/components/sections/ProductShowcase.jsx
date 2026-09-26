@@ -160,7 +160,7 @@ export default function ProductShowcase() {
   return (
     <section
       id="products-showcase"
-      className="relative isolate scroll-mt-24 overflow-hidden border-t border-line bg-surface"
+      className="relative isolate scroll-mt-20 overflow-hidden border-t border-line bg-surface"
     >
       {/* Decorative organic shapes — behind the cards, never inside them. */}
       <div

@@ -130,7 +130,7 @@ export default function CustomerReviews() {
   return (
     <section
       id="reviews"
-      className="scroll-mt-24 overflow-hidden border-t border-line bg-scrim text-white"
+      className="scroll-mt-20 overflow-hidden border-t border-line bg-scrim text-white"
     >
       <Container className="section-y">
         <header className="max-w-xl">

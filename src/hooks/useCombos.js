@@ -1,9 +1,10 @@
 import { useApiResource } from './useApi'
 import { resolveMediaUrl } from '../lib/env'
+import { photosOf } from '../lib/photos'
 
 /**
  * Active combo products from `GET /api/combos`, normalised to:
- *   { id, slug, name, description, bundlePrice, taxPercent, image,
+ *   { id, slug, name, description, bundlePrice, taxPercent, image, images,
  *     items: [{ productId, name, image, price, sellingPrice, available }] }
  *
  * `price` is the combo-specific price of that product inside the combo — the
@@ -19,6 +20,7 @@ function transform(rows) {
     bundlePrice: row.bundle_price ?? null,
     taxPercent: Number(row.tax_percent ?? 0),
     image: resolveMediaUrl(row.image_url),
+    images: photosOf(row),
     items: (row.items ?? []).map((item) => ({
       productId: String(item.product_id),
       name: item.name,

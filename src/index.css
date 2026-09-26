@@ -144,7 +144,7 @@
        owns wheel smoothness. Leaving `smooth` here would double-animate
        every scroll and break instant route-change jumps. */
     scroll-behavior: auto;
-    scroll-padding-top: 6.5rem;
+    scroll-padding-top: 5.5rem;
   }
 
   body {

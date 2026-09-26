@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../components/layout/Container'
+import ImageGallery from '../components/ui/ImageGallery'
 import ProductImage from '../components/ui/ProductImage'
 import QuantityStepper from '../components/shop/QuantityStepper'
 import { useCombos } from '../hooks/useCombos'
@@ -200,15 +201,7 @@ export default function ComboDetail() {
           <div className="mt-8 grid gap-x-12 gap-y-10 lg:mt-12 lg:grid-cols-2 xl:gap-x-16">
             {/* Left — photography */}
             <div className="lg:sticky lg:top-28 lg:self-start">
-              <figure className="group overflow-hidden">
-                <ProductImage
-                  src={combo.image}
-                  alt={combo.name}
-                  ratio="aspect-[4/5]"
-                  className="rounded-[var(--radius-md)]"
-                  imgClassName="transition-transform duration-[600ms] ease-[var(--ease-standard)] group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                />
-              </figure>
+              <ImageGallery key={combo.id} images={combo.images} alt={combo.name} />
             </div>
 
             {/* Right — information */}

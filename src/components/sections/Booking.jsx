@@ -956,7 +956,7 @@ export default function Booking() {
     <section
       ref={sectionRef}
       id="booking"
-      className="scroll-mt-24 border-t border-line bg-surface"
+      className="scroll-mt-20 border-t border-line bg-surface"
     >
       <Container className="section-y">
         <div
@@ -1006,7 +1006,7 @@ export default function Booking() {
                       <>
                         A confirmation fee of{' '}
                         <span className="text-ink">{formatInr(result.advance_amount)}</span>{' '}
-                        was received via Razorpay (Test Mode).{' '}
+                        was received via Razorpay.{' '}
                         {result.remaining_amount > 0 && (
                           <>
                             The remaining balance of{' '}
@@ -1102,7 +1102,7 @@ export default function Booking() {
 
                 <p className="mt-5 max-w-prose text-xs leading-relaxed text-muted">
                   {advanceAmount > 0
-                    ? 'Continuing opens Razorpay’s secure checkout (Test Mode) to pay the confirmation fee shown above. The remaining balance is payable per the studio’s policy.'
+                    ? 'Continuing opens Razorpay’s secure checkout 8000 to pay the confirmation fee shown above. The remaining balance is payable per the studio’s policy.'
                     : 'No payment is taken on this page — the studio confirms this appointment directly.'}
                 </p>
 

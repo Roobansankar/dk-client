@@ -16,14 +16,13 @@ import logoLight from '../../assets/images/White-logo-384.webp'
  * Primary navigation.
  *
  * Services is a dropdown containing Men/Women routes.
- * Products, Gallery and Contact are dedicated routes.
- * About is a homepage anchor.
+ * Products, Gallery, About and Contact are dedicated routes.
  */
 const NAV_ITEMS = [
   { label: 'Services', kind: 'dropdown' },
   { label: 'Products', kind: 'route', to: '/products' },
   { label: 'Gallery', kind: 'route', to: '/gallery' },
-  { label: 'About', kind: 'anchor', hash: '#about' },
+  { label: 'About', kind: 'route', to: '/about' },
   { label: 'Contact', kind: 'route', to: '/contact' },
 ]
 
@@ -177,7 +176,7 @@ export default function Navbar() {
           : 'lg:bg-surface/85 lg:backdrop-blur lg:supports-[backdrop-filter]:bg-surface/75',
       )}
     >
-      <Container className="flex h-16 items-center justify-between gap-4 md:h-24">
+      <Container className="flex h-14 items-center justify-between gap-4 md:h-20">
 <Link
   to="/"
   aria-label="DK StyleHub"
@@ -191,14 +190,14 @@ export default function Navbar() {
     alt="DK StyleHub"
     width={384}
     height={256}
-    className={clsx('h-10 w-auto object-contain md:h-12 dark:hidden', onDark && 'lg:hidden')}
+    className={clsx('h-8 w-auto object-contain md:h-10 dark:hidden', onDark && 'lg:hidden')}
   />
   <img
     src={logoLight}
     alt="DK StyleHub"
     width={384}
     height={256}
-    className={clsx('hidden h-10 w-auto object-contain md:h-12 dark:block', onDark && 'lg:block')}
+    className={clsx('hidden h-8 w-auto object-contain md:h-10 dark:block', onDark && 'lg:block')}
   />
 </Link>
 
@@ -374,7 +373,7 @@ export default function Navbar() {
             aria-label="Site menu"
             className="drawer-panel absolute inset-y-0 right-0 flex w-full max-w-xs flex-col bg-surface shadow-xl"
           >
-            <div className="flex h-16 items-center justify-between px-6">
+            <div className="flex h-14 items-center justify-between px-6">
 <Link
   to="/"
   aria-label="DK StyleHub"
@@ -386,14 +385,14 @@ export default function Navbar() {
     alt="DK StyleHub"
     width={384}
     height={256}
-    className="h-9 w-auto object-contain dark:hidden"
+    className="h-8 w-auto object-contain dark:hidden"
   />
   <img
     src={logoLight}
     alt="DK StyleHub"
     width={384}
     height={256}
-    className="hidden h-9 w-auto object-contain dark:block"
+    className="hidden h-8 w-auto object-contain dark:block"
   />
 </Link>
 

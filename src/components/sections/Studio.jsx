@@ -23,7 +23,7 @@ export default function Studio() {
   return (
     <section
       id="studio"
-      className="scroll-mt-24 overflow-hidden bg-scrim text-white"
+      className="scroll-mt-20 overflow-hidden bg-scrim text-white"
     >
       <Container className="section-y">
         <div className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">

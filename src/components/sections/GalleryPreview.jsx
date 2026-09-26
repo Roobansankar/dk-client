@@ -27,7 +27,7 @@ export default function GalleryPreview() {
   const [lead, ...rest] = visible
 
   return (
-    <section id="gallery-preview" className="scroll-mt-24 border-t border-line bg-paper">
+    <section id="gallery-preview" className="scroll-mt-20 border-t border-line bg-paper">
       <Container className="section-y">
         <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div className="measure">

@@ -191,7 +191,7 @@ export default function Contact() {
             </div>
 
             {/* Visit us — the studio's actual Google Maps location. */}
-            <div id="studio-map" className="scroll-mt-24 bg-surface-sunken p-6 sm:p-10 lg:col-span-7">
+            <div id="studio-map" className="scroll-mt-20 bg-surface-sunken p-6 sm:p-10 lg:col-span-7">
               <p className="eyebrow">Visit the studio</p>
               {address ? (
                 <p className="mt-4 max-w-prose text-ink-soft">{address}</p>

@@ -7,7 +7,7 @@
  */
 export default function LegalSection({ id, title, children }) {
   return (
-    <section id={id} className="scroll-mt-24 border-t border-line pt-8 first:border-t-0 first:pt-0">
+    <section id={id} className="scroll-mt-20 border-t border-line pt-8 first:border-t-0 first:pt-0">
       <h2>{title}</h2>
       <div className="measure mt-4 space-y-4 text-ink-soft [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&_strong]:text-ink [&_strong]:font-medium">
         {children}

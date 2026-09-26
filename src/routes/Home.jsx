@@ -1,5 +1,4 @@
 import Hero from '../components/sections/Hero'
-import About from '../components/sections/About'
 import ServicesPreview from '../components/sections/ServicesPreview'
 import MeetTheTeam from '../components/sections/MeetTheTeam'
 import ComboOffers from '../components/sections/ComboOffers'
@@ -13,9 +12,12 @@ import { SALON_ID, SITE_NAME, SITE_URL, WEBSITE_ID, salonSchema } from '../lib/s
 
 /**
  * Homepage. Fixed section order:
- *   Hero → About → Our Services → Meet the Team → Combo Offers →
+ *   Hero → Our Services → Meet the Team → Combo Offers →
  *   Our Products → Video → Reviews → Closing CTA →
  *   (Footer, from RootLayout).
+ *
+ * The studio story lives on its own `/about` page (linked from the
+ * navbar) — it is intentionally not repeated here.
  *
  * Booking lives on its own `/booking` page — every "Book Appointment"
  * button across the site links there instead of an on-page section.
@@ -48,7 +50,6 @@ export default function Home() {
       />
 
       <Hero />
-      <About />
       <ServicesPreview />
       <MeetTheTeam />
       <ComboOffers />

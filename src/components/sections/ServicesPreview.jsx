@@ -178,7 +178,7 @@ export default function ServicesPreview() {
   const cards = categories.slice(0, 4)
 
   return (
-    <section id="services" className="scroll-mt-24 border-t border-line bg-surface">
+    <section id="services" className="scroll-mt-20 border-t border-line bg-surface">
       <Container className="section-y">
         <div className="grid gap-2.5 xl:grid-cols-[2fr_3fr]">
           {/* Left — editorial text panel */}

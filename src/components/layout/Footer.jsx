@@ -26,7 +26,7 @@ const QUICK_LINKS = [
   { label: 'Services', to: '/services' },
   { label: 'Products', to: '/products' },
   { label: 'Gallery', to: '/gallery' },
-  { label: 'About', to: { pathname: '/', hash: '#about' } },
+  { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' },
   { label: 'Book an appointment', to: '/booking' },
 ]
@@ -218,6 +218,17 @@ export default function Footer() {
         <div className="mt-16 border-t border-white/10 pt-8">
           <p className="text-center text-[0.66rem] uppercase tracking-[0.2em] text-white/40">
             &copy; {year} {site.name}. All rights reserved.
+          </p>
+          <p className="mt-3 text-center text-[0.66rem] uppercase tracking-[0.2em] text-white/40">
+            Developed by{' '}
+            <a
+              href="https://intellizeinfosolutions.com"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-white/65 no-underline transition-colors hover:text-white"
+            >
+              Intellize Info Solutions
+            </a>
           </p>
         </div>
       </Container>

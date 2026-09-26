@@ -21,6 +21,34 @@ function initials(name) {
  * Escape), not the admin's CSS-var-themed Dropdown, which belongs to a
  * different design system (see admin-design-system).
  */
+/**
+ * Avatar photo with initials fallback. Keyed by URL at the usage site, so a
+ * new photo URL remounts (a dead URL falls back to initials, a fresh URL
+ * gets a new chance) with no reset effect.
+ */
+function AccountAvatar({ url, name }) {
+  const [failed, setFailed] = useState(false)
+  if (!url || failed) {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-white"
+      >
+        {initials(name)}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="h-8 w-8 rounded-full border border-line object-cover"
+    />
+  )
+}
+
 export default function AccountMenu({ onDark = false }) {
   const { status, user, logout } = useAuth()
   const [open, setOpen] = useState(false)
@@ -70,23 +98,11 @@ export default function AccountMenu({ onDark = false }) {
           onDark && 'lg:hover:bg-white/10',
         )}
       >
-        {user?.avatar_url ? (
-          <img
-            src={user.avatar_url}
-            alt=""
-            className="h-8 w-8 rounded-full border border-line object-cover"
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className={clsx(
-              'flex h-8 w-8 items-center justify-center rounded-full bg-surface-sunken text-xs font-semibold text-ink-soft',
-              onDark && 'lg:bg-white/15 lg:text-white',
-            )}
-          >
-            {initials(user?.name)}
-          </span>
-        )}
+        <AccountAvatar
+          key={user?.avatar_url || 'no-photo'}
+          url={user?.avatar_url}
+          name={user?.name}
+        />
         <ChevronDown
           size={14}
           aria-hidden="true"

@@ -1,5 +1,5 @@
 /**
- * Homepage "About / Studio Story" section.
+ * About page ("Our Story") content — the studio's story, stats and portrait.
  *
  * `body` is the studio's own supplied copy — used VERBATIM. Do not edit,
  * expand, rephrase, or add claims to it. One string per paragraph; `**text**`

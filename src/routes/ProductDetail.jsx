@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../components/layout/Container'
-import ProductImage from '../components/ui/ProductImage'
+import ImageGallery from '../components/ui/ImageGallery'
+import ProductCard from '../components/ui/ProductCard'
 import { sizeRank } from '../hooks/useProducts'
 import { useProductCatalogue } from '../context/ProductsContext'
 import { formatInr } from '../data/services'
@@ -124,6 +125,23 @@ export default function ProductDetail() {
     return family.length > 1 ? family : []
   }, [items, product])
 
+  // Related shelf — same category first, then the rest of the catalogue.
+  // Size variants of this product are excluded (they already have their own
+  // selector above). Capped at four.
+  const related = useMemo(() => {
+    if (!product) return []
+    const pool = items.filter(
+      (p) => p.slug !== slug && (!product.family || p.family !== product.family),
+    )
+    const sameCategory = pool.filter(
+      (p) => product.category && p.category === product.category,
+    )
+    const rest = pool.filter(
+      (p) => !(product.category && p.category === product.category),
+    )
+    return [...sameCategory, ...rest].slice(0, 4)
+  }, [items, product, slug])
+
   if (loading) {
     return (
       <div className="texture-lines">
@@ -199,7 +217,7 @@ export default function ProductDetail() {
             name: product.name,
             url: absoluteUrl(`/products/${product.slug}`),
             ...(product.description && { description: product.description }),
-            ...(product.image && { image: product.image }),
+            ...(product.images?.length > 0 && { image: product.images }),
             ...(product.price != null && {
               offers: {
                 '@type': 'Offer',
@@ -229,15 +247,7 @@ export default function ProductDetail() {
           <div className="mt-8 grid gap-x-12 gap-y-10 lg:mt-12 lg:grid-cols-2 xl:gap-x-16">
             {/* Left — photography */}
             <div className="lg:sticky lg:top-28 lg:self-start">
-              <figure className="group overflow-hidden">
-                <ProductImage
-                  src={product.image}
-                  alt={product.name}
-                  ratio="aspect-[4/5]"
-                  className="rounded-[var(--radius-md)]"
-                  imgClassName="transition-transform duration-[600ms] ease-[var(--ease-standard)] group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                />
-              </figure>
+              <ImageGallery key={product.id} images={product.images} alt={product.name} />
             </div>
 
             {/* Right — information */}
@@ -426,16 +436,6 @@ export default function ProductDetail() {
                       </Link>
                     </div>
                   )}
-                  <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-                    <Link
-                      to={CONTACT}
-                      state={{ product: product.name }}
-                      className="text-sm text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink"
-                    >
-                      Ask about this product
-                    </Link>
-                    <BackLink />
-                  </div>
                 </div>
               ) : (
                 <>
@@ -449,7 +449,6 @@ export default function ProductDetail() {
                       Ask about this product
                       <ArrowRight size={15} aria-hidden="true" />
                     </Link>
-                    <BackLink />
                   </div>
                   <p className="mt-4 text-xs leading-relaxed text-muted">
                     Message us and we’ll set one aside.
@@ -460,6 +459,33 @@ export default function ProductDetail() {
           </div>
         </Container>
       </div>
+
+      {related.length > 0 && (
+        <section className="border-t border-line bg-surface">
+          <Container className="section-y">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="eyebrow">Keep looking</p>
+                <h2 className="mt-3">Related products</h2>
+              </div>
+              <Link
+                to={PRODUCTS}
+                className="inline-flex items-center gap-2 text-eyebrow font-medium uppercase tracking-[0.14em] text-ink-soft no-underline transition-colors hover:text-ink"
+              >
+                View all products
+                <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
+            <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-9 sm:gap-x-6 lg:grid-cols-4">
+              {related.map((item) => (
+                <li key={item.id || item.slug}>
+                  <ProductCard product={item} className="w-full" />
+                </li>
+              ))}
+            </ul>
+          </Container>
+        </section>
+      )}
     </>
   )
 }

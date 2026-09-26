@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import RootLayout from './routes/RootLayout'
 import Home from './routes/Home'
+import About from './routes/About'
 import Services from './routes/Services'
 import Products from './routes/Products'
 import ProductDetail from './routes/ProductDetail'
@@ -108,11 +109,7 @@ function PublicShell() {
                             </RequireCustomer>
                           }
                         />
-                        {/* About lives on the homepage; keep /about working as a link target. */}
-                        <Route
-                          path="about"
-                          element={<Navigate to={{ pathname: '/', hash: '#about' }} replace />}
-                        />
+                        <Route path="about" element={<About />} />
                         <Route path="*" element={<NotFound />} />
                       </Route>
                     </Routes>

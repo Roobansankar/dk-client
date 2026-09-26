@@ -179,7 +179,7 @@ export default function ReviewUs() {
   const { user, status } = useAuth()
 
   return (
-    <div id="review-us" className="scroll-mt-24 border-t border-line bg-paper">
+    <div id="review-us" className="scroll-mt-20 border-t border-line bg-paper">
       <Container className="section-y">
         <div className="mx-auto max-w-lg text-center">
           <p className="eyebrow">Review us</p>

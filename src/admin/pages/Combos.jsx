@@ -25,7 +25,8 @@ import {
   Toolbar,
   cn,
 } from '../components/ui'
-import { ImageInput } from '../components/ImageInput'
+import { ImageGalleryInput } from '../components/ImageGalleryInput'
+import { appendGalleryFields, galleryError, galleryFromServer } from '../lib/gallery'
 import { formatMoney as money } from '../lib/format'
 import { withTax } from '../../lib/pricing'
 
@@ -559,7 +560,9 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
     status: combo?.status ?? true,
   })
 
-  const [image, setImage] = useState({ file: null, remove: false })
+  // Up to four photos, first = cover. Existing ones keep their id; new ones are files.
+  const [initialGallery] = useState(() => galleryFromServer(combo?.images))
+  const [gallery, setGallery] = useState(initialGallery)
 
   const [items, setItems] = useState(() =>
     (combo?.items ?? []).map((i) => ({
@@ -636,8 +639,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
         fd.append(`items[${i}][price]`, String(Number(item.price)))
       })
 
-      if (image.file) fd.append('image', image.file)
-      if (image.remove) fd.append('remove_image', '1')
+      appendGalleryFields(fd, gallery, initialGallery)
 
       return mode === 'create'
         ? api.postForm('/admin/combos', fd)
@@ -710,12 +712,12 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
     >
       <form className="flex flex-col gap-5" onSubmit={submit}>
         <FormSection title="Details">
-          <ImageInput
-            label={mode === 'create' ? 'Combo photo' : 'Replace photo'}
-            currentUrl={combo?.image_url}
-            error={fieldErrors.image}
-            hint="Optional"
-            onChange={setImage}
+          <ImageGalleryInput
+            label="Photos"
+            items={gallery}
+            onChange={setGallery}
+            error={galleryError(fieldErrors)}
+            hint="Up to 4 photos — the first is the cover; all of them show on the combo page. Optional."
           />
 
           <Field label="Name" required error={fieldErrors.name}>

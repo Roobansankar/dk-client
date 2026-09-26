@@ -46,7 +46,7 @@ export default function MeetTheTeam() {
   }))
 
   return (
-    <section id="team" className="scroll-mt-24 border-t border-line bg-paper">
+    <section id="team" className="scroll-mt-20 border-t border-line bg-paper">
       <Container className="section-y">
         <header className="grid gap-x-8 gap-y-5 border-b border-line pb-10 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8">

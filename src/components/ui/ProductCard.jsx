@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { Star } from 'lucide-react'
 import clsx from 'clsx'
 import ProductImage from './ProductImage'
 import { formatInr } from '../../data/services'
@@ -9,18 +8,6 @@ import { taxLabel } from '../../lib/pricing'
 function discountPct(mrp, price) {
   if (!mrp || !price || mrp <= price) return 0
   return Math.round((1 - price / mrp) * 100)
-}
-
-/**
- * Deterministic stand-in rating (4.6–5.0, one decimal), stable per product.
- * The catalogue carries no review data yet — like the TEMP prices in
- * src/data/products.js this is a placeholder so the card matches the reference.
- * Replace with a real `product.rating` when the backend exposes one.
- */
-function placeholderRating(seed) {
-  let h = 0
-  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  return (4.6 + (h % 5) / 10).toFixed(1)
 }
 
 // The photo zoom + parallax + light sweep are defined once in index.css under
@@ -62,7 +49,6 @@ export default function ProductCard({ product, className }) {
   const mrp = family ? null : product.mrp
   const onSale = hasPrice && mrp != null && mrp > price
   const pct = onSale ? discountPct(mrp, price) : 0
-  const rating = product.rating ?? placeholderRating(slug || name || 'product')
 
   return (
     <Link
@@ -85,19 +71,9 @@ export default function ProductCard({ product, className }) {
       </div>
 
       <div className={clsx('flex flex-1 flex-col pt-3.5', INFO_SHIFT)}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[0.8rem] text-muted">
-            {category || ' '}
-          </p>
-          <span className="flex shrink-0 items-center gap-1 text-[0.8rem] font-semibold tabular-nums text-ink">
-            <Star
-              size={13}
-              aria-hidden="true"
-              className="fill-[#e6a91e] text-[#e6a91e]"
-            />
-            {rating}
-          </span>
-        </div>
+        <p className="truncate text-[0.8rem] text-muted">
+          {category || ' '}
+        </p>
 
         <h3 className="mt-1.5 line-clamp-2 font-serif text-[0.98rem] leading-snug text-ink transition-colors duration-200 group-hover:text-ink-soft">
           {displayName}

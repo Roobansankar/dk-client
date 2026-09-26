@@ -64,7 +64,7 @@ export function scrollToHash(hash) {
     return
   }
   if (lenis) {
-    lenis.scrollTo(target, { offset: -96, duration: 1.1 })
+    lenis.scrollTo(target, { offset: -80, duration: 1.1 })
   } else if (prefersReducedMotion()) {
     target.scrollIntoView({ block: 'start' })
   } else {

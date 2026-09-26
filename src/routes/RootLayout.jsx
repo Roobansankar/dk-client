@@ -54,7 +54,7 @@ export default function RootLayout() {
 
       <Navbar />
 
-      <main id="main" className={clsx('flex-1', !isHome && 'pt-16 md:pt-24')}>
+      <main id="main" className={clsx('flex-1', !isHome && 'pt-14 md:pt-20')}>
         <Outlet />
       </main>
 

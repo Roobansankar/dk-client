@@ -321,7 +321,7 @@ export default function Services({ gender: pageGender }) {
             copy laid over it as real HTML, never baked into the image.
             `RootLayout` gives every non-home route (`<main>`) top padding to
             clear the fixed navbar; at `lg` and up this section cancels that
-            padding (`lg:-mt-24` mirrors `main`'s `md:pt-24`) and grows to
+            padding (`lg:-mt-20` mirrors `main`'s `md:pt-20`) and grows to
             `100svh` so the photo runs truly edge-to-edge and fills the
             screen, with the (opaque, non-home) navbar floating over its top
             strip exactly as a fixed header does over any full-bleed hero.
@@ -335,7 +335,7 @@ export default function Services({ gender: pageGender }) {
             Hero.jsx), so the overlay copy is pinned to light-theme ink
             colours rather than the ink/paper tokens, which invert in dark
             mode and would turn illegible against it. */}
-        <section className="services-banner relative isolate w-full overflow-hidden bg-surface-sunken lg:-mt-24 lg:min-h-[100svh]">
+        <section className="services-banner relative isolate w-full overflow-hidden bg-surface-sunken lg:-mt-20 lg:min-h-[100svh]">
           <div className="lg:absolute lg:inset-0 lg:z-10 lg:flex lg:items-center">
             <Container className="pt-[clamp(3.5rem,8vw,6rem)] pb-14 lg:pb-0 lg:pt-0">
               <div className="lg:max-w-[30%] lg:pl-[clamp(1rem,3vw,2.5rem)] lg:pr-8">

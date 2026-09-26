@@ -43,12 +43,17 @@ function initials(name) {
 }
 
 function Avatar({ user, size = 16 }) {
-  const cls = size === 20 ? 'h-20 w-20 text-2xl' : 'h-16 w-16 text-xl'
-  if (user?.avatar_url) {
+  const cls = size === 20 ? 'h-14 w-14 text-lg sm:h-20 sm:w-20 sm:text-2xl' : 'h-16 w-16 text-xl'
+  // Keyed by URL at the usage site, so a new photo URL remounts with a
+  // fresh chance — no reset effect needed.
+  const [photoFailed, setPhotoFailed] = useState(false)
+  if (user?.avatar_url && !photoFailed) {
     return (
       <img
         src={user.avatar_url}
         alt=""
+        referrerPolicy="no-referrer"
+        onError={() => setPhotoFailed(true)}
         className={clsx('shrink-0 rounded-full border border-line object-cover', cls)}
       />
     )
@@ -57,7 +62,7 @@ function Avatar({ user, size = 16 }) {
     <span
       aria-hidden="true"
       className={clsx(
-        'flex shrink-0 items-center justify-center rounded-full border border-line bg-surface-sunken font-serif text-ink-soft',
+        'flex shrink-0 items-center justify-center rounded-full border border-transparent bg-accent font-serif text-white',
         cls,
       )}
     >
@@ -119,10 +124,10 @@ function AccountHeader({ user, onLogout }) {
     <div className="overflow-hidden rounded-2xl border border-line bg-paper">
       <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div className="flex items-center gap-4 sm:gap-5">
-          <Avatar user={user} size={20} />
-          <div>
+          <Avatar key={user?.avatar_url || 'no-photo'} user={user} size={20} />
+          <div className="min-w-0">
             <p className="eyebrow">My Account</p>
-            <h1 className="mt-1 font-serif text-2xl text-ink sm:text-3xl">Hello, {firstName}</h1>
+            <h1 className="mt-1 break-words font-serif text-2xl text-ink sm:text-3xl">Hello, {firstName}</h1>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-soft">
               {user?.email && <span className="inline-flex min-w-0 break-all">{user.email}</span>}
               {user?.phone && (
@@ -152,10 +157,10 @@ function AccountHeader({ user, onLogout }) {
 
 function StatTile({ label, value, loading, icon: Icon }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-line bg-paper px-5 py-4">
+    <div className="flex flex-col items-start gap-3 rounded-2xl border border-line bg-paper px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
       <span
         aria-hidden="true"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink-soft sm:h-11 sm:w-11"
       >
         <Icon size={18} strokeWidth={1.75} />
       </span>
@@ -163,9 +168,9 @@ function StatTile({ label, value, loading, icon: Icon }) {
         {loading ? (
           <Skeleton className="h-7 w-12" />
         ) : (
-          <p className="truncate font-serif text-2xl tabular-nums text-ink">{value}</p>
+          <p className="break-words font-serif text-xl tabular-nums text-ink sm:text-2xl">{value}</p>
         )}
-        <p className="eyebrow mt-0.5">{label}</p>
+        <p className="eyebrow mt-0.5 leading-snug">{label}</p>
       </div>
     </div>
   )
@@ -192,7 +197,7 @@ function OverviewStats({ appointments }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Account overview">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Account overview">
       {tiles.map((tile) => (
         <StatTile key={tile.label} {...tile} loading={appointments.loading} />
       ))}
@@ -264,14 +269,14 @@ function UpcomingAppointmentCard({ appointment }) {
           {appointment.service_name || 'Appointment'}
         </p>
 
-        <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
           {facts.map((fact) => (
             <div key={fact.label} className="min-w-0 rounded-xl bg-surface-sunken/60 px-3.5 py-3">
               <dt className="flex items-center gap-1.5 text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted">
                 <fact.icon size={12} aria-hidden="true" />
                 {fact.label}
               </dt>
-              <dd className={clsx('mt-1 truncate text-sm font-medium text-ink', fact.tabular && 'tabular-nums')}>
+              <dd className={clsx('mt-1 break-words text-sm font-medium text-ink', fact.tabular && 'tabular-nums')}>
                 {fact.value}
               </dd>
             </div>
@@ -306,17 +311,17 @@ function AppointmentRow({ appointment }) {
   return (
     <li className="rounded-2xl border border-line bg-paper px-5 py-4 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="flex min-w-0 items-center gap-2.5 font-serif text-lg text-ink">
+        <p className="flex min-w-0 items-start gap-2.5 font-serif text-lg text-ink">
           <span
             aria-hidden="true"
-            className={clsx('h-2 w-2 shrink-0 rounded-full', STATUS_DOT[appointment.status] || 'bg-line-strong')}
+            className={clsx('mt-2.5 h-2 w-2 shrink-0 rounded-full', STATUS_DOT[appointment.status] || 'bg-line-strong')}
           />
-          <span className="truncate">{appointment.service_name || 'Appointment'}</span>
+          <span className="min-w-0 break-words">{appointment.service_name || 'Appointment'}</span>
         </p>
         <span className="shrink-0 text-xs uppercase tracking-[0.12em] text-muted">{appointment.reference}</span>
       </div>
       {meta.length > 0 && (
-        <p className="mt-1.5 truncate text-sm tabular-nums text-muted">{meta.join(' · ')}</p>
+        <p className="mt-1.5 break-words text-sm tabular-nums text-muted">{meta.join(' · ')}</p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <Pill dot={STATUS_DOT[appointment.status]}>
@@ -448,15 +453,15 @@ function ProfileSection() {
       <div>
         {success && <p className="mb-5 border-l-2 border-line-strong pl-4 text-sm text-ink-soft">{success}</p>}
         <dl className="border-t border-line">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 border-b border-line py-3">
+          <div className="flex flex-col gap-y-0.5 border-b border-line py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
             <dt className="eyebrow">Name</dt>
             <dd className="min-w-0 break-words text-ink">{user?.name}</dd>
           </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 border-b border-line py-3">
+          <div className="flex flex-col gap-y-0.5 border-b border-line py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
             <dt className="eyebrow">Email</dt>
             <dd className="min-w-0 break-all text-ink">{user?.email}</dd>
           </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 border-b border-line py-3">
+          <div className="flex flex-col gap-y-0.5 border-b border-line py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6">
             <dt className="eyebrow">Phone</dt>
             <dd className="min-w-0 break-words text-ink">{user?.phone || '—'}</dd>
           </div>
@@ -665,15 +670,15 @@ export default function Account() {
             <OverviewStats appointments={appointments} />
           </div>
 
-          <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:gap-16">
-            <div className="order-2 lg:order-1 lg:col-span-7">
+          <div className="mt-14 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+            <div className="order-2 min-w-0 lg:order-1 lg:col-span-7">
               <AppointmentsPanel appointments={appointments} />
               <div className="mt-12">
                 <AccountOrders orders={orders} />
               </div>
             </div>
 
-            <div className="order-1 lg:order-2 lg:col-span-5">
+            <div className="order-1 min-w-0 lg:order-2 lg:col-span-5">
               <section className="rounded-2xl border border-line bg-paper px-6 py-6 sm:px-7">
                 <h2 className="font-serif text-xl text-ink">Profile details</h2>
                 <div className="mt-5">

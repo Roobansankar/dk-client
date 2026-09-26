@@ -569,10 +569,10 @@ export default function Products() {
             </p>
             <Link
               to={CONTACT}
-              className="mt-8 inline-flex w-fit items-center gap-2 border-b border-white/40 pb-1 text-[0.72rem] font-medium uppercase tracking-[0.18em] text-white no-underline transition-colors hover:border-white"
+              className="btn btn-solid-light mt-8 w-fit rounded-full no-underline"
             >
               Talk to a stylist
-              <ArrowRight size={14} aria-hidden="true" />
+              <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         </Container>

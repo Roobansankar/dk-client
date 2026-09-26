@@ -25,7 +25,8 @@ import {
   Toolbar,
   cn,
 } from '../components/ui'
-import { ImageInput } from '../components/ImageInput'
+import { ImageGalleryInput } from '../components/ImageGalleryInput'
+import { appendGalleryFields, galleryError, galleryFromServer } from '../lib/gallery'
 import { formatMoney } from '../lib/format'
 import { withTax } from '../../lib/pricing'
 
@@ -454,7 +455,9 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
     status: product?.status ?? true,
     is_featured: product?.is_featured ?? false,
   })
-  const [image, setImage] = useState({ file: null, remove: false })
+  // Up to four photos, first = cover. Existing ones keep their id; new ones are files.
+  const [initialGallery] = useState(() => galleryFromServer(product?.images))
+  const [gallery, setGallery] = useState(initialGallery)
 
   const mrpNum = form.mrp === '' ? null : Number(form.mrp)
   const sellingNum = form.selling_price === '' ? null : Number(form.selling_price)
@@ -479,8 +482,7 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
       fd.append('gst_inclusive', form.gst_inclusive ? '1' : '0')
       fd.append('status', form.status ? '1' : '0')
       fd.append('is_featured', form.is_featured ? '1' : '0')
-      if (image.file) fd.append('image', image.file)
-      if (image.remove) fd.append('remove_image', '1')
+      appendGalleryFields(fd, gallery, initialGallery)
       return mode === 'create'
         ? api.postForm('/admin/products', fd)
         : api.putForm(`/admin/products/${product.id}`, fd)
@@ -515,12 +517,12 @@ function ProductFormModal({ mode, product, onClose, onSaved }) {
     >
       <form className="flex flex-col gap-5" onSubmit={submit}>
         <FormSection title="Details">
-          <ImageInput
-            label={mode === 'create' ? 'Product photo' : 'Replace photo'}
-            currentUrl={product?.image_url}
-            error={fieldErrors.image}
-            hint="Optional — a placeholder is shown on the site when there's no photo"
-            onChange={setImage}
+          <ImageGalleryInput
+            label="Photos"
+            items={gallery}
+            onChange={setGallery}
+            error={galleryError(fieldErrors)}
+            hint="Up to 4 photos — the first is the cover; all of them show on the product page. Optional."
           />
 
           <Field label="Name" required error={fieldErrors.name}>

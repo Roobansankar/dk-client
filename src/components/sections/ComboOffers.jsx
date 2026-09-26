@@ -114,7 +114,7 @@ export default function ComboOffers() {
   return (
     <section
       id="combo-offers"
-      className="scroll-mt-24 border-t border-line bg-surface"
+      className="scroll-mt-20 border-t border-line bg-surface"
     >
       <Container className="section-y">
         <header className="measure">

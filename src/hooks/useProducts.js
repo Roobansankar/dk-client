@@ -1,5 +1,6 @@
 import { useApiResource } from './useApi'
 import { resolveMediaUrl } from '../lib/env'
+import { photosOf } from '../lib/photos'
 import { withTax } from '../lib/pricing'
 
 /**
@@ -10,7 +11,10 @@ import { withTax } from '../lib/pricing'
  *
   * Normalised to:
   *   { id, slug, name, category?, size?, family?, description, blurb, info?,
-  *     image, mrp, sellingPrice, taxPercent, price, stock, gstInclusive, range?, audience? }
+  *     image, images, mrp, sellingPrice, taxPercent, price, stock, gstInclusive, range?, audience? }
+  *
+  * `image` is the cover; `images` is every photo (up to four) in the order the
+  * detail page shows them.
   *
   * `stock` is the live `stock_quantity` from the API (units available).
  *
@@ -71,6 +75,7 @@ function transform(rows) {
       blurb: row.description || '',
       info: row.description || '',
       image: resolveMediaUrl(row.image_url),
+      images: photosOf(row),
       mrp: row.mrp ?? null,
       sellingPrice: row.selling_price ?? null,
       taxPercent: Number(row.tax_percent ?? 0),

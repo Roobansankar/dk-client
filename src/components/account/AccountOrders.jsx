@@ -62,7 +62,7 @@ export default function AccountOrders({ orders }) {
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <Link
                     to={`/account/orders/${order.id}`}
-                    className="font-serif text-lg text-ink no-underline hover:underline"
+                    className="-my-2 inline-block py-2 font-serif text-lg text-ink no-underline hover:underline"
                   >
                     {order.order_number}
                   </Link>
@@ -70,7 +70,7 @@ export default function AccountOrders({ orders }) {
                     {formatInr(order.amount_paid ?? order.total)}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-ink-soft">
+                <p className="mt-1 break-words text-sm text-ink-soft">
                   <span className="tabular-nums">{formatOrderDate(order.created_at)}</span>
                   <span aria-hidden="true" className="mx-2 text-line-strong">·</span>
                   {order.items

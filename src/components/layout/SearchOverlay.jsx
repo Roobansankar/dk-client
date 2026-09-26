@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, X } from 'lucide-react'
+import Container from './Container'
 import { useSearch } from '../../hooks/useSearch'
 
 const GENDER_LABEL = { male: 'Men', female: 'Women', unisex: 'Unisex' }
@@ -11,11 +12,9 @@ const GENDER_LABEL = { male: 'Men', female: 'Women', unisex: 'Unisex' }
  * catalogue anywhere here: whatever the API returns is what renders, so a
  * brand-new admin product is searchable immediately with zero frontend change.
  *
- * Deliberately compact — a small anchored panel under the navbar (like a
- * command palette), not a full-screen takeover: a fixed-width card with its
- * own internal scroll region, so it never covers most of the page on desktop
- * or mobile. Opened from the search icon in the navbar (desktop bar or
- * mobile drawer — see Navbar.jsx).
+ * Full-page takeover, kept simple: a plain input bar on top and grouped
+ * result lists below. Opened from the search icon in the navbar (desktop
+ * bar or mobile drawer — see Navbar.jsx).
  *
  * Two services can legitimately share a name (the catalogue models most
  * services once per gender-specific category — e.g. a men's and a women's
@@ -60,24 +59,16 @@ export default function SearchOverlay({ open, onClose }) {
   const showNoResults = term && !loading && !error && !hasResults
 
   return (
-    <div className="fixed inset-0 z-[60]">
-      <button
-        type="button"
-        aria-label="Close search"
-        tabIndex={-1}
-        className="absolute inset-0 h-full w-full cursor-default border-0 bg-ink/30 p-0"
-        onClick={onClose}
-      />
-
-      <div className="pointer-events-none absolute inset-x-0 top-16 flex justify-center px-4 sm:top-20">
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Search"
-          className="pointer-events-auto flex w-full max-w-md flex-col overflow-hidden rounded-[var(--radius-lg,0.75rem)] border border-line bg-surface shadow-xl"
-        >
-          <div className="flex shrink-0 items-center gap-2 border-b border-line px-3.5 py-2.5">
-            <Search size={16} className="shrink-0 text-muted" aria-hidden="true" />
+    <div className="fixed inset-0 z-[60] flex flex-col bg-surface">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search"
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <div className="shrink-0 border-b border-line">
+          <Container className="flex h-16 items-center gap-2">
+            <Search size={18} className="shrink-0 text-muted" aria-hidden="true" />
             <input
               ref={inputRef}
               type="text"
@@ -85,63 +76,69 @@ export default function SearchOverlay({ open, onClose }) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search services and products…"
               aria-label="Search services and products"
-              className="w-full bg-transparent py-1 text-sm text-ink placeholder:text-muted focus:outline-none"
+              className="w-full bg-transparent text-base text-ink placeholder:text-muted focus:outline-none"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="btn-ghost -m-1 shrink-0 rounded p-1.5 text-muted hover:text-ink"
+                className="shrink-0 rounded p-2 text-muted transition-colors hover:text-ink"
               >
-                <X size={14} aria-hidden="true" />
+                <X size={16} aria-hidden="true" />
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
               aria-label="Close search"
-              className="btn-ghost -m-1 shrink-0 rounded p-1.5 text-muted hover:text-ink sm:hidden"
+              className="shrink-0 rounded p-2 text-muted transition-colors hover:text-ink"
             >
-              <X size={16} aria-hidden="true" />
+              <X size={20} aria-hidden="true" />
             </button>
-          </div>
+          </Container>
+        </div>
 
-          <div className="max-h-[60svh] overflow-y-auto overscroll-contain p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <Container className="max-w-2xl py-6">
             {!term && (
-              <p className="px-2.5 py-3 text-sm text-muted">
+              <p className="py-4 text-center text-sm text-muted">
                 Start typing to search services and products.
               </p>
             )}
 
-            {loading && <p className="px-2.5 py-3 text-sm text-muted">Searching…</p>}
+            {loading && (
+              <p className="py-4 text-center text-sm text-muted">Searching…</p>
+            )}
 
             {error && !loading && (
-              <p className="px-2.5 py-3 text-sm text-ink">
+              <p className="py-4 text-center text-sm text-ink">
                 We couldn’t reach the server. Please try again.
               </p>
             )}
 
             {showNoResults && (
-              <p className="px-2.5 py-3 text-sm text-muted">
+              <p className="py-4 text-center text-sm text-muted">
                 No results for “{term}”. Try a different search.
               </p>
             )}
 
             {!loading && !error && results.services.length > 0 && (
               <div>
-                <p className="px-2.5 pb-1 pt-2 text-[0.6875rem] font-medium uppercase tracking-[0.14em] text-muted">
+                <p className="px-1 pb-1 pt-2 text-xs font-medium uppercase tracking-[0.14em] text-muted">
                   Services
                 </p>
-                <ul>
+                <ul className="divide-y divide-line border-y border-line">
                   {results.services.map((service) => (
                     <li key={service.id}>
                       <Link
                         to="/services"
                         onClick={onClose}
-                        className="flex min-h-11 items-center justify-between gap-3 rounded-[var(--radius-sm,0.25rem)] px-2.5 py-2 no-underline hover:bg-surface-sunken"
+                        className="flex items-center justify-between gap-3 px-1 py-3 no-underline transition-colors hover:bg-surface-sunken"
                       >
-                        <span className="min-w-0 truncate text-sm text-ink">{service.name}</span>
+                        <span className="min-w-0 truncate text-sm text-ink">
+                          {service.name}
+                        </span>
                         <span className="shrink-0 text-xs text-muted">
                           {service.category?.name}
                           {GENDER_LABEL[service.gender] ? ` · ${GENDER_LABEL[service.gender]}` : ''}
@@ -154,35 +151,40 @@ export default function SearchOverlay({ open, onClose }) {
             )}
 
             {!loading && !error && results.products.length > 0 && (
-              <div>
-                <p className="px-2.5 pb-1 pt-2 text-[0.6875rem] font-medium uppercase tracking-[0.14em] text-muted">
+              <div className="mt-6">
+                <p className="px-1 pb-1 pt-2 text-xs font-medium uppercase tracking-[0.14em] text-muted">
                   Products
                 </p>
-                <ul>
+                <ul className="divide-y divide-line border-y border-line">
                   {results.products.map((product) => (
                     <li key={product.id}>
                       <Link
                         to={`/products/${product.slug}`}
                         onClick={onClose}
-                        className="flex min-h-11 items-center gap-3 rounded-[var(--radius-sm,0.25rem)] px-2.5 py-2 no-underline hover:bg-surface-sunken"
+                        className="flex items-center gap-3 px-1 py-3 no-underline transition-colors hover:bg-surface-sunken"
                       >
                         {product.image_url ? (
                           <img
                             src={product.image_url}
                             alt=""
-                            className="h-8 w-8 shrink-0 rounded-sm border border-line object-cover"
+                            className="h-9 w-9 shrink-0 rounded border border-line object-cover"
                           />
                         ) : (
-                          <span className="h-8 w-8 shrink-0 rounded-sm border border-line bg-surface-sunken" aria-hidden="true" />
+                          <span
+                            className="h-9 w-9 shrink-0 rounded border border-line bg-surface-sunken"
+                            aria-hidden="true"
+                          />
                         )}
-                        <span className="min-w-0 truncate text-sm text-ink">{product.name}</span>
+                        <span className="min-w-0 truncate text-sm text-ink">
+                          {product.name}
+                        </span>
                       </Link>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-          </div>
+          </Container>
         </div>
       </div>
     </div>
