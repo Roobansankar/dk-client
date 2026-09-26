@@ -1,92 +1,96 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, ArrowUpRight, ImageOff } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, ImageOff, ShoppingBag, Star, Users } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../layout/Container'
 import { useCatalogue } from '../../context/CatalogueContext'
+import { formatInr } from '../../data/services'
 import { Skeleton } from '../StateViews'
 import studioImage from '../../assets/images/new-design/opt/studio.jpg'
 
 /**
- * Homepage "Selected services" — an editorial composition rebuilt to the
- * `design-references/service-references.png` reference:
+ * Homepage "Our services" — photo-tiles grid.
  *
  *   ┌──────────────┬───────────────────────────────┐
  *   │ warm text    │  01 photo tile │ 02 photo tile │
  *   │ panel        │  03 photo tile │ 04 photo tile │
  *   │ (eyebrow,    ├───────────────────────────────┤
- *   │  big serif,  │  05 full-width studio strip    │
- *   │  copy, link, └───────────────────────────────┘
- *   │  3 feature marks)
+ *   │  headline,   │  05 full-width studio strip    │
+ *   │  copy, link) └───────────────────────────────┘
  *
  * A 2fr : 3fr split from `xl`; a single reflowed column below that (tablet /
  * mobile) which keeps the same order and hierarchy.
  *
  * The four grid tiles are the LIVE catalogue (first four categories from
- * `useCatalogue()`) — no static/demo categories are ever substituted. Their
- * name and in-page link always come from the catalogue; only the
- * admin-uploaded `image` is shown as photography — categories without an
+ * `useCatalogue()`) — no static/demo categories are ever substituted. Only
+ * the admin-uploaded `image` is shown as photography — categories without an
  * upload render a neutral placeholder tile, never a static stock photo.
  * While the catalogue is loading the tiles show as skeletons; if it's empty
- * or failed, only the text panel and the evergreen "Designed for your beauty"
- * studio tile render (both of those are fixed marketing content, not service
- * data).
+ * or failed, only the text panel and the studio strip render.
  */
-
-/** Static brand reassurances shown under the panel copy — not service data. */
-const FEATURES = [
-  { mark: 'solid', title: 'Premium Care', blurb: 'Quality products for lasting results.' },
-  { mark: 'open', title: 'Expert Team', blurb: 'Skilled professionals who care.' },
-  { mark: 'small', title: 'Personal Touch', blurb: 'Tailored services just for you.' },
-]
 
 const pad = (n) => String(n).padStart(2, '0')
 
-/** Small editorial diamond mark — filled, outline or small, per the reference. */
-function DiamondMark({ variant }) {
-  const size = variant === 'small' ? 11 : 14
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 12 12"
-      aria-hidden="true"
-      className="text-ink"
-    >
-      <rect
-        x="2.4"
-        y="2.4"
-        width="7.2"
-        height="7.2"
-        transform="rotate(45 6 6)"
-        fill={variant === 'open' ? 'none' : 'currentColor'}
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-    </svg>
-  )
+/** Trust signals pinned to the foot of the text panel — each one links to a
+ *  real proof point elsewhere on the site (reviews, team, shop), so the panel
+ *  fills the column height on laptop instead of leaving a gap. */
+const TRUST = [
+  {
+    icon: Star,
+    title: 'Loved by clients',
+    text: 'Real, unedited Google reviews.',
+    href: '#reviews',
+    cta: 'Read reviews',
+  },
+  {
+    icon: Users,
+    title: 'Skilled stylists',
+    text: 'A dedicated team for hair & skin.',
+    href: '#team',
+    cta: 'Meet the team',
+  },
+  {
+    icon: ShoppingBag,
+    title: 'Pro products',
+    text: 'The same ranges we use in-store.',
+    href: '/products',
+    cta: 'Shop products',
+  },
+]
+
+/** "For women" / "For men" / "For everyone" — from the live catalogue. */
+const audienceOf = (category) => {
+  const genders = category.genders ?? []
+  if (genders.length === 1 && genders[0] === 'women') return 'For women'
+  if (genders.length === 1 && genders[0] === 'men') return 'For men'
+  return 'For everyone'
+}
+
+/** "8 services · From ₹299" — the facts visitors scan for. */
+function metaOf(category) {
+  const services = category.services ?? []
+  const count = services.length
+  const countLabel = count === 1 ? '1 service' : `${count} services`
+  const prices = services
+    .map((s) => Number(s.priceInr))
+    .filter((p) => Number.isFinite(p) && p > 0)
+  if (prices.length === 0) return countLabel
+  return `${countLabel} · From ${formatInr(Math.min(...prices))}`
 }
 
 /** One tile: admin-uploaded photo with dark scrim, or a neutral placeholder
  *  when the category has no uploaded image yet — never a static stock photo.
- *  (The `wide` studio strip below is fixed brand marketing, not service data,
- *  so it keeps its own photo.)
  *
- *  The aspect ratio lives on the LINK (not the image): this grid's rows use
+ *  The aspect ratio lives on the LINK (not the image): the grid's rows use
  *  CSS Grid's default cross-axis stretch, so a tile can end up taller than its
- *  own aspect-ratio height would naturally give it (e.g. the wide studio strip
- *  when the text panel beside it runs long, or the catalogue returns fewer
- *  than 4 categories). The image is absolutely positioned and fills 100% of
- *  whatever height the link ends up with, so there is never a bare `bg-scrim`
- *  gap below the photo — see design-references/service-references.png.
+ *  own aspect-ratio height. The image is absolutely positioned and fills 100%
+ *  of whatever height the link ends up with, so there is never a bare gap
+ *  below the photo.
  *
- *  The arrow is a ~40px light disc with a thin diagonal ↗ glyph — one clean
- *  editorial style for every tile (the `wide` studio strip only scales its
- *  type). It sits over dark photography in both themes, so the light-on-dark
- *  treatment stays legible either way; the link carries a white focus ring.
- *  Placeholder tiles use ink-on-sunken styling instead since there is no dark
- *  photo behind them.
+ *  The arrow is a ~40px light disc with a thin diagonal ↗ glyph. It sits over
+ *  dark photography in both themes; placeholder tiles use ink-on-sunken
+ *  styling instead since there is no dark photo behind them.
  */
-function ShowcaseTile({ to, image, index, eyebrow, title, wide = false }) {
+function ShowcaseTile({ to, image, index, eyebrow, title, meta, wide = false }) {
   return (
     <Link
       to={to}
@@ -105,6 +109,7 @@ function ShowcaseTile({ to, image, index, eyebrow, title, wide = false }) {
           src={image}
           alt=""
           loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
       ) : (
@@ -156,6 +161,17 @@ function ShowcaseTile({ to, image, index, eyebrow, title, wide = false }) {
           >
             {title}
           </span>
+          {meta && (
+            <span
+              aria-hidden="true"
+              className={clsx(
+                'mt-1.5 block truncate text-xs font-medium tabular-nums tracking-wide',
+                image ? 'text-white/80 [text-shadow:0_1px_8px_rgb(0_0_0/0.5)]' : 'text-muted',
+              )}
+            >
+              {meta}
+            </span>
+          )}
         </span>
         <span
           aria-hidden="true"
@@ -185,16 +201,14 @@ export default function ServicesPreview() {
           <div className="flex flex-col bg-surface-sunken p-8 sm:p-10 xl:p-12">
             <div>
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-ink-soft">
-                Selected services
+                Our services
               </p>
               <h2 className="mt-7 font-serif text-[2.5rem] leading-[1.05] text-ink sm:text-[2.75rem] lg:text-[2.9rem] xl:text-[3.15rem]">
-                Beauty with <em className="italic">purpose.</em>
-                <br />
-                Style with <em className="italic">confidence.</em>
+                What would you like <em className="italic">today?</em>
               </h2>
               <p className="mt-7 max-w-sm text-sm leading-relaxed text-ink-soft">
-                Explore our signature beauty services, carefully designed to
-                bring together modern style, thoughtful care and confidence.
+                Pick a category to see exact services, prices and durations —
+                then book your slot online.
               </p>
               <Link
                 to="/services"
@@ -205,23 +219,19 @@ export default function ServicesPreview() {
               </Link>
             </div>
 
-            <ul className="mt-14 grid grid-cols-1 gap-y-6 border-t border-line-strong pt-8 sm:grid-cols-3 sm:gap-y-0 xl:mt-auto">
-              {FEATURES.map(({ mark, title, blurb }, i) => (
-                <li
-                  key={title}
-                  className={clsx(
-                    'sm:px-3 sm:first:pl-0 sm:last:pr-0',
-                    i > 0 &&
-                      'border-t border-line pt-6 sm:border-l sm:border-t-0 sm:pt-0',
-                  )}
-                >
-                  <span className="flex h-4 items-center">
-                    <DiamondMark variant={mark} />
+            <ul className="mt-10 hidden grid-cols-1 gap-6 border-t border-line-strong pt-8 sm:grid sm:grid-cols-3 xl:mt-auto">
+              {TRUST.map(({ icon: Icon, title, text, href, cta }) => (
+                <li key={title}>
+                  <span className="grid h-10 w-10 place-items-center rounded-full border border-line-strong text-ink">
+                    <Icon size={17} strokeWidth={1.75} aria-hidden="true" />
                   </span>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.1em] text-ink">
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-ink">
                     {title}
                   </p>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">{blurb}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{text}</p>
+                  <a href={href} className="mt-2 inline-block text-xs font-semibold text-ink">
+                    {cta}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -244,8 +254,9 @@ export default function ServicesPreview() {
                       to={`/services#${category.id}`}
                       image={category.image || null}
                       index={i + 1}
-                      eyebrow={category.name}
+                      eyebrow={audienceOf(category)}
                       title={category.name}
+                      meta={metaOf(category)}
                     />
                   ))}
                 </div>
@@ -257,7 +268,7 @@ export default function ServicesPreview() {
               image={studioImage}
               index={(cards.length || 4) + 1}
               eyebrow="The studio"
-              title="Designed for your beauty."
+              title="Explore the full menu."
               wide
             />
           </div>
