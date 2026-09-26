@@ -6,7 +6,7 @@ import FooterCta from '../components/sections/FooterCta'
 import Seo from '../components/Seo'
 import { about } from '../data/about'
 import { assetUrl } from '../lib/seo'
-import studioBanner from '../assets/images/new-design/opt/studio-wide.jpg'
+import studioBanner from '../assets/images/about-banner.webp'
 
 const BOOKING = '/booking'
 
