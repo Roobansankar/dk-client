@@ -103,8 +103,12 @@ export default function AppointmentsPage() {
       header: 'When',
       cell: (r) => (
         <div className="whitespace-nowrap">
-          <p>{formatDate(r.appointment_date)}</p>
-          <p className="text-xs text-[var(--color-muted)]">{formatTime(r.appointment_time)}</p>
+          <p className="font-medium text-[var(--color-ink)]">
+            {r.appointment_end_time
+              ? `${formatTime(r.appointment_time)} – ${formatTime(r.appointment_end_time)}`
+              : formatTime(r.appointment_time)}
+          </p>
+          <p className="text-xs text-[var(--color-muted)]">{formatDate(r.appointment_date)}</p>
         </div>
       ),
     },

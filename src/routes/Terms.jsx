@@ -1,6 +1,7 @@
 import Container from '../components/layout/Container'
 import LegalSection from '../components/legal/LegalSection'
 import { useSite } from '../context/SiteContext'
+import Seo from '../components/Seo'
 
 // Kept as a single readable constant rather than computed from `new Date()`
 // on every render — bump it by hand whenever this page's content changes.
@@ -38,10 +39,10 @@ export default function Terms() {
 
   return (
     <>
-      <title>Terms & Conditions — DK StyleHub</title>
-      <meta
-        name="description"
-        content="The terms and conditions for using the DK StyleHub website and booking appointments online."
+      <Seo
+        title="Terms & Conditions — DK StyleHub"
+        description="The terms and conditions for using the DK StyleHub website and booking appointments online."
+        path="/terms"
       />
 
       <Container as="article" className="section-y">

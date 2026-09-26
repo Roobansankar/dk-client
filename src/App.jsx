@@ -137,6 +137,9 @@ export default function App() {
             path="/admin/*"
             element={
               <Suspense fallback={null}>
+                {/* The staff dashboard must never be indexed. */}
+                <title>Admin — DK StyleHub</title>
+                <meta name="robots" content="noindex, nofollow" />
                 <AdminApp />
               </Suspense>
             }

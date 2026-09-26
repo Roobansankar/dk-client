@@ -11,6 +11,7 @@ import { useAccountAppointments } from '../../hooks/useAccountAppointments'
 import { useAccountOrders } from '../../hooks/useAccountOrders'
 import AccountOrders from '../../components/account/AccountOrders'
 import { Skeleton } from '../../components/StateViews'
+import Seo from '../../components/Seo'
 
 const BOOKING = '/booking'
 
@@ -654,8 +655,7 @@ export default function Account() {
 
   return (
     <>
-      <title>My Account — DK StyleHub</title>
-      <meta name="description" content="Manage your DK StyleHub profile and appointments." />
+      <Seo title="My Account — DK StyleHub" noindex />
 
       <div className="border-t border-line bg-surface">
         <Container className="section-y">

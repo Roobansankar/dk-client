@@ -36,6 +36,10 @@ const PAYMENT_OPTIONS = [
   ['paid', 'Paid in full'],
 ]
 const PAYMENT_METHOD_LABELS = { upi: 'UPI', cash: 'Cash', card: 'Card' }
+// Offline: how the customer paid at the salon. Online: the advance is the
+// Razorpay payment; this records how the remaining balance was paid.
+const methodFieldFor = (source) =>
+  source === 'offline' ? 'payment_method' : 'balance_payment_method'
 
 const labelGender = (g) =>
   ({ male: 'Male', female: 'Female', unisex: 'Not specified' })[g] ?? g
@@ -93,6 +97,11 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
   const paymentMut = useMutation(
     (payment_status) => api.patch(`/admin/appointments/${id}`, { payment_status }),
     { successMessage: 'Payment status updated.', onSuccess: afterWrite },
+  )
+  const methodMut = useMutation(
+    (method) =>
+      api.patch(`/admin/appointments/${id}`, { [methodFieldFor(appt?.source)]: method || null }),
+    { successMessage: 'Payment method updated.', onSuccess: afterWrite },
   )
   const notesMut = useMutation(() => api.patch(`/admin/appointments/${id}`, { notes }), {
     successMessage: 'Notes saved.',
@@ -252,10 +261,15 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
                 />
                 <Detail label="Received" value={formatPrice(appt.amount_received)} />
                 <Detail label="Remaining" value={formatPrice(appt.remaining_amount)} />
-                {appt.source === 'offline' && (
+                {appt.source === 'offline' ? (
                   <Detail
                     label="Payment method"
                     value={PAYMENT_METHOD_LABELS[appt.payment_method] || '—'}
+                  />
+                ) : (
+                  <Detail
+                    label="Balance paid via"
+                    value={PAYMENT_METHOD_LABELS[appt.balance_payment_method] || 'Not recorded'}
                   />
                 )}
               </dl>
@@ -272,7 +286,7 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
                 </div>
               )}
               {canManage && (
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <label className="label mb-0" htmlFor="pay-status">
                     Mark as
                   </label>
@@ -284,6 +298,23 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
                     onChange={(e) => changePayment(e.target.value)}
                   >
                     {PAYMENT_OPTIONS.map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </Select>
+                  <label className="label mb-0" htmlFor="pay-method">
+                    {appt.source === 'offline' ? 'Paid via' : 'Balance paid via'}
+                  </label>
+                  <Select
+                    id="pay-method"
+                    className="h-8 w-36 py-0 text-xs"
+                    value={appt[methodFieldFor(appt.source)] ?? ''}
+                    disabled={methodMut.pending}
+                    onChange={(e) => methodMut.mutate(e.target.value)}
+                  >
+                    <option value="">Not recorded</option>
+                    {Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => (
                       <option key={v} value={v}>
                         {l}
                       </option>

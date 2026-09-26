@@ -25,6 +25,7 @@ import { formatTimeRange12h, parseDateIso, studioNow } from '../../lib/time'
 
 const STATUSES = ['confirmed', 'completed', 'cancelled']
 const PAYMENT_STATUSES = [
+  ['unpaid', 'Unpaid'],
   ['advance_paid', 'Advance paid'],
   ['paid', 'Paid in full'],
 ]
@@ -280,7 +281,8 @@ export default function OfflineAppointmentNewPage() {
         appointment_time: form.appointment_time,
         status: form.status,
         payment_status: form.payment_status,
-        payment_method: form.payment_method,
+        // Nothing collected yet → no payment method to record.
+        payment_method: form.payment_status === 'unpaid' ? null : form.payment_method,
       }),
     {
       successMessage: 'Offline appointment created.',
@@ -296,7 +298,7 @@ export default function OfflineAppointmentNewPage() {
       : form.payment_status === 'paid'
         ? 'Paid in full — the customer gets the payment receipt with the bill PDF.'
         : form.status === 'confirmed'
-          ? 'Advance paid — the customer gets the booking confirmation.'
+          ? `${form.payment_status === 'unpaid' ? 'Unpaid' : 'Advance paid'} — the customer gets the booking confirmation.`
           : 'No WhatsApp message is sent unless the appointment is Confirmed or Paid in full.'
 
   if (!canSeeCatalogue) {
@@ -326,7 +328,7 @@ export default function OfflineAppointmentNewPage() {
           if (!form.service_id) errors.service_id = 'Select a service.'
           if (!form.appointment_date) errors.appointment_date = 'Select a date.'
           if (!form.appointment_time) errors.appointment_time = 'Select a time.'
-          if (!form.payment_method) errors.payment_method = 'Select a payment method.'
+          if (form.payment_status !== 'unpaid' && !form.payment_method) errors.payment_method = 'Select a payment method.'
           setLocalErrors(errors)
           if (Object.keys(errors).length === 0) mutate()
         }}
@@ -502,7 +504,7 @@ export default function OfflineAppointmentNewPage() {
             </Field>
             <Field
               label="Payment method"
-              required
+              required={form.payment_status !== 'unpaid'}
               error={localErrors.payment_method || fieldErrors.payment_method}
               className="sm:col-span-2 xl:col-span-1"
               reserveMessage

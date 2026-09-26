@@ -6,6 +6,8 @@ import ReviewUs from '../components/sections/ReviewUs'
 import { useSite } from '../context/SiteContext'
 import { formatTime12h } from '../lib/time'
 import contactBanner from '../assets/images/Contact-banner.webp'
+import Seo from '../components/Seo'
+import { assetUrl } from '../lib/seo'
 
 const BOOKING = '/booking'
 
@@ -62,10 +64,12 @@ export default function Contact() {
 
   return (
     <>
-      <title>Contact — DK StyleHub</title>
-      <meta
-        name="description"
-        content="Contact DK StyleHub — a premium unisex beauty and styling studio."
+      <Seo
+        title="Contact & Location — DK StyleHub Salon, Coimbatore"
+        description="Call, message or visit DK StyleHub in Coimbatore. Find the studio on Google Maps and check the shop hours before you come in."
+        path="/contact"
+        image={assetUrl(contactBanner)}
+        imageAlt="The DK StyleHub studio — arched styling stations and chairs under warm light"
       />
 
       {/* Hero — the studio under a dark scrim, same recipe as Products.jsx's

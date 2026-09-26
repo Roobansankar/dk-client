@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Globe, MessageCircle } from 'lucide-react'
 import Container from './Container'
 import { useSite } from '../../context/SiteContext'
-import siteLogo from '../../assets/images/White-logo.png'
+import siteLogo from '../../assets/images/White-logo-384.webp'
 
 /**
  * Site footer — the dark editorial foundation: a brand + contact + social
@@ -98,6 +98,10 @@ export default function Footer() {
   <img
     src={siteLogo}
     alt="DK StyleHub"
+    width={384}
+    height={256}
+    loading="lazy"
+    decoding="async"
     className="h-10 w-auto object-contain"
   />
 </Link>

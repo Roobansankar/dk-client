@@ -2,6 +2,7 @@ import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import AuthCard from '../../components/account/AuthCard'
 import GoogleButton from '../../components/account/GoogleButton'
 import { useAuth } from '../../context/AuthContext'
+import Seo from '../../components/Seo'
 
 export default function Login() {
   const { status } = useAuth()
@@ -44,8 +45,7 @@ export default function Login() {
 
   return (
     <>
-      <title>Sign In — DK StyleHub</title>
-      <meta name="description" content="Sign in to your DK StyleHub account." />
+      <Seo title="Sign In — DK StyleHub" description="Sign in to your DK StyleHub account." noindex />
 
       <AuthCard
         eyebrow="Account"

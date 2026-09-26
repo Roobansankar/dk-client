@@ -8,7 +8,9 @@ import FilterSelect from '../components/ui/FilterSelect'
 import { formatInr } from '../data/services'
 import { useCatalogue } from '../context/CatalogueContext'
 import { CardSkeletonGrid, Notice } from '../components/StateViews'
-import serviceBanner from '../assets/images/service-banner.png'
+import serviceBanner from '../assets/images/service-banner.webp'
+import Seo from '../components/Seo'
+import { SALON_ID, assetUrl, breadcrumbSchema } from '../lib/seo'
 
 const BOOKING = '/booking'
 const pad = (n) => String(n).padStart(2, '0')
@@ -253,6 +255,34 @@ export default function Services({ gender: pageGender }) {
     [categories, gender, type],
   )
 
+  // Structured data mirrors the menu shown on this route (gender-filtered,
+  // before the on-page Hair/Skin toggle): the real names and listed prices.
+  const offerCatalog = useMemo(() => {
+    const cats = filterCatalogue(categories, gender, 'all')
+    if (cats.length === 0) return null
+    return {
+      '@type': 'BeautySalon',
+      '@id': SALON_ID,
+      hasOfferCatalog: {
+        '@type': 'OfferCatalog',
+        name: genderName ? `${genderName}’s services` : 'Services',
+        itemListElement: cats.map((category) => ({
+          '@type': 'OfferCatalog',
+          name: category.name,
+          itemListElement: category.services.map((service) => ({
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: service.name,
+              ...(service.description && { description: service.description }),
+            },
+            ...(service.priceInr != null && { price: service.priceInr, priceCurrency: 'INR' }),
+          })),
+        })),
+      },
+    }
+  }, [categories, gender, genderName])
+
   // Old `/services?gender=men` links land on the dedicated page instead.
   const legacyGender = searchParams.get('gender')
   if (!pageGender && (legacyGender === 'men' || legacyGender === 'women')) {
@@ -261,14 +291,28 @@ export default function Services({ gender: pageGender }) {
 
   return (
     <>
-      <title>{`${genderName ? `${genderName}’s Services` : 'Services'} — DK StyleHub`}</title>
-      <meta
-        name="description"
-        content={
+      <Seo
+        title={
           genderName
-            ? `${genderName}’s services at DK StyleHub — a premium unisex beauty and styling studio.`
-            : 'Services at DK StyleHub — a premium unisex beauty and styling studio.'
+            ? `${genderName}’s Salon Services & Prices — DK StyleHub, Coimbatore`
+            : 'Salon Services & Prices — DK StyleHub, Coimbatore'
         }
+        description={
+          genderName
+            ? `Browse the ${genderName.toLowerCase()}’s service menu at DK StyleHub, Coimbatore — every service with its price. Book your appointment online.`
+            : 'Explore hair, colour, skin and massage services at DK StyleHub, Coimbatore — every service with its price. Book your appointment online.'
+        }
+        path={pageGender ? `/services/${pageGender}` : '/services'}
+        image={assetUrl(serviceBanner)}
+        imageAlt="Salon styling tools — combs, shears and clips fanned across a silk backdrop"
+        jsonLd={[
+          offerCatalog,
+          breadcrumbSchema([
+            { name: 'Home', path: '/' },
+            { name: 'Services', path: '/services' },
+            ...(genderName ? [{ name: `${genderName}’s services`, path: `/services/${pageGender}` }] : []),
+          ]),
+        ]}
       />
 
       <div className="texture-lines">
