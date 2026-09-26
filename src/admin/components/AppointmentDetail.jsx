@@ -339,7 +339,9 @@ export function AppointmentDetail({ id, canManage, onClose, onChanged }) {
         }
         message={
           confirm?.kind === 'payment'
-            ? 'This updates the recorded payment for accounting.'
+            ? confirm.value === 'paid' && !['cancelled', 'rejected'].includes(appt.status)
+              ? 'This records the bill as settled in full and sends the customer a WhatsApp payment receipt with the bill PDF.'
+              : 'This updates the recorded payment for accounting.'
             : 'The customer-facing status will change. This can be reopened later.'
         }
         confirmLabel={confirm?.label ?? 'Confirm'}

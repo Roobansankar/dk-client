@@ -19,6 +19,7 @@ import {
 } from '../components/ui'
 import { formatMoney } from '../lib/format'
 import { MonthCalendar } from '../components/MonthCalendar'
+import { TimePicker } from '../components/TimePicker'
 import { addDaysIso, formatTime12h, parseDateIso, studioNow } from '../../lib/time'
 import { formatRange } from '../../lib/workHours'
 
@@ -35,7 +36,8 @@ import { formatRange } from '../../lib/workHours'
  * The public booking page reads exactly this, so nothing here is cosmetic.
  */
 
-const MAX_RANGES = 4
+// Time ranges one day can hold — keep in step with UpdateStylistDateHoursRequest::MAX_RANGES_PER_DAY.
+const MAX_RANGES = 12
 const GENDER_TABS = [
   { id: 'male', label: 'Men' },
   { id: 'female', label: 'Women' },
@@ -571,25 +573,23 @@ function RangeList({ ranges, onChange, label, errorFor, disabled }) {
           <li key={index}>
             <div className="flex flex-wrap items-center gap-2">
               {/* The field style is full-width, so the width lives on a wrapper. */}
-              <div className="w-28 shrink-0 sm:w-36">
-                <TextInput
-                  type="time"
-                  aria-label={`${label} range ${index + 1} start`}
+              <div className="w-32 shrink-0 sm:w-40">
+                <TimePicker
+                  label={`${label} range ${index + 1} start`}
                   value={range.start}
                   disabled={disabled}
-                  aria-invalid={Boolean(message)}
-                  onChange={(e) => onChange(ranges.map((r, i) => (i === index ? { ...r, start: e.target.value } : r)))}
+                  invalid={Boolean(message)}
+                  onChange={(start) => onChange(ranges.map((r, i) => (i === index ? { ...r, start } : r)))}
                 />
               </div>
               <span className="text-sm text-[var(--color-muted)]">to</span>
-              <div className="w-28 shrink-0 sm:w-36">
-                <TextInput
-                  type="time"
-                  aria-label={`${label} range ${index + 1} end`}
+              <div className="w-32 shrink-0 sm:w-40">
+                <TimePicker
+                  label={`${label} range ${index + 1} end`}
                   value={range.end}
                   disabled={disabled}
-                  aria-invalid={Boolean(message)}
-                  onChange={(e) => onChange(ranges.map((r, i) => (i === index ? { ...r, end: e.target.value } : r)))}
+                  invalid={Boolean(message)}
+                  onChange={(end) => onChange(ranges.map((r, i) => (i === index ? { ...r, end } : r)))}
                 />
               </div>
               {!disabled && (
@@ -862,10 +862,15 @@ function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
           {ranges.length === 0 && (
             <p className="text-sm text-[var(--color-muted)]">Add at least one range of hours.</p>
           )}
-          {ranges.length < MAX_RANGES && (
+          {ranges.length < MAX_RANGES ? (
             <Button variant="ghost" size="sm" className="mt-2" onClick={() => setRanges([...ranges, blankRange()])}>
               <Plus size={13} /> Add hours
             </Button>
+          ) : (
+            <p className="mt-2 text-xs text-[var(--color-muted)]">
+              A day can hold up to {MAX_RANGES} time ranges. To add more, join back-to-back ranges — for example
+              10:00–11:00 and 11:00–12:00 become 10:00–12:00.
+            </p>
           )}
         </div>
       )}
