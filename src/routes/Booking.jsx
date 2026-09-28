@@ -1,5 +1,6 @@
 import BookingSection from '../components/sections/Booking'
 import Seo from '../components/Seo'
+import { breadcrumbSchema } from '../lib/seo'
 
 /**
  * Dedicated booking page (/booking).
@@ -17,6 +18,10 @@ export default function Booking() {
         title="Book an Appointment — DK StyleHub, Coimbatore"
         description="Book your DK StyleHub appointment online — choose a service, your stylist, and a date and time that suits you."
         path="/booking"
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Book an Appointment', path: '/booking' },
+        ])}
       />
 
       <BookingSection />

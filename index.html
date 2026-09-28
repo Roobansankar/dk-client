@@ -25,6 +25,47 @@
     <meta data-seo-default name="twitter:title" content="DK StyleHub — Premium Unisex Salon in Coimbatore" />
     <meta data-seo-default name="twitter:description" content="A premium unisex beauty and styling studio in Coimbatore — hair, colour, skin and massage for everyone." />
     <meta data-seo-default name="twitter:image" content="https://dkstylehub.com/og-image.jpg" />
+    <link data-seo-default rel="canonical" href="https://dkstylehub.com/" />
+    <!-- Static BeautySalon + WebSite schema (homepage values) for crawlers
+         that don't run JavaScript. Removed on boot like the other
+         [data-seo-default] tags; the Home route renders the live version. -->
+    <script data-seo-default type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BeautySalon",
+            "@id": "https://dkstylehub.com/#salon",
+            "name": "DK StyleHub",
+            "description": "A premium unisex beauty and styling studio in Coimbatore — hair, colour, skin and massage for everyone.",
+            "url": "https://dkstylehub.com/",
+            "logo": "https://dkstylehub.com/logo.png",
+            "image": "https://dkstylehub.com/og-image.jpg",
+            "email": "info@dkstylehub.com",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Coimbatore",
+              "addressRegion": "Tamil Nadu",
+              "addressCountry": "IN"
+            },
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": 11.0108196,
+              "longitude": 76.9602525
+            },
+            "hasMap": "https://maps.google.com/?cid=6340263101255841993"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://dkstylehub.com/#website",
+            "name": "DK StyleHub",
+            "url": "https://dkstylehub.com/",
+            "inLanguage": "en-IN",
+            "publisher": { "@id": "https://dkstylehub.com/#salon" }
+          }
+        ]
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Non-blocking font load: preload + print-media trick so the

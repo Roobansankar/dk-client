@@ -5,7 +5,7 @@ import Container from '../components/layout/Container'
 import FooterCta from '../components/sections/FooterCta'
 import Seo from '../components/Seo'
 import { about } from '../data/about'
-import { assetUrl } from '../lib/seo'
+import { assetUrl, breadcrumbSchema } from '../lib/seo'
 import studioBanner from '../assets/images/about-banner.webp'
 
 const BOOKING = '/booking'
@@ -251,6 +251,10 @@ export default function About() {
         path="/about"
         image={assetUrl(studioBanner)}
         imageAlt="The DK StyleHub studio — styling stations and chairs under warm light"
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'About', path: '/about' },
+        ])}
       />
 
       {/* Hero — the studio under a dark scrim, same recipe as Contact.jsx's

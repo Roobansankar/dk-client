@@ -7,7 +7,7 @@ import { useSite } from '../context/SiteContext'
 import { formatTime12h } from '../lib/time'
 import contactBanner from '../assets/images/Contact-banner.webp'
 import Seo from '../components/Seo'
-import { assetUrl } from '../lib/seo'
+import { assetUrl, breadcrumbSchema } from '../lib/seo'
 
 const BOOKING = '/booking'
 
@@ -70,6 +70,10 @@ export default function Contact() {
         path="/contact"
         image={assetUrl(contactBanner)}
         imageAlt="The DK StyleHub studio — arched styling stations and chairs under warm light"
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Contact', path: '/contact' },
+        ])}
       />
 
       {/* Hero — the studio under a dark scrim, same recipe as Products.jsx's

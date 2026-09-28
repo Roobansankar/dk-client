@@ -2,6 +2,7 @@ import Container from '../components/layout/Container'
 import LegalSection from '../components/legal/LegalSection'
 import { useSite } from '../context/SiteContext'
 import Seo from '../components/Seo'
+import { breadcrumbSchema } from '../lib/seo'
 
 // Bump by hand whenever this page's content changes — see Terms.jsx for the
 // same convention.
@@ -44,6 +45,10 @@ export default function Privacy() {
         title="Privacy Policy — DK StyleHub"
         description="How DK StyleHub collects, uses and protects your information when you use this website and book appointments."
         path="/privacy"
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Privacy Policy', path: '/privacy' },
+        ])}
       />
 
       <Container as="article" className="section-y">

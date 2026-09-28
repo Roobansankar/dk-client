@@ -7,6 +7,7 @@ import GalleryWheel from '../components/gallery/GalleryWheel'
 import GalleryMasonry from '../components/gallery/GalleryMasonry'
 import Lightbox from '../components/gallery/Lightbox'
 import Seo from '../components/Seo'
+import { breadcrumbSchema } from '../lib/seo'
 
 // The bundled sample set, normalised to the `{ id, src, alt }` shape the
 // sections render. Used when the live feed's images can't be displayed.
@@ -67,6 +68,10 @@ export default function Gallery() {
         title="Gallery — Inside DK StyleHub Salon, Coimbatore"
         description="Photos from DK StyleHub in Coimbatore — cuts, colour and styling, and the studio space itself."
         path="/gallery"
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Gallery', path: '/gallery' },
+        ])}
       />
 
       {loading ? (
