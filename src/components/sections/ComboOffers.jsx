@@ -24,9 +24,9 @@ import { formatInr } from '../../data/services'
  *   • no active plans    → section renders nothing (like GalleryPreview /
  *                          ProductShowcase when their feed is empty)
  *
- * Visual language matches the rest of the homepage: hairline cards on a warm
- * surface, serif headings, tabular prices, restrained hover. Fully responsive
- * 320px→desktop and theme-aware via the shared tokens (no literal colours).
+ * Cards share the Products page ComboCard design (rounded card, Combo pill,
+ * checklist panel, price + pill CTA footer). Fully responsive 320px→desktop
+ * and theme-aware via the shared tokens.
  */
 
 /** e.g. 90 → "Valid 90 days", 365 → "Valid 1 year". */
@@ -46,53 +46,70 @@ function validityLabel(days) {
 function ComboOfferCard({ plan }) {
   const validity = validityLabel(plan.validityDays)
 
+  // Same card language as the Products page ComboCard (shop/ComboCard.jsx):
+  // soft rounded card, frosted Combo pill, serif title + description, a tinted
+  // checklist panel, and a price-left / pill-CTA-right footer. Plans carry no
+  // image, so there is no photo frame — the card starts at its header.
   return (
-    <li className="min-w-0">
-      <article className="flex h-full flex-col rounded-lg border border-white/10 bg-scrim p-6 text-white transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgb(0_0_0/0.35)] sm:p-8">
-        <p className="self-start rounded-full bg-white/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-white/70">
-          Combo offer
-        </p>
-
-        <h3 className="mt-4 font-serif text-xl leading-snug text-white">{plan.name}</h3>
-
-        <p className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-3xl font-semibold tabular-nums text-white">
-            {formatInr(plan.price)}
-          </span>
-          {validity && (
-            <span className="text-sm text-white/60">{validity}</span>
-          )}
-        </p>
-
-        {plan.description && (
-          <p className="mt-4 border-t border-white/10 pt-4 text-sm leading-relaxed text-white/75">
-            {plan.description}
+    <li className="flex min-w-0">
+      <article className="group flex h-full w-full flex-col rounded-[1.75rem] border border-line bg-paper p-3 shadow-[0_18px_40px_-24px_rgb(0_0_0/0.28)] transition-shadow duration-300 hover:shadow-[0_24px_48px_-22px_rgb(0_0_0/0.34)]">
+        <div className="flex flex-1 flex-col px-2 pb-2 pt-3 sm:px-3">
+          <p className="self-start rounded-full bg-surface-sunken px-3 py-1 text-[0.6rem] font-medium uppercase tracking-[0.18em] text-ink-soft">
+            Combo offer
           </p>
-        )}
 
-        {plan.features.length > 0 && (
-          <ul className={clsx('space-y-2.5', plan.description ? 'mt-5' : 'mt-5 border-t border-white/10 pt-5')}>
-            {plan.features.map((feature, i) => (
-              <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-white/80">
-                <Check
-                  size={15}
-                  aria-hidden="true"
-                  className="mt-1 shrink-0 text-accent"
-                />
-                <span className="min-w-0">{feature}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+          <h3 className="mt-4 font-serif text-xl leading-snug text-ink">{plan.name}</h3>
 
-        <div className="mt-auto pt-8">
-          <Link
-            to="/booking"
-            className="btn btn-on-dark w-full rounded-full no-underline"
-          >
-            Book this package
-            <ArrowRight size={14} aria-hidden="true" />
-          </Link>
+          {plan.description && (
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+              {plan.description}
+            </p>
+          )}
+
+          {plan.features.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-surface-sunken/60 px-3.5 py-2">
+              <p className="pt-1 text-[0.62rem] font-medium uppercase tracking-[0.16em] text-muted">
+                What’s included
+              </p>
+              <ul className="mt-1 divide-y divide-line">
+                {plan.features.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 py-2.5 text-sm text-ink">
+                    <span
+                      aria-hidden="true"
+                      className="mt-px inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-ink bg-ink text-paper"
+                    >
+                      <Check size={12} />
+                    </span>
+                    <span className="min-w-0 leading-relaxed">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-auto pt-5">
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+              <div className="min-w-0">
+                <p className="text-[0.62rem] uppercase tracking-[0.14em] text-muted">
+                  Package price
+                </p>
+                <p className="mt-0.5 text-2xl font-medium leading-tight tabular-nums text-ink">
+                  {formatInr(plan.price)}
+                </p>
+                {validity && (
+                  <p className="mt-0.5 text-xs text-muted">{validity}</p>
+                )}
+              </div>
+
+              <Link
+                to="/booking"
+                className="btn min-h-11 rounded-full px-6 no-underline"
+              >
+                Book this package
+                <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
         </div>
       </article>
     </li>
@@ -138,7 +155,7 @@ export default function ComboOffers() {
         {!loading && plans.length > 0 && (
           <ul
             className={clsx(
-              'mt-12 grid gap-3 sm:mt-16 sm:gap-4',
+              'mt-12 grid gap-5 sm:mt-16 sm:gap-6',
               count === 1 && 'max-w-md',
               count === 2 && 'sm:grid-cols-2',
               count >= 3 && 'sm:grid-cols-2 lg:grid-cols-3',
