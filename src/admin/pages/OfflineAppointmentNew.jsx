@@ -319,7 +319,7 @@ export default function OfflineAppointmentNewPage() {
       />
 
       <form
-        className="grid items-start gap-5 xl:grid-cols-2"
+        className="grid gap-5"
         onSubmit={(e) => {
           e.preventDefault()
           const errors = {}
@@ -333,203 +333,198 @@ export default function OfflineAppointmentNewPage() {
           if (Object.keys(errors).length === 0) mutate()
         }}
       >
-        <div className="flex flex-col gap-5">
-          <SectionCard title="1 · Stylist">
-            <Field label="Who is doing it?" required error={localErrors.stylist_id || fieldErrors.stylist_id}>
-              <StylistCards
-                stylists={stylistList}
-                loading={stylists.loading}
-                value={form.stylist_id}
-                onPick={pickStylist}
-              />
-            </Field>
-          </SectionCard>
+        {/* Single full-width column at every size, in order 1 → 5. */}
+        <SectionCard title="1 · Stylist">
+          <Field label="Who is doing it?" required error={localErrors.stylist_id || fieldErrors.stylist_id}>
+            <StylistCards
+              stylists={stylistList}
+              loading={stylists.loading}
+              value={form.stylist_id}
+              onPick={pickStylist}
+            />
+          </Field>
+        </SectionCard>
 
-          <SectionCard title="2 · Service">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Category" required error={localErrors.category_id || fieldErrors.category_id} reserveMessage>
-                <Select
-                  value={form.category_id}
-                  disabled={!chosenStylist}
-                  onChange={(e) => set({ category_id: e.target.value, service_id: '', appointment_time: '' })}
-                >
-                  <option value="">
-                    {!chosenStylist ? 'Choose a stylist first' : categoryOptions.length === 0 ? 'No services offered' : 'Select'}
-                  </option>
-                  {categoryOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.gender})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Service" required error={localErrors.service_id || fieldErrors.service_id} reserveMessage>
-                <Select
-                  value={form.service_id}
-                  disabled={!form.category_id}
-                  onChange={(e) => set({ service_id: e.target.value, appointment_time: '' })}
-                >
-                  <option value="">{!form.category_id ? 'Choose a category first' : 'Select a service'}</option>
-                  {categoryServices.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-
-            {selectedService && (
-              <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
-                <DetailList columns={4} className="gap-y-2">
-                  <Detail label="Duration" value={formatDuration(selectedService.duration_minutes)} />
-                  <Detail label="Price" value={formatPrice(price)} />
-                  <Detail label="Advance %" value={advancePercentage ? `${advancePercentage}%` : '—'} />
-                  <Detail label="Advance amount" value={advancePercentage ? formatPrice(advanceAmount) : '—'} />
-                </DetailList>
-                <p className="mt-2 text-xs text-[var(--color-faint)]">
-                  {ownTerms
-                    ? `Uses ${chosenStylist.name}'s own price and advance for this service. Recorded when the appointment is saved.`
-                    : 'Recorded from the current service configuration when the appointment is saved.'}
-                </p>
-              </div>
-            )}
-          </SectionCard>
-        </div>
-
-        <div className="flex flex-col gap-5">
-          <SectionCard title="3 · Date & time">
-            <div className="grid gap-4">
-              <Field
-                label="Appointment date"
-                required
-                error={localErrors.appointment_date || fieldErrors.appointment_date}
-                reserveMessage
+        <SectionCard title="2 · Service">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Category" required error={localErrors.category_id || fieldErrors.category_id} reserveMessage>
+              <Select
+                value={form.category_id}
+                disabled={!chosenStylist}
+                onChange={(e) => set({ category_id: e.target.value, service_id: '', appointment_time: '' })}
               >
-                <Select
-                  value={form.appointment_date}
-                  onChange={(e) => set({ appointment_date: e.target.value, appointment_time: '' })}
-                  disabled={!chosenStylist || availableDates.length === 0}
-                >
-                  <option value="">
-                    {!chosenStylist ? 'Choose a stylist first' : availableDates.length === 0 ? 'No dates set' : 'Select a date'}
-                  </option>
-                  {availableDates.map((iso) => (
-                    <option key={iso} value={iso}>
-                      {formatDay(iso)}
-                      {iso === studioNow().dateIso ? ' · today' : ''}
-                    </option>
-                  ))}
-                </Select>
-                {chosenStylist && availableDates.length === 0 && (
-                  <p className="mt-1.5 text-xs text-[var(--color-muted)]">
-                    {chosenStylist.name} has no dates set yet, so no times can be offered.{' '}
-                    <Link to={`/admin/stylists/${chosenStylist.id}/setup`} className="underline">
-                      Set their hours
-                    </Link>
-                    .
-                  </p>
-                )}
-              </Field>
-              <Field
-                label="Appointment time"
-                required
-                error={localErrors.appointment_time || fieldErrors.appointment_time}
-                reserveMessage
-              >
-                <SlotPicker
-                  state={{
-                    ready: slotsReady,
-                    loading: slots.loading || slots.refetching,
-                    error: slots.error,
-                    day: slots.data,
-                  }}
-                  waitingFor={
-                    !chosenStylist
-                      ? 'Choose a stylist to see when they are free.'
-                      : !selectedService
-                        ? 'Choose a service to see the times.'
-                        : 'Choose a date to see the free times.'
-                  }
-                  duration={selectedService?.duration_minutes}
-                  value={form.appointment_time}
-                  onChange={(time) => set({ appointment_time: time })}
-                />
-              </Field>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="4 · Customer" bodyClassName="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-2">
-            <Field label="Customer name" required error={fieldErrors.customer_name} reserveMessage className="xl:col-span-2">
-              <TextInput value={form.customer_name} onChange={(e) => set({ customer_name: e.target.value })} />
-            </Field>
-            <Field label="Phone" required error={fieldErrors.phone} reserveMessage>
-              <TextInput
-                type="tel"
-                inputMode="tel"
-                value={form.phone}
-                onChange={(e) => set({ phone: e.target.value })}
-              />
-            </Field>
-            <Field label="Gender" required error={fieldErrors.gender} reserveMessage>
-              <Select value={form.gender} onChange={(e) => set({ gender: e.target.value })}>
-                <option value="">Select</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-                <option value="unisex">Not specified</option>
-              </Select>
-            </Field>
-          </SectionCard>
-        </div>
-
-        <div className="xl:col-span-2">
-          <SectionCard title="5 · Status & payment" bodyClassName="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <Field label="Appointment status" error={fieldErrors.status} reserveMessage>
-              <Select value={form.status} onChange={(e) => set({ status: e.target.value })}>
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {cap(s)}
+                <option value="">
+                  {!chosenStylist ? 'Choose a stylist first' : categoryOptions.length === 0 ? 'No services offered' : 'Select'}
+                </option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.gender})
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label="Payment status" error={fieldErrors.payment_status} reserveMessage>
-              <Select value={form.payment_status} onChange={(e) => set({ payment_status: e.target.value })}>
-                {PAYMENT_STATUSES.map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
+            <Field label="Service" required error={localErrors.service_id || fieldErrors.service_id} reserveMessage>
+              <Select
+                value={form.service_id}
+                disabled={!form.category_id}
+                onChange={(e) => set({ service_id: e.target.value, appointment_time: '' })}
+              >
+                <option value="">{!form.category_id ? 'Choose a category first' : 'Select a service'}</option>
+                {categoryServices.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
                   </option>
                 ))}
               </Select>
             </Field>
+          </div>
+
+          {selectedService && (
+            <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
+              <DetailList columns={4} className="gap-y-2">
+                <Detail label="Duration" value={formatDuration(selectedService.duration_minutes)} />
+                <Detail label="Price" value={formatPrice(price)} />
+                <Detail label="Advance %" value={advancePercentage ? `${advancePercentage}%` : '—'} />
+                <Detail label="Advance amount" value={advancePercentage ? formatPrice(advanceAmount) : '—'} />
+              </DetailList>
+              <p className="mt-2 text-xs text-[var(--color-faint)]">
+                {ownTerms
+                  ? `Uses ${chosenStylist.name}'s own price and advance for this service. Recorded when the appointment is saved.`
+                  : 'Recorded from the current service configuration when the appointment is saved.'}
+              </p>
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="3 · Date & time">
+          <div className="grid gap-4">
             <Field
-              label="Payment method"
-              required={form.payment_status !== 'unpaid'}
-              error={localErrors.payment_method || fieldErrors.payment_method}
-              className="sm:col-span-2 xl:col-span-1"
+              label="Appointment date"
+              required
+              error={localErrors.appointment_date || fieldErrors.appointment_date}
               reserveMessage
             >
-              <div role="group" aria-label="Payment method" className="grid grid-cols-3 gap-2">
-                {PAYMENT_METHODS.map(([v, l]) => (
-                  <ChipButton
-                    key={v}
-                    active={form.payment_method === v}
-                    className="min-h-10 justify-center text-sm"
-                    onClick={() => set({ payment_method: v })}
-                  >
-                    {l}
-                  </ChipButton>
+              <Select
+                value={form.appointment_date}
+                onChange={(e) => set({ appointment_date: e.target.value, appointment_time: '' })}
+                disabled={!chosenStylist || availableDates.length === 0}
+              >
+                <option value="">
+                  {!chosenStylist ? 'Choose a stylist first' : availableDates.length === 0 ? 'No dates set' : 'Select a date'}
+                </option>
+                {availableDates.map((iso) => (
+                  <option key={iso} value={iso}>
+                    {formatDay(iso)}
+                    {iso === studioNow().dateIso ? ' · today' : ''}
+                  </option>
                 ))}
-              </div>
+              </Select>
+              {chosenStylist && availableDates.length === 0 && (
+                <p className="mt-1.5 text-xs text-[var(--color-muted)]">
+                  {chosenStylist.name} has no dates set yet, so no times can be offered.{' '}
+                  <Link to={`/admin/stylists/${chosenStylist.id}/setup`} className="underline">
+                    Set their hours
+                  </Link>
+                  .
+                </p>
+              )}
             </Field>
-            <p className="text-xs text-[var(--color-muted)] sm:col-span-2 xl:col-span-3" data-testid="whatsapp-note">
-              <span className="font-semibold text-[var(--color-ink-soft)]">WhatsApp: </span>
-              {whatsappNote}
-            </p>
-          </SectionCard>
-        </div>
+            <Field
+              label="Appointment time"
+              required
+              error={localErrors.appointment_time || fieldErrors.appointment_time}
+              reserveMessage
+            >
+              <SlotPicker
+                state={{
+                  ready: slotsReady,
+                  loading: slots.loading || slots.refetching,
+                  error: slots.error,
+                  day: slots.data,
+                }}
+                waitingFor={
+                  !chosenStylist
+                    ? 'Choose a stylist to see when they are free.'
+                    : !selectedService
+                      ? 'Choose a service to see the times.'
+                      : 'Choose a date to see the free times.'
+                }
+                duration={selectedService?.duration_minutes}
+                value={form.appointment_time}
+                onChange={(time) => set({ appointment_time: time })}
+              />
+            </Field>
+          </div>
+        </SectionCard>
 
-        <div className="flex items-center justify-end gap-2 xl:col-span-2">
+        <SectionCard title="4 · Customer" bodyClassName="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <Field label="Customer name" required error={fieldErrors.customer_name} reserveMessage className="sm:col-span-2 md:col-span-1">
+            <TextInput value={form.customer_name} onChange={(e) => set({ customer_name: e.target.value })} />
+          </Field>
+          <Field label="Phone" required error={fieldErrors.phone} reserveMessage>
+            <TextInput
+              type="tel"
+              inputMode="tel"
+              value={form.phone}
+              onChange={(e) => set({ phone: e.target.value })}
+            />
+          </Field>
+          <Field label="Gender" required error={fieldErrors.gender} reserveMessage>
+            <Select value={form.gender} onChange={(e) => set({ gender: e.target.value })}>
+              <option value="">Select</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="unisex">Not specified</option>
+            </Select>
+          </Field>
+        </SectionCard>
+
+        <SectionCard title="5 · Payment" bodyClassName="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Field label="Appointment status" error={fieldErrors.status} reserveMessage>
+            <Select value={form.status} onChange={(e) => set({ status: e.target.value })}>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {cap(s)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Payment status" error={fieldErrors.payment_status} reserveMessage>
+            <Select value={form.payment_status} onChange={(e) => set({ payment_status: e.target.value })}>
+              {PAYMENT_STATUSES.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field
+            label="Payment method"
+            required={form.payment_status !== 'unpaid'}
+            error={localErrors.payment_method || fieldErrors.payment_method}
+            className="sm:col-span-2 xl:col-span-1"
+            reserveMessage
+          >
+            <div role="group" aria-label="Payment method" className="grid grid-cols-3 gap-2">
+              {PAYMENT_METHODS.map(([v, l]) => (
+                <ChipButton
+                  key={v}
+                  active={form.payment_method === v}
+                  className="min-h-10 justify-center text-sm"
+                  onClick={() => set({ payment_method: v })}
+                >
+                  {l}
+                </ChipButton>
+              ))}
+            </div>
+          </Field>
+          <p className="text-xs text-[var(--color-muted)] sm:col-span-2 xl:col-span-3" data-testid="whatsapp-note">
+            <span className="font-semibold text-[var(--color-ink-soft)]">WhatsApp: </span>
+            {whatsappNote}
+          </p>
+        </SectionCard>
+
+        <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" type="button" onClick={() => navigate('/admin/appointments/history')} disabled={pending}>
             Cancel
           </Button>

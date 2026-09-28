@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, Phone, ShoppingBag, Truck, PackageCheck } from 'lucide-react'
+import { Check, Download, Phone, ShoppingBag, Truck, PackageCheck } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
@@ -152,6 +152,16 @@ export default function OrdersPage() {
 
   const filtered = filters.status || filters.search
 
+  const exportMut = useMutation(
+    () =>
+      api.download(
+        '/admin/orders/export',
+        { status: params.status, search: params.search },
+        `dk-stylehub-orders-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      ),
+    { successMessage: 'Orders exported.' },
+  )
+
   const columns = [
     {
       key: 'order',
@@ -206,7 +216,17 @@ export default function OrdersPage() {
       <PageHeader
         title="Orders"
         description="Paid product orders from the website. Call the customer to confirm, then mark dispatched and delivered."
-      />
+      >
+        <Button
+          size="sm"
+          variant="outline"
+          loading={exportMut.pending}
+          disabled={!data?.length}
+          onClick={() => exportMut.mutate()}
+        >
+          <Download size={15} /> Download Excel
+        </Button>
+      </PageHeader>
 
       <Toolbar>
         <SearchInput

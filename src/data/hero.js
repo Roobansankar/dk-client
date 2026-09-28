@@ -11,10 +11,14 @@
  * @property {string} title          oversized wordmark headline
  * @property {string} bodyLead       supporting sentence, up to the emphasis
  * @property {string} bodyEmphasis   emphasised (italic) tail of the sentence
- * @property {{ src: string, alt: string }} image  full-bleed background photo
+ * @property {{ src: string, tablet: string, mobile: string, alt: string }} image
+ *   full-bleed background photo — desktop `src` plus tablet/mobile art-direction crops
  */
 
-import studioTwo from '../assets/images/hero.png'
+import heroDesktop from '../assets/images/hero-banner.png'
+import heroTablet from '../assets/images/hero-tablet-view.png'
+import heroMobile from '../assets/images/hero-mobile-view.png'
+
 /** @type {Hero} */
 export const hero = {
   eyebrow: 'Beauty · Style · Experience',
@@ -22,7 +26,9 @@ export const hero = {
   bodyLead: 'Beauty begins the moment you decide to be ',
   bodyEmphasis: 'yourself.',
   image: {
-    src: studioTwo,
+    src: heroDesktop,
+    tablet: heroTablet,
+    mobile: heroMobile,
     alt: 'The DK StyleHub studio floor — marble flooring, styling stations and warm daylight',
   },
 }

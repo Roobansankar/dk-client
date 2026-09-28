@@ -142,7 +142,7 @@ function CombosSection() {
           {combos.length} {combos.length === 1 ? 'combo' : 'combos'}
         </span>
       </div>
-      <ul className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
         {combos.map((combo) => (
           <li key={combo.id} className="flex">
             <ComboCard combo={combo} />

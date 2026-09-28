@@ -24,8 +24,12 @@ import {
 } from '../components/ui'
 import { formatDate, formatDateTime, formatTime } from '../lib/format'
 
-const STATUSES = ['confirmed', 'completed', 'cancelled']
+const STATUSES = ['confirmed', 'completed', 'unpaid']
 const cap = (s) => s[0].toUpperCase() + s.slice(1)
+// "Unpaid" sits in the Status filter but is a payment state, so it maps to the
+// API's payment_status filter rather than the appointment status.
+const statusParams = (v) =>
+  v === 'unpaid' ? { status: '', payment_status: 'unpaid' } : { status: v, payment_status: '' }
 const labelGender = (g) =>
   ({ male: 'Male', female: 'Female', unisex: 'Not specified' })[g] ?? g
 
@@ -65,7 +69,7 @@ export default function AppointmentHistoryPage() {
   const params = useMemo(
     () => ({
       search,
-      status: filters.status,
+      ...statusParams(filters.status),
       source: filters.source,
       gender: filters.gender,
       category_id: filters.category_id,
@@ -113,6 +117,7 @@ export default function AppointmentHistoryPage() {
         {
           search: params.search,
           status: params.status,
+          payment_status: params.payment_status,
           source: params.source,
           gender: params.gender,
           category_id: params.category_id,

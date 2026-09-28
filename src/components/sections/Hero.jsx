@@ -9,8 +9,7 @@ const BOOKING = '/booking'
 /**
  * Full-bleed, single static homepage hero.
  *
- * One editorial composition — a full-viewport studio photograph under a light
- * scrim, with centred eyebrow → oversized wordmark headline → supporting line
+ * One editorial composition — a full-viewport studio photograph, with centred eyebrow → oversized wordmark headline → supporting line
  * → a CTA to the on-page Booking section. Reuses the sitewide `btn-solid-light`
  * treatment (see index.css), the same primary-over-photography style already
  * used by FooterCta and Contact. No carousel: there is exactly one hero image
@@ -22,26 +21,25 @@ export default function Hero() {
       aria-label="DK StyleHub"
       className="relative flex min-h-[80svh] w-full flex-col overflow-hidden bg-scrim text-white md:min-h-[100svh]"
     >
-      <img
-        src={hero.image.src}
-        alt={hero.image.alt}
-        loading="eager"
-        fetchPriority="high"
-        decoding="async"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-
-      {/* Editorial scrim — a translucent cool-blue wash for a premium colour
-          grade, then a flat neutral wash and a vertical gradient that darkens
-          the top (under the transparent navbar) and the foot. The photo stays
-          clearly visible and white type stays readable. Fixed values, so the
-          treatment is identical in light and dark themes. */}
-      <div aria-hidden="true" className="absolute inset-0 bg-[#3f5a86]/16" />
-      <div aria-hidden="true" className="absolute inset-0 bg-scrim/12" />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-b from-scrim/45 via-scrim/10 to-scrim/40"
-      />
+      {/* Art-directed per viewport: the browser fetches only the matching
+          source. Desktop needs a landscape viewport ≥ lg, so large portrait
+          tablets (e.g. 1032×1376) get the portrait tablet crop. The photo is
+          shown untreated — no scrim/filter. */}
+      <picture>
+        <source
+          media="(min-width: 64rem) and (orientation: landscape)"
+          srcSet={hero.image.src}
+        />
+        <source media="(min-width: 48rem)" srcSet={hero.image.tablet} />
+        <img
+          src={hero.image.mobile}
+          alt={hero.image.alt}
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </picture>
 
       <Container className="relative flex flex-1 flex-col items-center justify-center py-28 text-center">
         <p className="text-eyebrow font-medium uppercase tracking-[0.2em] text-white/85 [text-shadow:0_1px_10px_rgb(0_0_0/0.45)] sm:tracking-[0.34em]">
