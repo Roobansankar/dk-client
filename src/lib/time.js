@@ -133,3 +133,10 @@ export function addDaysIso(dateIso, days) {
   date.setDate(date.getDate() + days)
   return toDateIso(date)
 }
+
+/** Every "YYYY-MM-DD" from minIso to maxIso, inclusive. */
+export function isoRange(minIso, maxIso) {
+  const out = []
+  for (let d = minIso; d <= maxIso; d = addDaysIso(d, 1)) out.push(d)
+  return out
+}

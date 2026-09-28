@@ -12,23 +12,30 @@ const longDate = new Intl.DateTimeFormat('en-IN', {
 })
 
 /**
- * How each kind of day looks in the grid. `custom` is a date that has hours
- * set (bookable); `none` is every other date — nothing is selected by default.
+ * How each kind of day looks in the grid:
+ *  - `custom` — this exact date has its own hours set;
+ *  - `default` — open via the weekly schedule, no override of its own;
+ *  - `closed` — explicitly marked not available, overriding an otherwise-open weekly schedule;
+ *  - `none` — nothing at all; not selected by default.
  */
 const DAY_KIND_STYLES = {
   none: 'border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-faint)]',
   custom:
     'border-[var(--color-accent)] bg-[color-mix(in_oklab,var(--color-accent)_12%,transparent)] text-[var(--color-ink-soft)]',
+  default:
+    'border-[var(--color-ok)] bg-[color-mix(in_oklab,var(--color-ok)_10%,transparent)] text-[var(--color-ink-soft)]',
+  closed:
+    'border-[var(--color-danger)] bg-[color-mix(in_oklab,var(--color-danger)_10%,transparent)] text-[var(--color-ink-soft)]',
 }
 
 /**
- * A month grid (weeks start on Monday) for picking one or many dates.
+ * A month grid (weeks start on Monday) for picking a single date.
  *
  * `describe(iso)` says what each date is — `{ kind, text, title }` with `kind`
  * one of DAY_KIND_STYLES' keys — so this stays a plain calendar and the caller
  * decides what a day means. Dates before `minIso` or after `maxIso` can't be
- * selected. Click toggles a date; Shift-click selects everything between the
- * last click and this one (the caller handles that in `onDayClick`).
+ * selected. Click selects that day only; clicking it again clears it
+ * (the caller handles that in `onDayClick`).
  *
  * @param {{
  *   year: number, month: number,                    // month is 0–11
@@ -155,7 +162,9 @@ export function MonthCalendar({
 
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-[var(--color-muted)]" aria-label="Legend">
         {[
-          ['custom', 'Available — hours set'],
+          ['custom', 'Custom hours for this date'],
+          ['default', 'Usual weekly hours'],
+          ['closed', 'Closed — a day off or studio holiday'],
           ['none', 'Not available'],
         ].map(([kind, label]) => (
           <li key={kind} className="flex items-center gap-1.5">

@@ -17,16 +17,18 @@ import {
 import { useBookingSlots } from '../../hooks/useBookingSlots'
 import { dayParts, maxBookingWindowDays } from '../../data/bookingTimes'
 import { formatInr } from '../../data/services'
-import { apiPost, ApiError } from '../../lib/api'
+import { apiGet, apiPost, ApiError } from '../../lib/api'
 import { loadRazorpayCheckout } from '../../lib/razorpay'
 import {
   addDaysIso,
   formatTime12h,
   formatTimeRange12h,
+  isoRange,
   parseDateIso,
   studioNow,
   toMinutes,
 } from '../../lib/time'
+import { isStylistOpenOn, studioHolidayName } from '../../lib/stylistAvailability'
 import { StatusLine } from '../StateViews'
 import { DateRail } from '../ui/DateRail'
 import OptionTiles from '../ui/OptionTiles'
@@ -35,6 +37,28 @@ import ServiceOptionList from '../ui/ServiceOptionList'
 /** Today's date in the studio's timezone (see lib/time.js) — the earliest
  *  bookable day, and the boundary for filtering out past times. */
 const todayIso = () => studioNow().dateIso
+
+/**
+ * Studio-wide closed days (`GET /api/studio-holidays`) — the whole studio is
+ * closed on these dates, for every professional. Loaded once; a failure just
+ * means no holiday greying (the server still refuses those slots).
+ */
+function useStudioHolidays() {
+  const [holidays, setHolidays] = useState([])
+  useEffect(() => {
+    let live = true
+    apiGet('/studio-holidays').then(
+      (data) => {
+        if (live) setHolidays(Array.isArray(data) ? data : [])
+      },
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [])
+  return holidays
+}
 
 /** The last date the "Select a date" rail offers — today counts as day 1 of
  *  the window, so N days total ends at N-1 days after today. */
@@ -121,9 +145,6 @@ function pruneSelection(form, narrowed) {
 
   return { ...form, gender, category, service: serviceOk ? form.service : '', time: '' }
 }
-
-/** "Fri, 25 Sep" — a date the professional is available on, for the line under the date rail. */
-const OPEN_DATE_FORMAT = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
 
 const EMPTY = {
   name: '',
@@ -587,19 +608,22 @@ export default function Booking() {
     serviceId: form.service || null,
   })
 
-  // The dates this professional can be booked on, exactly as the admin set them
-  // on the calendar ({ "2026-10-06": [{ start, end }, …] }). Nothing is open by
-  // default, so every other date is greyed out in the date rail.
+  // Whether this professional works a given date, combining — in this order —
+  // a studio-wide holiday (whole studio closed), a specific override for that
+  // date, an explicit day off, and their standing weekly schedule (see
+  // lib/stylistAvailability.js). `dateHours` being present at all (even `{}`)
+  // means the API actually loaded this stylist's hours, as opposed to still
+  // loading.
+  const studioHolidays = useStudioHolidays()
   const dateHours =
     chosenStylist?.date_hours && typeof chosenStylist.date_hours === 'object' && !Array.isArray(chosenStylist.date_hours)
-      ? chosenStylist.date_hours
+      ? chosenStylist
       : null
-  const isDayOff = (iso) => Boolean(dateHours) && !(dateHours[iso]?.length > 0)
-  const openDates = dateHours
-    ? Object.keys(dateHours)
-        .filter((iso) => dateHours[iso]?.length > 0 && iso >= todayIso() && iso <= maxDateIso())
-        .sort()
-    : []
+  const isDayOff = (iso) => Boolean(dateHours) && !isStylistOpenOn(dateHours, iso, studioHolidays)
+  const anyOpenDates =
+    dateHours != null &&
+    isoRange(todayIso(), maxDateIso()).some((iso) => isStylistOpenOn(dateHours, iso, studioHolidays))
+  const selectedHolidayName = form.date ? studioHolidayName(form.date, studioHolidays) : null
   const advanceAmount = Number(selectedService?.advanceAmount) || 0
   const advancePct = Number(selectedService?.advancePercentage) || 0
   const servicePrice =
@@ -1371,11 +1395,9 @@ export default function Booking() {
                   )}
 
                   {/* `min-w-0`: without it, this grid item's automatic
-                      minimum width defaults to DateRail's full unscrolled
-                      content (dozens of date cards) instead of the available
-                      column width, blowing the whole form out sideways —
-                      `overflow-x-auto` inside DateRail can't clip content its
-                      own container refuses to shrink for. */}
+                      minimum width defaults to its content's natural width
+                      instead of the available column width, which can still
+                      blow the form out sideways on a narrow screen. */}
                   {currentStep === 'schedule' && (
                   <div className="min-w-0 sm:col-span-2">
                     <span id={`${uid}-date-label`} className={LABEL}>
@@ -1391,29 +1413,30 @@ export default function Booking() {
                         maxDateIso={maxDateIso()}
                         invalid={Boolean(fieldErrors.date)}
                         isDateDisabled={isDayOff}
+                        dateNote={(iso) => studioHolidayName(iso, studioHolidays)}
                       />
                     </div>
                     {dateHours && (
-                      <p className="mt-3 text-xs leading-relaxed text-muted">
-                        {openDates.length > 0 ? (
-                          <>
-                            <span className="font-medium text-ink-soft">
-                              {chosenStylist.name} is available on:
-                            </span>{' '}
-                            {openDates
-                              .slice(0, 4)
-                              .map((iso) => OPEN_DATE_FORMAT.format(parseDateIso(iso)))
-                              .join(' · ')}
-                            {openDates.length > 4 && ` · and ${openDates.length - 4} more`} — greyed-out
-                            dates aren’t open.
-                          </>
+                      <div className="mt-3 text-xs leading-relaxed text-muted">
+                        {selectedHolidayName ? (
+                          <p>
+                            The studio is closed on this date ({selectedHolidayName}) — please choose
+                            another day.
+                          </p>
+                        ) : anyOpenDates ? (
+                          // Deliberately no specific dates here, even ones weeks ahead —
+                          // the rail above is the one place dates show, one week at a time.
+                          <p>
+                            Greyed-out dates aren&rsquo;t open for {chosenStylist.name}. Use the
+                            arrows above to see other weeks.
+                          </p>
                         ) : (
                           <>
                             {chosenStylist.name} has no open dates right now. Please choose another
                             professional.
                           </>
                         )}
-                      </p>
+                      </div>
                     )}
                     {fieldErrors.date && (
                       <p className="mt-1.5 text-sm text-ink">{fieldErrors.date}</p>

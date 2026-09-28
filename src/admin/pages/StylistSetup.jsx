@@ -22,6 +22,9 @@ import { MonthCalendar } from '../components/MonthCalendar'
 import { TimePicker } from '../components/TimePicker'
 import { addDaysIso, formatTime12h, parseDateIso, studioNow } from '../../lib/time'
 import { formatRange } from '../../lib/workHours'
+import { stylistHoursOn } from '../../lib/stylistAvailability'
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 /**
  * Admin → Stylists → Services & hours (/admin/stylists/:id/setup).
@@ -88,7 +91,7 @@ function SetupLoader({ id }) {
   const { stylist } = data
 
   return (
-    <div className="max-w-4xl">
+    <div className="w-full max-w-none">
       <PageHeader
         title="Services & hours"
         description="Choose what this professional offers and when they work. The booking page shows clients exactly this — nothing else."
@@ -120,6 +123,17 @@ function SetupLoader({ id }) {
       )}
 
       <div className="flex flex-col gap-5">
+        <WorkingHours
+          stylistId={stylist.id}
+          dateHours={data.date_hours ?? {}}
+          dateClosures={data.date_closures ?? []}
+          weeklyHours={data.weekly_hours ?? {}}
+          studioHolidays={data.studio_holidays ?? []}
+          shop={data.shop_hours}
+          canManage={canManage}
+          onSaved={refetch}
+        />
+
         <ServicesEditor
           key={`s-${[...data.service_ids].sort((a, b) => a - b).join(',')}-${JSON.stringify(data.service_terms ?? {})}`}
           stylistId={stylist.id}
@@ -129,14 +143,6 @@ function SetupLoader({ id }) {
           canManage={canManage}
           tab={tab}
           setTab={setTab}
-          onSaved={refetch}
-        />
-
-        <WorkingHours
-          stylistId={stylist.id}
-          dateHours={data.date_hours ?? {}}
-          shop={data.shop_hours}
-          canManage={canManage}
           onSaved={refetch}
         />
       </div>
@@ -622,14 +628,18 @@ function RangeList({ ranges, onChange, label, errorFor, disabled }) {
   )
 }
 
-function WorkingHours({ stylistId, dateHours, shop, canManage, onSaved }) {
+function WorkingHours({ stylistId, dateHours, dateClosures, weeklyHours, studioHolidays, shop, canManage, onSaved }) {
   return (
     <SectionCard
       title="Working hours"
       description={
-        `Pick the dates this professional can be booked on, then give each the times. Nothing is available until you set it — the booking page shows exactly these dates and times.${
+        `Give this professional a standing weekly schedule, a specific calendar date, or both — a date's own hours (and an explicit day off) always come first, otherwise the weekly schedule applies. Nothing is available until you set something.${
           shop
             ? ` Studio hours are ${formatTime12h(shop.opens)} – ${formatTime12h(shop.closes)}, and hours must sit inside that.`
+            : ''
+        }${
+          studioHolidays.length > 0
+            ? ` Studio holidays (${studioHolidays.length}) close the whole studio on those dates — see Holidays in the sidebar.`
             : ''
         }`
       }
@@ -637,6 +647,9 @@ function WorkingHours({ stylistId, dateHours, shop, canManage, onSaved }) {
       <CalendarEditor
         stylistId={stylistId}
         dateHours={dateHours}
+        dateClosures={dateClosures}
+        weeklyHours={weeklyHours}
+        studioHolidays={studioHolidays}
         shop={shop}
         canManage={canManage}
         onSaved={onSaved}
@@ -647,47 +660,56 @@ function WorkingHours({ stylistId, dateHours, shop, canManage, onSaved }) {
 
 /* -- Calendar ---------------------------------------------------------------- */
 
-function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
+function CalendarEditor({ stylistId, dateHours, dateClosures, weeklyHours, studioHolidays, shop, canManage, onSaved }) {
   const todayIso = studioNow().dateIso
   const maxIso = addDaysIso(todayIso, 399)
   const start = parseDateIso(todayIso)
 
   const [view, setView] = useState({ year: start.getFullYear(), month: start.getMonth() })
-  const [selected, setSelected] = useState(() => new Set())
-  const [anchor, setAnchor] = useState(null)
+  const [selectedIso, setSelectedIso] = useState(null)
   const [warnings, setWarnings] = useState([])
 
-  // A date is only "on" when it has hours; every other date is simply not available.
+  const holidayByDate = useMemo(() => {
+    const map = new Map()
+    for (const h of studioHolidays ?? []) map.set(h.date, h.name)
+    return map
+  }, [studioHolidays])
+
+  // What's actually in effect for one date — in order: a studio-wide holiday
+  // (whole studio closed), this exact date's own hours, an explicit day off,
+  // then the weekly schedule for that weekday.
   const describe = (iso) => {
+    const holiday = holidayByDate.get(iso)
+    if (holiday) return { kind: 'closed', text: 'Holiday', title: `Studio holiday (${holiday}) — closed for all` }
+
     const own = dateHours[iso]
-    return own?.length
-      ? { kind: 'custom', text: compactRange(own), title: `Available: ${own.map(formatRange).join(', ')}` }
-      : { kind: 'none', text: '', title: 'Not available — no hours set' }
+    if (own?.length) return { kind: 'custom', text: compactRange(own), title: `Custom hours: ${own.map(formatRange).join(', ')}` }
+
+    if (dateClosures.includes(iso)) return { kind: 'closed', text: 'Off', title: 'Closed — marked not available this date' }
+
+    const weekly = weeklyHours[String(parseDateIso(iso).getDay())]
+    if (weekly?.length) return { kind: 'default', text: compactRange(weekly), title: `Usual hours: ${weekly.map(formatRange).join(', ')}` }
+
+    return { kind: 'none', text: '', title: 'Not available — no hours set' }
   }
 
+  const weeklyDays = Object.keys(weeklyHours)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((w) => WEEKDAY_SHORT[w])
   const daysSet = Object.values(dateHours).filter((ranges) => ranges.length > 0).length
 
-  const onDayClick = (iso, { shift }) => {
+  const onDayClick = (iso) => {
     if (!canManage) return
 
-    setSelected((prev) => {
-      const next = new Set(prev)
-
-      if (shift && anchor) {
-        const [from, to] = anchor <= iso ? [anchor, iso] : [iso, anchor]
-        for (let d = from; d <= to; d = addDaysIso(d, 1)) if (d >= todayIso && d <= maxIso) next.add(d)
-      } else if (next.has(iso)) {
-        next.delete(iso)
-      } else {
-        next.add(iso)
-      }
-
-      return next
-    })
-    setAnchor(iso)
+    // Single-day selection only: picking another day moves the selection,
+    // clicking the same day again clears it.
+    setSelectedIso((prev) => (prev === iso ? null : iso))
   }
 
-  const dates = [...selected].sort()
+  const dates = selectedIso ? [selectedIso] : []
+  // MonthCalendar expects a Set — keep it to a single entry.
+  const selected = useMemo(() => new Set(selectedIso ? [selectedIso] : []), [selectedIso])
 
   // Shared by both ways of applying hours (the weekly template below, and
   // picking dates by hand): refresh the setup and surface any appointments
@@ -728,16 +750,33 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
       )}
 
       <p className="mb-3 text-sm text-[var(--color-ink-soft)]" data-testid="days-set">
-        {daysSet === 0
-          ? 'No dates set yet — this professional can’t be booked until you add some.'
-          : `Available on ${daysSet} upcoming day${daysSet === 1 ? '' : 's'}.`}
+        {weeklyDays.length > 0 ? (
+          <>
+            Works every {weeklyDays.join(', ')} — lifelong, no end date
+            {daysSet > 0 && <> · plus {daysSet} specific date{daysSet === 1 ? '' : 's'} with their own hours</>}.
+          </>
+        ) : daysSet === 0 ? (
+          'No dates set yet — this professional can’t be booked until you add some. Use Quick setup below for a lifelong weekday / weekend schedule.'
+        ) : (
+          `Available on ${daysSet} specific date${daysSet === 1 ? '' : 's'} only — not lifelong. Use Quick setup below to set lifelong weekday / weekend hours instead.`
+        )}
       </p>
+
+      {canManage && daysSet > 0 && (
+        <ClearSpecificDates
+          stylistId={stylistId}
+          dateHours={dateHours}
+          dateClosures={dateClosures}
+          hasWeekly={weeklyDays.length > 0}
+          onApplied={applyResult}
+        />
+      )}
 
       {canManage && (
         <WeeklyTemplate
           stylistId={stylistId}
-          todayIso={todayIso}
-          maxIso={maxIso}
+          dateHours={dateHours}
+          weeklyHours={weeklyHours}
           shop={shop}
           onApplied={applyResult}
         />
@@ -759,8 +798,7 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
         dates.length === 0 ? (
           <p className="mt-4 flex items-start gap-2 rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs text-[var(--color-ink-soft)]">
             <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
-            Click a day to set the times clients can book. Click several days — or Shift-click to pick a
-            range — to give them the same hours.
+            Click a day to set the times clients can book for that day only.
           </p>
         ) : (
           <DayEditor
@@ -768,10 +806,13 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
             stylistId={stylistId}
             dates={dates}
             dateHours={dateHours}
+            dateClosures={dateClosures}
+            weeklyHours={weeklyHours}
+            studioHolidays={studioHolidays}
             shop={shop}
-            onClear={() => setSelected(new Set())}
+            onClear={() => setSelectedIso(null)}
             onApplied={(result) => {
-              setSelected(new Set())
+              setSelectedIso(null)
               applyResult(result)
             }}
           />
@@ -781,91 +822,122 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
   )
 }
 
-/** true for a Saturday or Sunday. */
-const isWeekend = (iso) => [0, 6].includes(parseDateIso(iso).getDay())
-
-// How far ahead to apply — always at least the whole span, so every option
-// contains both weekdays and weekend days. `days: null` means "the whole
-// bookable window" (maxIso).
-const SPAN_OPTIONS = [
-  { days: 28, label: '4 weeks' },
-  { days: 84, label: '12 weeks' },
-  { days: 182, label: '26 weeks' },
-  { days: null, label: 'Every day I can set' },
+// JS weekday numbers (0 = Sunday … 6 = Saturday, matching Date#getDay()) each
+// quick-setup group stands for.
+const DAY_GROUPS = [
+  { id: 'weekday', title: 'Weekday', hint: 'Mon–Fri', weekdays: [1, 2, 3, 4, 5] },
+  { id: 'weekend', title: 'Weekend', hint: 'Sat–Sun', weekdays: [0, 6] },
 ]
 
 /**
- * Give every Monday–Friday one set of hours and every Saturday–Sunday
- * another, in one go — instead of clicking through months of individual
- * dates. Either group can be left empty to leave those days as they are.
- * Applying replaces hours already set on the matching days in the chosen
- * span, same as picking them by hand and saving.
+ * Remove every per-date override (custom hours + explicit days off) so only
+ * the lifelong weekday/weekend schedule applies. Used to convert a setup like
+ * "Available on 294 specific dates" into a lifelong one: set Quick setup first,
+ * then clear the leftover dates here.
  */
-function WeeklyTemplate({ stylistId, todayIso, maxIso, shop, onApplied }) {
+function ClearSpecificDates({ stylistId, dateHours, dateClosures, hasWeekly, onApplied }) {
+  const allDates = [...new Set([...Object.keys(dateHours ?? {}), ...(dateClosures ?? [])])].sort()
+  const clearMut = useMutation(
+    () =>
+      api.put(`/admin/stylists/${stylistId}/date-hours`, {
+        days: allDates.map((date) => ({ date, mode: 'clear' })),
+      }),
+    {
+      successMessage: hasWeekly
+        ? `Cleared ${allDates.length} specific date${allDates.length === 1 ? '' : 's'} — now lifelong weekly hours only.`
+        : `Cleared ${allDates.length} specific date${allDates.length === 1 ? '' : 's'}.`,
+    },
+  )
+
+  const clear = async () => {
+    const res = await clearMut.mutate()
+    if (res.ok) onApplied(res.result)
+  }
+
+  if (allDates.length === 0) return null
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-[var(--color-line)] px-3 py-2.5">
+      <p className="text-xs text-[var(--color-ink-soft)]">
+        {allDates.length} specific date{allDates.length === 1 ? '' : 's'} set individually
+        {hasWeekly ? ' — they override the lifelong schedule on those dates' : ''}. Clear them to go
+        fully lifelong.
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={clear}
+        loading={clearMut.pending}
+      >
+        Clear {allDates.length} specific date{allDates.length === 1 ? '' : 's'}
+      </Button>
+    </div>
+  )
+}
+
+/** The saved standing hours for a group, read from its first weekday (every
+ *  weekday in a group always carries the same ranges — they're only ever set
+ *  together, by this same panel). `[]` when none are saved yet. */
+const savedRangesFor = (weeklyHours, group) => weeklyHours[String(group.weekdays[0])] ?? []
+
+/**
+ * Give every Monday–Friday one set of standing hours, or every Saturday–
+ * Sunday another, in one go — instead of setting five (or two) weekdays by
+ * hand. Applies with no end date; switch the tab to do the other group too.
+ * Opens already showing what's saved, ready to add to, edit or remove. A
+ * specific calendar date, or an explicit day off, still overrides this for
+ * that one date (set on the calendar below) — this also offers to clear any
+ * such leftover dates on the weekdays being set, so the standing schedule
+ * isn't silently shadowed by them.
+ */
+function WeeklyTemplate({ stylistId, dateHours, weeklyHours, shop, onApplied }) {
   const [open, setOpen] = useState(false)
-  const [span, setSpan] = useState(SPAN_OPTIONS.at(-1).days)
-  const [weekdayRanges, setWeekdayRanges] = useState([])
-  const [weekendRanges, setWeekendRanges] = useState([])
+  const [group, setGroup] = useState('weekday')
+  // Seeded once from what's already saved — after that, edited freely like any other form.
+  const [weekdayRanges, setWeekdayRanges] = useState(() => savedRangesFor(weeklyHours, DAY_GROUPS[0]).map((r) => ({ ...r })))
+  const [weekendRanges, setWeekendRanges] = useState(() => savedRangesFor(weeklyHours, DAY_GROUPS[1]).map((r) => ({ ...r })))
+  const [clearShadowed, setClearShadowed] = useState(true)
 
-  const candidateEnd = span == null ? maxIso : addDaysIso(todayIso, span - 1)
-  const endIso = candidateEnd > maxIso ? maxIso : candidateEnd
+  const activeGroup = DAY_GROUPS.find((g) => g.id === group)
+  const isWeekday = group === 'weekday'
+  const ranges = isWeekday ? weekdayRanges : weekendRanges
+  const setRanges = isWeekday ? setWeekdayRanges : setWeekendRanges
+  const dayWord = isWeekday ? 'weekday' : 'weekend day'
 
-  const { weekday, weekend } = useMemo(() => {
-    const weekday = []
-    const weekend = []
-    for (let d = todayIso; d <= endIso; d = addDaysIso(d, 1)) {
-      ;(isWeekend(d) ? weekend : weekday).push(d)
-    }
-    return { weekday, weekend }
-  }, [todayIso, endIso])
+  // Specific dates already set that fall on one of this group's weekdays — they'd
+  // keep overriding the standing schedule for just those dates unless cleared too.
+  const shadowedDates = Object.keys(dateHours).filter((iso) => activeGroup.weekdays.includes(parseDateIso(iso).getDay()))
 
-  const weekdayErrors = validateRanges(weekdayRanges, shop)
-  const weekendErrors = validateRanges(weekendRanges, shop)
-  const weekdayGiven = weekdayRanges.length > 0
-  const weekendGiven = weekendRanges.length > 0
-  const weekdayValid = weekdayGiven && Object.keys(weekdayErrors).length === 0
-  const weekendValid = weekendGiven && Object.keys(weekendErrors).length === 0
-  const nothingGiven = !weekdayGiven && !weekendGiven
-  const hasErrors = (weekdayGiven && !weekdayValid) || (weekendGiven && !weekendValid)
-
-  const summary = [
-    weekdayValid && `${weekday.length} weekday${weekday.length === 1 ? '' : 's'}`,
-    weekendValid && `${weekend.length} weekend day${weekend.length === 1 ? '' : 's'}`,
-  ]
-    .filter(Boolean)
-    .join(' and ')
+  const errors = validateRanges(ranges, shop)
+  const given = ranges.length > 0
+  const ready = given && Object.keys(errors).length === 0
 
   const applyMut = useMutation(
     async () => {
-      const warnings = []
+      const weekly = await api.put(`/admin/stylists/${stylistId}/weekly-hours`, {
+        days: activeGroup.weekdays.map((weekday) => ({ weekday, ranges })),
+      })
 
-      if (weekdayValid && weekday.length > 0) {
-        const res = await api.put(`/admin/stylists/${stylistId}/date-hours`, {
-          days: weekday.map((date) => ({ date, mode: 'custom', ranges: weekdayRanges })),
-        })
-        warnings.push(...(res.warnings ?? []))
-      }
+      if (!clearShadowed || shadowedDates.length === 0) return weekly
 
-      if (weekendValid && weekend.length > 0) {
-        const res = await api.put(`/admin/stylists/${stylistId}/date-hours`, {
-          days: weekend.map((date) => ({ date, mode: 'custom', ranges: weekendRanges })),
-        })
-        warnings.push(...(res.warnings ?? []))
-      }
+      const cleared = await api.put(`/admin/stylists/${stylistId}/date-hours`, {
+        days: shadowedDates.map((date) => ({ date, mode: 'clear' })),
+      })
 
-      return { warnings }
+      return { ...cleared, warnings: [...weekly.warnings, ...cleared.warnings] }
     },
-    { successMessage: summary ? `Applied hours to ${summary}.` : undefined },
+    {
+      successMessage: !ready
+        ? undefined
+        : clearShadowed && shadowedDates.length > 0
+          ? `Every ${dayWord} is now set to ${ranges.map(formatRange).join(', ')}. Cleared ${shadowedDates.length} specific date${shadowedDates.length === 1 ? '' : 's'} that were overriding it.`
+          : `Every ${dayWord} is now set to ${ranges.map(formatRange).join(', ')}.`,
+    },
   )
 
   const apply = async () => {
     const res = await applyMut.mutate()
-    if (res.ok) {
-      setWeekdayRanges([])
-      setWeekendRanges([])
-      setOpen(false)
-      onApplied(res.result)
-    }
+    if (res.ok) onApplied(res.result)
   }
 
   return (
@@ -878,11 +950,11 @@ function WeeklyTemplate({ stylistId, todayIso, maxIso, shop, onApplied }) {
       >
         <span>
           <span className="block text-sm font-semibold text-[var(--color-ink)]">
-            Quick setup: weekdays &amp; weekend
+            Quick setup: weekday &amp; weekend hours
           </span>
           <span className="block text-xs text-[var(--color-muted)]">
-            Give Mon–Fri one set of hours and Sat–Sun another — applied to every matching day at
-            once.
+            Choose Weekday or Weekend and give it one set of hours — it becomes their standing
+            schedule, with no end date.
           </span>
         </span>
         <ChevronDown
@@ -894,82 +966,59 @@ function WeeklyTemplate({ stylistId, todayIso, maxIso, shop, onApplied }) {
 
       {open && (
         <div className="border-t border-[var(--color-line)] p-4">
-          <fieldset className="mb-4">
-            <legend className="label mb-1.5">Apply to</legend>
-            <div className="flex flex-wrap gap-2">
-              {SPAN_OPTIONS.map((option) => (
-                <ChipButton key={option.label} active={span === option.days} onClick={() => setSpan(option.days)}>
-                  {option.label}
-                </ChipButton>
-              ))}
-            </div>
-            <p className="mt-1.5 text-xs text-[var(--color-muted)]">
-              From today through {formatDay(endIso)} — {weekday.length} weekday
-              {weekday.length === 1 ? '' : 's'} and {weekend.length} weekend day
-              {weekend.length === 1 ? '' : 's'}.
-            </p>
-          </fieldset>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div role="group" aria-label="Weekday hours">
-              <p className="label mb-1.5">Weekdays (Mon–Fri)</p>
-              <RangeList
-                ranges={weekdayRanges}
-                label="Weekday"
-                errorFor={(index) => untouchedError(weekdayRanges, weekdayErrors, index)}
-                onChange={setWeekdayRanges}
-              />
-              {weekdayRanges.length < MAX_RANGES && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  aria-label="Add a weekday range"
-                  onClick={() => setWeekdayRanges([...weekdayRanges, blankRange()])}
-                >
-                  <Plus size={13} /> Add hours
-                </Button>
-              )}
-              {!weekdayGiven && (
-                <p className="mt-1 text-xs text-[var(--color-muted)]">Leave empty to leave weekdays as they are.</p>
-              )}
-            </div>
-
-            <div role="group" aria-label="Weekend hours">
-              <p className="label mb-1.5">Weekend (Sat–Sun)</p>
-              <RangeList
-                ranges={weekendRanges}
-                label="Weekend"
-                errorFor={(index) => untouchedError(weekendRanges, weekendErrors, index)}
-                onChange={setWeekendRanges}
-              />
-              {weekendRanges.length < MAX_RANGES && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  aria-label="Add a weekend range"
-                  onClick={() => setWeekendRanges([...weekendRanges, blankRange()])}
-                >
-                  <Plus size={13} /> Add hours
-                </Button>
-              )}
-              {!weekendGiven && (
-                <p className="mt-1 text-xs text-[var(--color-muted)]">Leave empty to leave the weekend as it is.</p>
-              )}
-            </div>
+          <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Which days">
+            {DAY_GROUPS.map((g) => (
+              <ChipButton key={g.id} active={group === g.id} onClick={() => setGroup(g.id)}>
+                {g.title}
+                <span className="ml-1.5 opacity-70">({g.hint})</span>
+              </ChipButton>
+            ))}
           </div>
 
-          {!nothingGiven && (
+          <p className="label mb-1.5">{isWeekday ? 'Weekdays (Mon–Fri)' : 'Weekend (Sat–Sun)'}</p>
+          <RangeList
+            ranges={ranges}
+            label={isWeekday ? 'Weekday' : 'Weekend'}
+            errorFor={(index) => untouchedError(ranges, errors, index)}
+            onChange={setRanges}
+          />
+          {ranges.length < MAX_RANGES && (
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setRanges([...ranges, blankRange()])}>
+              <Plus size={13} /> Add hours
+            </Button>
+          )}
+          {!given && <p className="mt-1 text-xs text-[var(--color-muted)]">Add at least one range of hours.</p>}
+
+          {ready && (
             <p className="mt-4 flex items-start gap-2 rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs text-[var(--color-ink-soft)]">
               <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
-              This replaces any hours already set on the matching days in this range.
+              Sets {ranges.map(formatRange).join(', ')} on every {dayWord}, from now on — replacing
+              any standing hours already set for those weekdays. A specific date can still be given
+              its own hours, or marked closed, on the calendar below.
             </p>
           )}
 
+          {shadowedDates.length > 0 && (
+            <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-[var(--radius-md)] border border-[var(--color-line)] px-3 py-2.5 text-xs">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+                checked={clearShadowed}
+                onChange={(e) => setClearShadowed(e.target.checked)}
+              />
+              <span className="text-[var(--color-ink-soft)]">
+                <span className="font-medium text-[var(--color-ink)]">
+                  Also clear {shadowedDates.length} specific date{shadowedDates.length === 1 ? '' : 's'}
+                </span>{' '}
+                already set on {isWeekday ? 'weekdays' : 'the weekend'} — until cleared, those exact
+                dates keep overriding the standing schedule with whatever they were set to before.
+              </span>
+            </label>
+          )}
+
           <div className="mt-4 flex justify-end">
-            <Button size="sm" onClick={apply} loading={applyMut.pending} disabled={nothingGiven || hasErrors}>
-              Apply
+            <Button size="sm" onClick={apply} loading={applyMut.pending} disabled={!ready}>
+              Set every {dayWord}
             </Button>
           </div>
         </div>
@@ -979,20 +1028,31 @@ function WeeklyTemplate({ stylistId, todayIso, maxIso, shop, onApplied }) {
 }
 
 const MODE_OPTIONS = [
-  { id: 'custom', title: 'Set hours', hint: 'Times clients can book' },
-  { id: 'clear', title: 'Remove hours', hint: 'Not available on these days' },
+  { id: 'custom', title: 'Set hours', hint: 'Times clients can book, just for these dates' },
+  { id: 'closed', title: 'Closed', hint: 'Not available — overrides an otherwise-open weekly schedule' },
+  { id: 'clear', title: 'Follow the weekly schedule', hint: 'No override — use the usual hours for that weekday' },
 ]
 
-/** Give the selected days their hours — or, for days that have some, take them away again. */
-function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
+/** Give the selected days their own hours, mark them closed, or hand them back to the weekly schedule. */
+function DayEditor({ stylistId, dates, dateHours, dateClosures, weeklyHours, studioHolidays, shop, onClear, onApplied }) {
   const single = dates.length === 1
   const alreadySet = dates.filter((date) => dateHours[date]?.length > 0)
+  const holidayForDay = single ? (studioHolidays ?? []).find((h) => h.date === dates[0]) : null
 
   const [mode, setMode] = useState('custom')
-  // Nothing is pre-filled: a day that already has hours shows them; anything else starts empty.
-  const [ranges, setRanges] = useState(() =>
-    single && dateHours[dates[0]]?.length ? dateHours[dates[0]].map((r) => ({ ...r })) : [blankRange()],
-  )
+  // Pre-fill what the admin can alter: the date's own hours if it has any,
+  // otherwise the weekly hours in effect for that weekday (so a weekday-covered
+  // day shows its timing ready to edit, add to or remove). Anything else starts empty.
+  const weeklyForDay =
+    single && !dateHours[dates[0]]?.length
+      ? (weeklyHours[String(parseDateIso(dates[0]).getDay())] ?? [])
+      : []
+  const startedFromWeekly = weeklyForDay.length > 0
+  const [ranges, setRanges] = useState(() => {
+    if (single && dateHours[dates[0]]?.length) return dateHours[dates[0]].map((r) => ({ ...r }))
+    if (startedFromWeekly) return weeklyForDay.map((r) => ({ ...r }))
+    return [blankRange()]
+  })
 
   const errors = mode === 'custom' ? validateRanges(ranges, shop) : {}
   const invalid = mode === 'custom' && (ranges.length === 0 || Object.keys(errors).length > 0)
@@ -1006,7 +1066,9 @@ function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
       successMessage:
         mode === 'custom'
           ? `Saved hours for ${dates.length} day${dates.length === 1 ? '' : 's'}.`
-          : `Removed hours from ${dates.length} day${dates.length === 1 ? '' : 's'}.`,
+          : mode === 'closed'
+            ? `Marked ${dates.length} day${dates.length === 1 ? '' : 's'} closed.`
+            : `${dates.length} day${dates.length === 1 ? '' : 's'} will now follow the weekly schedule.`,
     },
   )
 
@@ -1023,6 +1085,23 @@ function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
 
   const shown = dates.slice(0, 6).map(formatDay).join(', ')
 
+  // What's actually in effect right now for a single selected date, so
+  // picking a mode isn't a guess — the same precedence describe() uses.
+  const currentlyOn = single
+    ? stylistHoursOn({ date_hours: dateHours, date_closures: dateClosures, weekly_hours: weeklyHours }, dates[0], studioHolidays ?? [])
+    : null
+  const currentLabel = !single
+    ? null
+    : holidayForDay
+      ? `a studio holiday (${holidayForDay.name}) — closed for all`
+      : dateHours[dates[0]]?.length
+        ? `their own hours (${currentlyOn.map(formatRange).join(', ')})`
+        : dateClosures.includes(dates[0])
+          ? 'closed'
+          : currentlyOn?.length > 0
+            ? `the weekly schedule (${currentlyOn.map(formatRange).join(', ')})`
+            : 'not available — no hours set'
+
   return (
     <div className="mt-5 rounded-[var(--radius-md)] border border-[var(--color-line-strong)] p-4">
       <p className="text-sm font-semibold text-[var(--color-ink)]">
@@ -1032,45 +1111,52 @@ function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
         {shown}
         {dates.length > 6 && ` and ${dates.length - 6} more`}
       </p>
-
-      {/* Removing only makes sense when at least one selected day has hours to remove. */}
-      {alreadySet.length > 0 && (
-        <fieldset className="mt-4">
-          <legend className="sr-only">What to do with the selected days</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {MODE_OPTIONS.map((option) => (
-              <label
-                key={option.id}
-                className={cn(
-                  'flex cursor-pointer items-start gap-2.5 rounded-[var(--radius-md)] border px-3 py-2.5 transition-colors',
-                  mode === option.id
-                    ? 'border-[var(--color-ink)] bg-[var(--color-surface-sunken)]'
-                    : 'border-[var(--color-line)] hover:border-[var(--color-line-strong)]',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="day-mode"
-                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
-                  checked={mode === option.id}
-                  onChange={() => setMode(option.id)}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-[var(--color-ink)]">{option.title}</span>
-                  <span className="block text-xs text-[var(--color-muted)]">{option.hint}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+      {single && <p className="mt-1.5 text-xs text-[var(--color-muted)]">Right now: {currentLabel}.</p>}
+      {holidayForDay && (
+        <p className="mt-1.5 text-xs text-[var(--color-muted)]">
+          A studio holiday closes the whole studio this date — per-day hours saved here won't apply until the holiday is removed under Holidays.
+        </p>
       )}
+
+      <fieldset className="mt-4">
+        <legend className="sr-only">What to do with the selected days</legend>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {MODE_OPTIONS.map((option) => (
+            <label
+              key={option.id}
+              className={cn(
+                'flex cursor-pointer items-start gap-2.5 rounded-[var(--radius-md)] border px-3 py-2.5 transition-colors',
+                mode === option.id
+                  ? 'border-[var(--color-ink)] bg-[var(--color-surface-sunken)]'
+                  : 'border-[var(--color-line)] hover:border-[var(--color-line-strong)]',
+              )}
+            >
+              <input
+                type="radio"
+                name="day-mode"
+                className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+                checked={mode === option.id}
+                onChange={() => setMode(option.id)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-[var(--color-ink)]">{option.title}</span>
+                <span className="block text-xs text-[var(--color-muted)]">{option.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {mode === 'custom' && (
         <div className="mt-4">
-          {!single && alreadySet.length > 0 && (
+          {startedFromWeekly && (
             <p className="mb-2 text-xs text-[var(--color-muted)]">
-              {alreadySet.length} of these days already {alreadySet.length === 1 ? 'has' : 'have'} hours — saving
-              replaces them.
+              Showing the weekly hours for this day — alter, add or remove times, then Save to give this date its own hours.
+            </p>
+          )}          {!single && alreadySet.length > 0 && (
+            <p className="mb-2 text-xs text-[var(--color-muted)]">
+              {alreadySet.length} of these days already {alreadySet.length === 1 ? 'has' : 'have'} their own hours —
+              saving replaces them.
             </p>
           )}
           <RangeList ranges={ranges} label="Selected days" errorFor={errorFor} onChange={setRanges} />
@@ -1096,14 +1182,16 @@ function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
         </Button>
         <Button
           size="sm"
-          variant={mode === 'clear' ? 'danger' : 'primary'}
+          variant={mode === 'closed' ? 'danger' : 'primary'}
           onClick={apply}
           loading={saveMut.pending}
           disabled={invalid}
         >
           {mode === 'custom'
             ? `Save hours for ${dates.length} day${dates.length === 1 ? '' : 's'}`
-            : `Remove hours from ${dates.length} day${dates.length === 1 ? '' : 's'}`}
+            : mode === 'closed'
+              ? `Mark ${dates.length} day${dates.length === 1 ? '' : 's'} closed`
+              : `Follow the weekly schedule for ${dates.length} day${dates.length === 1 ? '' : 's'}`}
         </Button>
       </div>
     </div>

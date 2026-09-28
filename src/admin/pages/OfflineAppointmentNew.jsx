@@ -21,7 +21,11 @@ import {
 } from '../components/ui'
 import { Check, ShieldAlert } from 'lucide-react'
 import { formatDuration, formatPrice } from '../lib/format'
-import { formatTimeRange12h, parseDateIso, studioNow } from '../../lib/time'
+import { addDaysIso, formatTimeRange12h, isoRange, parseDateIso, studioNow } from '../../lib/time'
+import { isStylistOpenOn } from '../../lib/stylistAvailability'
+
+/** How far ahead the date dropdown offers — comfortably past a typical walk-in booking. */
+const OFFLINE_DATE_WINDOW_DAYS = 120
 
 const STATUSES = ['confirmed', 'completed', 'cancelled']
 const PAYMENT_STATUSES = [
@@ -69,6 +73,7 @@ function StylistCards({ stylists, loading, value, onPick }) {
       {stylists.map((stylist) => {
         const selected = String(stylist.id) === String(value)
         const days = Object.keys(stylist.date_hours ?? {}).length
+        const hasWeeklySchedule = Object.keys(stylist.weekly_hours ?? {}).length > 0
 
         return (
           <button
@@ -106,7 +111,11 @@ function StylistCards({ stylists, loading, value, onPick }) {
               {stylist.bio && (
                 <span className="line-clamp-2 text-xs leading-snug text-[var(--color-muted)]">{stylist.bio}</span>
               )}
-              {days === 0 ? (
+              {hasWeeklySchedule ? (
+                <span className="text-xs text-[var(--color-faint)]">
+                  Weekly schedule set{days > 0 && ` · ${days} custom day${days === 1 ? '' : 's'}`}
+                </span>
+              ) : days === 0 ? (
                 <Pill tone="warn" className="self-start">
                   No dates set
                 </Pill>
@@ -207,6 +216,9 @@ export default function OfflineAppointmentNewPage() {
   }
 
   const stylists = useQuery('/admin/stylists', { params: { per_page: 100 } })
+  // Studio-wide closed days — no professional can be booked on these dates.
+  const holidays = useQuery('/admin/studio-holidays')
+  const studioHolidays = Array.isArray(holidays.data) ? holidays.data : []
   const categories = useQuery('/admin/service-categories', {
     params: { per_page: 100 },
     enabled: canSeeCatalogue,
@@ -241,10 +253,15 @@ export default function OfflineAppointmentNewPage() {
     ? Math.round(Number(price || 0) * Number(advancePercentage || 0)) / 100
     : 0
 
-  // 3. Only the dates this stylist was given hours on, and the free times that day — the
+  // 3. Only the dates this stylist actually works — a specific date, their standing
+  // weekly schedule, or (once cleared) neither — and the free times that day: the
   // stylist's own hours minus what is already booked, by the same server rules as the
   // booking page, so only times that really work are offered.
-  const availableDates = Object.keys(chosenStylist?.date_hours ?? {}).sort()
+  const availableDates = chosenStylist
+    ? isoRange(studioNow().dateIso, addDaysIso(studioNow().dateIso, OFFLINE_DATE_WINDOW_DAYS - 1)).filter((iso) =>
+        isStylistOpenOn(chosenStylist, iso, studioHolidays),
+      )
+    : []
   const slotsReady = Boolean(selectedService && chosenStylist && form.appointment_date)
   const slots = useQuery('/booking/slots', {
     params: { service_id: form.service_id, stylist_id: form.stylist_id, date: form.appointment_date },
@@ -257,7 +274,7 @@ export default function OfflineAppointmentNewPage() {
     const services = catalogue.data ?? []
     const keepService = offered.has(Number(form.service_id))
     const keepCategory = services.some((s) => String(s.category_id) === String(form.category_id) && offered.has(s.id))
-    const keepDate = Object.hasOwn(stylist.date_hours ?? {}, form.appointment_date)
+    const keepDate = Boolean(form.appointment_date) && isStylistOpenOn(stylist, form.appointment_date, studioHolidays)
 
     set({
       stylist_id: String(stylist.id),

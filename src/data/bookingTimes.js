@@ -11,12 +11,10 @@ import { toMinutes } from '../lib/time'
 
 /**
  * How many days ahead the "Preferred date" rail lets a visitor pick, counting
- * today as day 1. There is no admin-configurable booking window today, so
- * this is a fixed, deliberately generous default — long enough for genuine
- * planning-ahead bookings, short enough that the rail never offers a date the
- * studio couldn't sensibly plan for.
+ * today as day 1 — so 8 means today plus the next 7 days. There is no
+ * admin-configurable booking window today, so this is a fixed value.
  */
-export const maxBookingWindowDays = 60
+export const maxBookingWindowDays = 8
 
 /**
  * Which part of the day a "H:i" start belongs to, for the grouped picker.

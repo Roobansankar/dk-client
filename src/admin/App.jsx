@@ -17,6 +17,7 @@ import CombosPage from './pages/Combos'
 import OrdersPage from './pages/Orders'
 import StylistsPage from './pages/Stylists'
 import StylistSetupPage from './pages/StylistSetup'
+import HolidaysPage from './pages/Holidays'
 import PricingPlansPage from './pages/PricingPlans'
 import GalleryPage from './pages/Gallery'
 import VideosPage from './pages/Videos'
@@ -120,6 +121,14 @@ function AdminRoutes() {
           element={
             <RequirePermission perm="stylists.view">
               <StylistSetupPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="holidays"
+          element={
+            <RequirePermission perm="stylists.view">
+              <HolidaysPage />
             </RequirePermission>
           }
         />

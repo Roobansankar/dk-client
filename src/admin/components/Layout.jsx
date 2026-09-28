@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   CalendarDays,
+  CalendarOff,
   CalendarPlus,
   ChevronDown,
   ChevronsLeft,
@@ -68,6 +69,7 @@ const NAV = [
 
   { section: 'Studio' },
   { to: '/admin/stylists', label: 'Stylists', icon: UserRound, perm: 'stylists.view' },
+  { to: '/admin/holidays', label: 'Holidays', icon: CalendarOff, perm: 'stylists.view' },
   { to: '/admin/gallery', label: 'Gallery', icon: Images, perm: 'gallery.view' },
   { to: '/admin/videos', label: 'Videos', icon: Video, perm: 'videos.view' },
 
