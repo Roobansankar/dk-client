@@ -891,7 +891,7 @@ const savedRangesFor = (weeklyHours, group) => weeklyHours[String(group.weekdays
  * isn't silently shadowed by them.
  */
 function WeeklyTemplate({ stylistId, dateHours, weeklyHours, shop, onApplied }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [group, setGroup] = useState('weekday')
   // Seeded once from what's already saved — after that, edited freely like any other form.
   const [weekdayRanges, setWeekdayRanges] = useState(() => savedRangesFor(weeklyHours, DAY_GROUPS[0]).map((r) => ({ ...r })))
