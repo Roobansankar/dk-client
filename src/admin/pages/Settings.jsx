@@ -30,6 +30,7 @@ const KEY_ORDER = [
   'instagram_url',
   'whatsapp_url',
   'facebook_url',
+  'google_review_url',
   'logo_path',
   'favicon_path',
 ]
@@ -58,6 +59,7 @@ const LABELS = {
   instagram_url: 'Instagram URL',
   whatsapp_url: 'WhatsApp URL',
   facebook_url: 'Facebook URL',
+  google_review_url: 'Google review link',
   logo_path: 'Logo path',
   favicon_path: 'Favicon path',
 }
