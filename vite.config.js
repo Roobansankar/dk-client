@@ -106,6 +106,35 @@ function seoFiles(siteUrl, apiUrl) {
   }
 }
 
+/**
+ * Google Analytics (gtag.js) — inserted right after <head>, exactly as
+ * Google's own install snippet specifies, but build-only like seoFiles():
+ * `npm run dev` never loads it, so testing here never counts as site
+ * traffic. Does nothing if VITE_GA_ID isn't set (e.g. a fork without its own
+ * GA property).
+ */
+function googleAnalytics(gaId) {
+  return {
+    name: 'dk-google-analytics',
+    apply: 'build',
+    transformIndexHtml(html) {
+      if (!gaId) return html
+
+      const snippet = `<!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${gaId}');
+    </script>
+    `
+
+      return html.replace('<head>', `<head>\n    ${snippet}`)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
@@ -113,7 +142,7 @@ export default defineConfig(({ mode }) => {
   const apiUrl = (env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '')
 
   return {
-  plugins: [react(), tailwindcss(), seoFiles(siteUrl, apiUrl)],
+  plugins: [react(), tailwindcss(), seoFiles(siteUrl, apiUrl), googleAnalytics(env.VITE_GA_ID)],
   // --- Performance: small initial bundle, smooth long-term caching ---
   build: {
     target: 'es2020',

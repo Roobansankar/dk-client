@@ -5,7 +5,7 @@ import Seo from '../components/Seo'
 
 // Bump by hand whenever this page's content changes — see Terms.jsx for the
 // same convention.
-const LAST_UPDATED = 'September 17, 2026'
+const LAST_UPDATED = 'September 28, 2026'
 
 const CONTENTS = [
   ['information-we-collect', 'Information We Collect'],
@@ -30,9 +30,10 @@ const CONTENTS = [
  * — see RegisterRequest, StoreAppointmentRequest, GoogleAuthController and
  * the razorpay_order_id/razorpay_payment_id columns on appointments — plus
  * the actual localStorage/sessionStorage keys the frontend writes (lib/api.js,
- * ThemeContext, Booking.jsx, GoogleButton.jsx). Nothing about analytics,
- * ad tracking or third parties beyond Razorpay/Google is claimed, because
- * none currently exists in this app.
+ * ThemeContext, Booking.jsx, GoogleButton.jsx), and the Google Analytics tag
+ * (vite.config.js's googleAnalytics(), production builds only — see
+ * VITE_GA_ID). Nothing about ad tracking or third parties beyond
+ * Razorpay/Google is claimed, because none currently exists in this app.
  */
 export default function Privacy() {
   const site = useSite()
@@ -125,7 +126,15 @@ export default function Privacy() {
           </LegalSection>
 
           <LegalSection id="cookies-local-storage" title="5. Cookies & Local Storage">
-            <p>This website does not use advertising or analytics cookies. It does use your browser&rsquo;s local storage to make the site work:</p>
+            <p>
+              This website does not use advertising cookies. It uses Google Analytics to
+              understand how the site is used (pages viewed, general location, device type), which
+              sets its own cookies for that purpose — see{' '}
+              <a href="#third-parties" className="text-ink underline underline-offset-2">
+                Service Providers &amp; Third Parties
+              </a>{' '}
+              below. It also uses your browser&rsquo;s local storage to make the site work:
+            </p>
             <ul>
               <li>
                 <strong>Local storage</strong> — keeps you signed in between visits, and remembers
@@ -153,7 +162,25 @@ export default function Privacy() {
                 )
               </li>
               <li>
-                <strong>Google</strong> — if you choose to sign in with Google
+                <strong>Google Sign-In</strong> — if you choose to sign in with Google (see{' '}
+                <a href="#google-sign-in" className="text-ink underline underline-offset-2">
+                  above
+                </a>
+                )
+              </li>
+              <li>
+                <strong>Google Analytics</strong> — to understand how visitors use this website.
+                We have not enabled Google Signals or ad personalisation, so this data is not used
+                to show you ads. You can opt out using{' '}
+                <a
+                  href="https://tools.google.com/dlpage/gaoptout"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ink underline underline-offset-2"
+                >
+                  Google&rsquo;s browser opt-out add-on
+                </a>
+                . Google&rsquo;s own privacy policy governs its handling of this data.
               </li>
             </ul>
             <p>
