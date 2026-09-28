@@ -1039,7 +1039,11 @@ function DayEditor({ stylistId, dates, dateHours, dateClosures, weeklyHours, stu
   const alreadySet = dates.filter((date) => dateHours[date]?.length > 0)
   const holidayForDay = single ? (studioHolidays ?? []).find((h) => h.date === dates[0]) : null
 
-  const [mode, setMode] = useState('custom')
+  // Open showing what was actually given for this date: a closed day shows
+  // Closed, anything else shows Set hours (with the hours pre-filled below).
+  const [mode, setMode] = useState(() =>
+    single && !dateHours[dates[0]]?.length && dateClosures.includes(dates[0]) ? 'closed' : 'custom',
+  )
   // Pre-fill what the admin can alter: the date's own hours if it has any,
   // otherwise the weekly hours in effect for that weekday (so a weekday-covered
   // day shows its timing ready to edit, add to or remove). Anything else starts empty.
