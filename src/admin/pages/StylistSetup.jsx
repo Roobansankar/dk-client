@@ -552,6 +552,12 @@ function validateRanges(ranges, shop) {
 /** A new range starts empty: nothing is filled in for the admin — they give the times. */
 const blankRange = () => ({ start: '', end: '' })
 
+/** Hide a range's error until the admin has actually typed something into it. */
+function untouchedError(ranges, errors, index) {
+  const untouched = !ranges[index]?.start && !ranges[index]?.end
+  return untouched ? null : errors[index]
+}
+
 /** "10:00" → "10a", "19:30" → "7:30p" — short enough for a calendar cell. */
 function compactTime(hhmm) {
   const [h, m] = hhmm.split(':').map(Number)
@@ -683,6 +689,14 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
 
   const dates = [...selected].sort()
 
+  // Shared by both ways of applying hours (the weekly template below, and
+  // picking dates by hand): refresh the setup and surface any appointments
+  // that no longer fit inside the hours just saved.
+  const applyResult = (result) => {
+    setWarnings(result?.warnings ?? [])
+    onSaved()
+  }
+
   return (
     <div>
       {warnings.length > 0 && (
@@ -719,6 +733,16 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
           : `Available on ${daysSet} upcoming day${daysSet === 1 ? '' : 's'}.`}
       </p>
 
+      {canManage && (
+        <WeeklyTemplate
+          stylistId={stylistId}
+          todayIso={todayIso}
+          maxIso={maxIso}
+          shop={shop}
+          onApplied={applyResult}
+        />
+      )}
+
       <MonthCalendar
         year={view.year}
         month={view.month}
@@ -748,12 +772,208 @@ function CalendarEditor({ stylistId, dateHours, shop, canManage, onSaved }) {
             onClear={() => setSelected(new Set())}
             onApplied={(result) => {
               setSelected(new Set())
-              setWarnings(result?.warnings ?? [])
-              onSaved()
+              applyResult(result)
             }}
           />
         )
       ) : null}
+    </div>
+  )
+}
+
+/** true for a Saturday or Sunday. */
+const isWeekend = (iso) => [0, 6].includes(parseDateIso(iso).getDay())
+
+// How far ahead to apply — always at least the whole span, so every option
+// contains both weekdays and weekend days. `days: null` means "the whole
+// bookable window" (maxIso).
+const SPAN_OPTIONS = [
+  { days: 28, label: '4 weeks' },
+  { days: 84, label: '12 weeks' },
+  { days: 182, label: '26 weeks' },
+  { days: null, label: 'Every day I can set' },
+]
+
+/**
+ * Give every Monday–Friday one set of hours and every Saturday–Sunday
+ * another, in one go — instead of clicking through months of individual
+ * dates. Either group can be left empty to leave those days as they are.
+ * Applying replaces hours already set on the matching days in the chosen
+ * span, same as picking them by hand and saving.
+ */
+function WeeklyTemplate({ stylistId, todayIso, maxIso, shop, onApplied }) {
+  const [open, setOpen] = useState(false)
+  const [span, setSpan] = useState(SPAN_OPTIONS.at(-1).days)
+  const [weekdayRanges, setWeekdayRanges] = useState([])
+  const [weekendRanges, setWeekendRanges] = useState([])
+
+  const candidateEnd = span == null ? maxIso : addDaysIso(todayIso, span - 1)
+  const endIso = candidateEnd > maxIso ? maxIso : candidateEnd
+
+  const { weekday, weekend } = useMemo(() => {
+    const weekday = []
+    const weekend = []
+    for (let d = todayIso; d <= endIso; d = addDaysIso(d, 1)) {
+      ;(isWeekend(d) ? weekend : weekday).push(d)
+    }
+    return { weekday, weekend }
+  }, [todayIso, endIso])
+
+  const weekdayErrors = validateRanges(weekdayRanges, shop)
+  const weekendErrors = validateRanges(weekendRanges, shop)
+  const weekdayGiven = weekdayRanges.length > 0
+  const weekendGiven = weekendRanges.length > 0
+  const weekdayValid = weekdayGiven && Object.keys(weekdayErrors).length === 0
+  const weekendValid = weekendGiven && Object.keys(weekendErrors).length === 0
+  const nothingGiven = !weekdayGiven && !weekendGiven
+  const hasErrors = (weekdayGiven && !weekdayValid) || (weekendGiven && !weekendValid)
+
+  const summary = [
+    weekdayValid && `${weekday.length} weekday${weekday.length === 1 ? '' : 's'}`,
+    weekendValid && `${weekend.length} weekend day${weekend.length === 1 ? '' : 's'}`,
+  ]
+    .filter(Boolean)
+    .join(' and ')
+
+  const applyMut = useMutation(
+    async () => {
+      const warnings = []
+
+      if (weekdayValid && weekday.length > 0) {
+        const res = await api.put(`/admin/stylists/${stylistId}/date-hours`, {
+          days: weekday.map((date) => ({ date, mode: 'custom', ranges: weekdayRanges })),
+        })
+        warnings.push(...(res.warnings ?? []))
+      }
+
+      if (weekendValid && weekend.length > 0) {
+        const res = await api.put(`/admin/stylists/${stylistId}/date-hours`, {
+          days: weekend.map((date) => ({ date, mode: 'custom', ranges: weekendRanges })),
+        })
+        warnings.push(...(res.warnings ?? []))
+      }
+
+      return { warnings }
+    },
+    { successMessage: summary ? `Applied hours to ${summary}.` : undefined },
+  )
+
+  const apply = async () => {
+    const res = await applyMut.mutate()
+    if (res.ok) {
+      setWeekdayRanges([])
+      setWeekendRanges([])
+      setOpen(false)
+      onApplied(res.result)
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-[var(--radius-md)] border border-[var(--color-line)]">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span>
+          <span className="block text-sm font-semibold text-[var(--color-ink)]">
+            Quick setup: weekdays &amp; weekend
+          </span>
+          <span className="block text-xs text-[var(--color-muted)]">
+            Give Mon–Fri one set of hours and Sat–Sun another — applied to every matching day at
+            once.
+          </span>
+        </span>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className={cn('shrink-0 text-[var(--color-muted)] transition-transform', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-[var(--color-line)] p-4">
+          <fieldset className="mb-4">
+            <legend className="label mb-1.5">Apply to</legend>
+            <div className="flex flex-wrap gap-2">
+              {SPAN_OPTIONS.map((option) => (
+                <ChipButton key={option.label} active={span === option.days} onClick={() => setSpan(option.days)}>
+                  {option.label}
+                </ChipButton>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-[var(--color-muted)]">
+              From today through {formatDay(endIso)} — {weekday.length} weekday
+              {weekday.length === 1 ? '' : 's'} and {weekend.length} weekend day
+              {weekend.length === 1 ? '' : 's'}.
+            </p>
+          </fieldset>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div role="group" aria-label="Weekday hours">
+              <p className="label mb-1.5">Weekdays (Mon–Fri)</p>
+              <RangeList
+                ranges={weekdayRanges}
+                label="Weekday"
+                errorFor={(index) => untouchedError(weekdayRanges, weekdayErrors, index)}
+                onChange={setWeekdayRanges}
+              />
+              {weekdayRanges.length < MAX_RANGES && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  aria-label="Add a weekday range"
+                  onClick={() => setWeekdayRanges([...weekdayRanges, blankRange()])}
+                >
+                  <Plus size={13} /> Add hours
+                </Button>
+              )}
+              {!weekdayGiven && (
+                <p className="mt-1 text-xs text-[var(--color-muted)]">Leave empty to leave weekdays as they are.</p>
+              )}
+            </div>
+
+            <div role="group" aria-label="Weekend hours">
+              <p className="label mb-1.5">Weekend (Sat–Sun)</p>
+              <RangeList
+                ranges={weekendRanges}
+                label="Weekend"
+                errorFor={(index) => untouchedError(weekendRanges, weekendErrors, index)}
+                onChange={setWeekendRanges}
+              />
+              {weekendRanges.length < MAX_RANGES && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  aria-label="Add a weekend range"
+                  onClick={() => setWeekendRanges([...weekendRanges, blankRange()])}
+                >
+                  <Plus size={13} /> Add hours
+                </Button>
+              )}
+              {!weekendGiven && (
+                <p className="mt-1 text-xs text-[var(--color-muted)]">Leave empty to leave the weekend as it is.</p>
+              )}
+            </div>
+          </div>
+
+          {!nothingGiven && (
+            <p className="mt-4 flex items-start gap-2 rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs text-[var(--color-ink-soft)]">
+              <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
+              This replaces any hours already set on the matching days in this range.
+            </p>
+          )}
+
+          <div className="mt-4 flex justify-end">
+            <Button size="sm" onClick={apply} loading={applyMut.pending} disabled={nothingGiven || hasErrors}>
+              Apply
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -796,15 +1016,10 @@ function DayEditor({ stylistId, dates, dateHours, shop, onClear, onApplied }) {
   }
 
   // A row the admin hasn't touched yet isn't flagged — Save just stays disabled until it's filled in.
-  const errorFor = (index) => {
-    const untouched = !ranges[index]?.start && !ranges[index]?.end
-
-    return (
-      (untouched ? null : errors[index]) ||
-      saveMut.fieldErrors[`days.0.ranges.${index}.start`] ||
-      saveMut.fieldErrors[`days.0.ranges.${index}.end`]
-    )
-  }
+  const errorFor = (index) =>
+    untouchedError(ranges, errors, index) ||
+    saveMut.fieldErrors[`days.0.ranges.${index}.start`] ||
+    saveMut.fieldErrors[`days.0.ranges.${index}.end`]
 
   const shown = dates.slice(0, 6).map(formatDay).join(', ')
 
