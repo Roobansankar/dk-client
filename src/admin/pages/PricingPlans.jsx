@@ -24,7 +24,7 @@ import {
   Toggle,
   Toolbar,
 } from '../components/ui'
-import { formatPrice } from '../lib/format'
+import { formatDuration, formatPrice } from '../lib/format'
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All plans', test: () => true },
@@ -161,6 +161,12 @@ export default function PricingPlansPage() {
           {formatPrice(p.price)}
         </span>
       ),
+    },
+    {
+      key: 'duration',
+      header: 'Time',
+      hideBelow: 'md',
+      cell: (p) => <span className="whitespace-nowrap tabular-nums">{formatDuration(p.duration_minutes)}</span>,
     },
     {
       key: 'validity',
@@ -412,6 +418,7 @@ function PlanFormModal({ mode, plan, onClose, onSaved }) {
     name: plan?.name ?? '',
     description: plan?.description ?? '',
     price: plan?.price ?? '',
+    duration_minutes: plan?.duration_minutes ?? '',
     validity_days: plan?.validity_days ?? '',
     status: plan?.status ?? true,
   })
@@ -431,6 +438,7 @@ function PlanFormModal({ mode, plan, onClose, onSaved }) {
         name: form.name,
         description: form.description || null,
         price: form.price === '' ? null : Number(form.price),
+        duration_minutes: form.duration_minutes === '' ? null : Number(form.duration_minutes),
         validity_days: form.validity_days === '' ? null : Number(form.validity_days),
         features: features.map((f) => f.trim()).filter(Boolean),
         status: form.status,
@@ -492,7 +500,7 @@ function PlanFormModal({ mode, plan, onClose, onSaved }) {
           </Field>
         </FormSection>
 
-        <FormSection title="Price & validity">
+        <FormSection title="Price, time & validity">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Price (₹)" htmlFor="plan-price" required error={fieldErrors.price}>
               <TextInput
@@ -502,6 +510,23 @@ function PlanFormModal({ mode, plan, onClose, onSaved }) {
                 inputMode="decimal"
                 value={form.price}
                 onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+              />
+            </Field>
+            <Field
+              label="Time needed (minutes)"
+              htmlFor="plan-duration"
+              hint="Slot length for booking"
+              error={fieldErrors.duration_minutes}
+            >
+              <TextInput
+                id="plan-duration"
+                type="number"
+                min="1"
+                max="1440"
+                inputMode="numeric"
+                placeholder="e.g. 45"
+                value={form.duration_minutes}
+                onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))}
               />
             </Field>
             <Field

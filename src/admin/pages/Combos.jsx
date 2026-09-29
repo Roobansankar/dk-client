@@ -27,7 +27,7 @@ import {
 } from '../components/ui'
 import { ImageGalleryInput } from '../components/ImageGalleryInput'
 import { appendGalleryFields, galleryError, galleryFromServer } from '../lib/gallery'
-import { formatMoney as money } from '../lib/format'
+import { formatDuration, formatMoney as money } from '../lib/format'
 import { taxIncluded } from '../../lib/pricing'
 
 /**
@@ -233,6 +233,12 @@ export default function CombosPage() {
           {Number(c.tax_percent) > 0 ? taxText(c.tax_percent) : '—'}
         </span>
       ),
+    },
+    {
+      key: 'duration',
+      header: 'Time',
+      hideBelow: 'md',
+      cell: (c) => <span className="whitespace-nowrap tabular-nums">{formatDuration(c.duration_minutes)}</span>,
     },
     {
       key: 'status',
@@ -557,6 +563,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
         ? ''
         : String(combo.bundle_price),
     taxPercent: combo?.tax_percent ?? 0,
+    durationMinutes: combo?.duration_minutes ?? '',
     status: combo?.status ?? true,
   })
 
@@ -633,6 +640,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
       }
 
       fd.append('tax_percent', String(Number(form.taxPercent) || 0))
+      fd.append('duration_minutes', form.durationMinutes === '' ? '' : String(Number(form.durationMinutes)))
 
       items.forEach((item, i) => {
         fd.append(`items[${i}][product_id]`, item.product_id)
@@ -870,7 +878,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
           )}
         </FormSection>
 
-        <FormSection title="Complete set & taxes">
+        <FormSection title="Complete set, taxes & time">
           <Field
             label="Complete set price"
             htmlFor="combo-bundle-price"
@@ -897,26 +905,47 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
             </div>
           </Field>
 
-          <Field
-            label="Taxes (%)"
-            htmlFor="combo-tax"
-            error={fieldErrors.tax_percent}
-            hint="Already included in the complete-set price and the combo prices — not added on top at checkout."
-            className="sm:w-1/2"
-          >
-            <TextInput
-              id="combo-tax"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              inputMode="decimal"
-              value={form.taxPercent}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, taxPercent: e.target.value }))
-              }
-            />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Taxes (%)"
+              htmlFor="combo-tax"
+              error={fieldErrors.tax_percent}
+              hint="Already included in the complete-set price and the combo prices — not added on top at checkout."
+            >
+              <TextInput
+                id="combo-tax"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                inputMode="decimal"
+                value={form.taxPercent}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, taxPercent: e.target.value }))
+                }
+              />
+            </Field>
+
+            <Field
+              label="Time needed (minutes)"
+              htmlFor="combo-duration"
+              error={fieldErrors.duration_minutes}
+              hint="This combo's own slot length when booked as an appointment."
+            >
+              <TextInput
+                id="combo-duration"
+                type="number"
+                min="1"
+                max="1440"
+                inputMode="numeric"
+                placeholder="e.g. 90"
+                value={form.durationMinutes}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, durationMinutes: e.target.value }))
+                }
+              />
+            </Field>
+          </div>
 
           {pricesFilled && wholeSplit && (
             <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] px-3 py-2 text-xs tabular-nums text-[var(--color-ink-soft)]">

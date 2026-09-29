@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom'
-import { ArrowRight, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowRight, Check, Phone, X } from 'lucide-react'
 import clsx from 'clsx'
 import Container from '../layout/Container'
 import { usePricingPlanList } from '../../context/PricingPlansContext'
 import { CardSkeletonGrid, Notice } from '../StateViews'
 import { formatInr } from '../../data/services'
+import { site } from '../../data/site'
 
 /**
  * Homepage "Combo Offers" — studio-curated service packages, shown directly
@@ -43,8 +44,73 @@ function validityLabel(days) {
   return `Valid ${days} days`
 }
 
+/**
+ * "Book this package" doesn't start the online booking flow — packages are
+ * booked by calling the studio, so this just shows the number. Same overlay
+ * pattern as BookingAuthGate (backdrop click / Esc / X to close).
+ */
+function BookPackageModal({ plan, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-[70]">
+      <button
+        type="button"
+        aria-label="Close"
+        tabIndex={-1}
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-ink/40 p-0"
+        onClick={onClose}
+      />
+
+      <div className="absolute inset-x-0 bottom-0 flex justify-center sm:inset-0 sm:items-center">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="book-package-title"
+          className="relative w-full max-w-md rounded-t-[var(--radius-lg,0.75rem)] border border-line bg-surface p-6 shadow-xl sm:rounded-[var(--radius-lg,0.75rem)] sm:p-8"
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            autoFocus
+            className="btn-ghost absolute right-3 top-3 rounded p-1.5 text-muted hover:text-ink"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+
+          <p className="eyebrow pr-8">{plan.name}</p>
+          <h3 id="book-package-title" className="mt-2 pr-8 font-serif text-2xl text-ink">
+            Book this package
+          </h3>
+
+          <p className="mt-3 text-sm text-ink-soft">
+            To book this package, please contact the studio and we’ll set up your
+            appointment.
+          </p>
+
+          <a
+            href={site.phone.href}
+            className="btn mt-6 min-h-11 w-full justify-center rounded-full no-underline"
+          >
+            <Phone size={15} aria-hidden="true" />
+            {site.phone.display}
+          </a>
+
+          <p className="mt-6 text-center text-sm text-muted">Thank you!</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ComboOfferCard({ plan }) {
   const validity = validityLabel(plan.validityDays)
+  const [contactOpen, setContactOpen] = useState(false)
 
   // Same card language as the Products page ComboCard (shop/ComboCard.jsx):
   // soft rounded card, frosted Combo pill, serif title + description, a tinted
@@ -101,17 +167,19 @@ function ComboOfferCard({ plan }) {
                 )}
               </div>
 
-              <Link
-                to="/booking"
+              <button
+                type="button"
+                onClick={() => setContactOpen(true)}
                 className="btn min-h-11 rounded-full px-6 no-underline"
               >
                 Book this package
                 <ArrowRight size={15} aria-hidden="true" />
-              </Link>
+              </button>
             </div>
           </div>
         </div>
       </article>
+      {contactOpen && <BookPackageModal plan={plan} onClose={() => setContactOpen(false)} />}
     </li>
   )
 }

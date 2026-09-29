@@ -40,6 +40,13 @@ const PAYMENT_METHODS = [
 ]
 const cap = (s) => s[0].toUpperCase() + s.slice(1)
 
+/**
+ * The "Combo Offer" pseudo-category. With it chosen, the Service list shows the
+ * active Pricing Plans (the public "Combo Offers"), and the chosen plan's price
+ * and duration are what the appointment records and the time picker uses.
+ */
+const COMBO = 'combo'
+
 const dayFormat = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 const formatDay = (iso) => dayFormat.format(parseDateIso(iso))
 
@@ -228,6 +235,9 @@ export default function OfflineAppointmentNewPage() {
     params: { per_page: 200, status: 1 },
     enabled: canSeeCatalogue,
   })
+  // Combo Offers = the active pricing plans (same list the homepage shows).
+  const plans = useQuery('/pricing-plans', { enabled: canSeeCatalogue })
+  const planList = Array.isArray(plans.data) ? plans.data : []
 
   // 1. The stylist (only ones shown on the site — their times come from the booking rules).
   const stylistList = (stylists.data ?? []).filter((s) => s.status)
@@ -240,7 +250,10 @@ export default function OfflineAppointmentNewPage() {
     (c) => c.status !== false && offeredServices.some((s) => s.category_id === c.id),
   )
   const categoryServices = offeredServices.filter((s) => String(s.category_id) === String(form.category_id))
-  const selectedService = offeredServices.find((s) => String(s.id) === String(form.service_id))
+  const isCombo = form.category_id === COMBO
+  const selectedPlan = isCombo ? planList.find((p) => String(p.id) === String(form.service_id)) : null
+  const selectedService = isCombo ? null : offeredServices.find((s) => String(s.id) === String(form.service_id))
+  const duration = selectedPlan ? selectedPlan.duration_minutes : selectedService?.duration_minutes
 
   // The chosen stylist's own price / advance % for this service, if the admin set one
   // (Stylists → Services & hours); otherwise the service's standard terms.
@@ -262,18 +275,27 @@ export default function OfflineAppointmentNewPage() {
         isStylistOpenOn(chosenStylist, iso, studioHolidays),
       )
     : []
-  const slotsReady = Boolean(selectedService && chosenStylist && form.appointment_date)
-  const slots = useQuery('/booking/slots', {
+  const slotsReady = Boolean((selectedService || selectedPlan?.duration_minutes) && chosenStylist && form.appointment_date)
+  const serviceSlots = useQuery('/booking/slots', {
     params: { service_id: form.service_id, stylist_id: form.stylist_id, date: form.appointment_date },
-    enabled: slotsReady,
+    enabled: slotsReady && !isCombo,
   })
+  // A combo offer's times are sized by the plan's duration.
+  const comboSlots = useQuery('/admin/appointments/combo-slots', {
+    params: { pricing_plan_id: form.service_id, stylist_id: form.stylist_id, date: form.appointment_date },
+    enabled: slotsReady && isCombo,
+  })
+  const slots = isCombo ? comboSlots : serviceSlots
 
   // Picking a stylist keeps what still applies to them and drops what doesn't.
   const pickStylist = (stylist) => {
     const offered = new Set(stylist.service_ids ?? [])
     const services = catalogue.data ?? []
-    const keepService = offered.has(Number(form.service_id))
-    const keepCategory = services.some((s) => String(s.category_id) === String(form.category_id) && offered.has(s.id))
+    // A combo offer isn't tied to a stylist's services, so it stays selected.
+    const keepService = form.category_id === COMBO || offered.has(Number(form.service_id))
+    const keepCategory =
+      form.category_id === COMBO ||
+      services.some((s) => String(s.category_id) === String(form.category_id) && offered.has(s.id))
     const keepDate = Boolean(form.appointment_date) && isStylistOpenOn(stylist, form.appointment_date, studioHolidays)
 
     set({
@@ -291,8 +313,12 @@ export default function OfflineAppointmentNewPage() {
         customer_name: form.customer_name.trim(),
         phone: form.phone.trim(),
         gender: form.gender,
-        category_id: form.category_id ? Number(form.category_id) : null,
-        service_id: form.service_id ? Number(form.service_id) : null,
+        ...(isCombo
+          ? { pricing_plan_id: form.service_id ? Number(form.service_id) : null }
+          : {
+              category_id: form.category_id ? Number(form.category_id) : null,
+              service_id: form.service_id ? Number(form.service_id) : null,
+            }),
         stylist_id: form.stylist_id ? Number(form.stylist_id) : null,
         appointment_date: form.appointment_date,
         appointment_time: form.appointment_time,
@@ -342,7 +368,7 @@ export default function OfflineAppointmentNewPage() {
           const errors = {}
           if (!form.stylist_id) errors.stylist_id = 'Select a stylist.'
           if (!form.category_id) errors.category_id = 'Select a category.'
-          if (!form.service_id) errors.service_id = 'Select a service.'
+          if (!form.service_id) errors.service_id = isCombo ? 'Select a combo offer.' : 'Select a service.'
           if (!form.appointment_date) errors.appointment_date = 'Select a date.'
           if (!form.appointment_time) errors.appointment_time = 'Select a time.'
           if (form.payment_status !== 'unpaid' && !form.payment_method) errors.payment_method = 'Select a payment method.'
@@ -370,31 +396,66 @@ export default function OfflineAppointmentNewPage() {
                 disabled={!chosenStylist}
                 onChange={(e) => set({ category_id: e.target.value, service_id: '', appointment_time: '' })}
               >
-                <option value="">
-                  {!chosenStylist ? 'Choose a stylist first' : categoryOptions.length === 0 ? 'No services offered' : 'Select'}
-                </option>
+                <option value="">{!chosenStylist ? 'Choose a stylist first' : 'Select'}</option>
                 {categoryOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} ({c.gender})
                   </option>
                 ))}
+                <option value={COMBO}>Combo Offer</option>
               </Select>
             </Field>
-            <Field label="Service" required error={localErrors.service_id || fieldErrors.service_id} reserveMessage>
+            <Field
+              label="Service"
+              required
+              error={localErrors.service_id || fieldErrors.service_id || fieldErrors.pricing_plan_id}
+              reserveMessage
+            >
               <Select
                 value={form.service_id}
                 disabled={!form.category_id}
                 onChange={(e) => set({ service_id: e.target.value, appointment_time: '' })}
               >
-                <option value="">{!form.category_id ? 'Choose a category first' : 'Select a service'}</option>
-                {categoryServices.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+                <option value="">
+                  {!form.category_id
+                    ? 'Choose a category first'
+                    : isCombo
+                      ? plans.loading
+                        ? 'Loading combo offers…'
+                        : planList.length === 0
+                          ? 'No combo offers available'
+                          : 'Select a combo offer'
+                      : 'Select a service'}
+                </option>
+                {isCombo
+                  ? planList.map((p) => (
+                      <option key={p.id} value={p.id} disabled={!p.duration_minutes}>
+                        {p.name} — {formatPrice(p.price)} ·{' '}
+                        {p.duration_minutes ? formatDuration(p.duration_minutes) : 'no time set (edit the plan)'}
+                      </option>
+                    ))
+                  : categoryServices.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
               </Select>
             </Field>
           </div>
+
+          {selectedPlan && (
+            <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
+              <DetailList columns={4} className="gap-y-2">
+                <Detail label="Pricing plan" value={selectedPlan.name} />
+                <Detail label="Duration" value={formatDuration(selectedPlan.duration_minutes)} />
+                <Detail label="Price" value={formatPrice(selectedPlan.price)} />
+                <Detail label="Advance %" value="—" />
+              </DetailList>
+              <p className="mt-2 text-xs text-[var(--color-faint)]">
+                Recorded as a Combo Offer from this pricing plan&apos;s price and time when the appointment is saved.
+              </p>
+            </div>
+          )}
 
           {selectedService && (
             <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
@@ -462,11 +523,11 @@ export default function OfflineAppointmentNewPage() {
                 waitingFor={
                   !chosenStylist
                     ? 'Choose a stylist to see when they are free.'
-                    : !selectedService
+                    : !selectedService && !selectedPlan
                       ? 'Choose a service to see the times.'
                       : 'Choose a date to see the free times.'
                 }
-                duration={selectedService?.duration_minutes}
+                duration={duration}
                 value={form.appointment_time}
                 onChange={(time) => set({ appointment_time: time })}
               />
