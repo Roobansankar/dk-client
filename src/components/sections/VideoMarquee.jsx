@@ -179,9 +179,14 @@ function MarqueeRow({ items, direction, rowIndex, onPlay }) {
             aria-hidden={duplicate || undefined}
             className="aspect-[4/5] w-[clamp(150px,24vw,240px)] shrink-0 overflow-hidden rounded-2xl border border-line bg-scrim sm:w-[clamp(200px,20vw,280px)]"
           >
-            {/* Poster-only preview — playback happens in the player overlay,
-                so the scrolling row stays light (preload="none": no video
-                bytes fetched until the user actually presses play). */}
+            {/* Poster preview — playback happens in the player overlay, so
+                the scrolling row stays light. There's no generated
+                thumbnail (item.poster; see VideoUploader — shared hosting
+                can't reliably offer ffmpeg to make one), so this relies on
+                preload="metadata" instead of "none": browsers decode and
+                display the video's own first frame as soon as metadata
+                loads, which is enough to show *something* at rest without
+                fetching the full clip. */}
             <button
               type="button"
               onClick={() => onPlay(item)}
@@ -194,7 +199,7 @@ function MarqueeRow({ items, direction, rowIndex, onPlay }) {
                 poster={item.poster || undefined}
                 className="h-full w-full object-cover"
                 playsInline
-                preload="none"
+                preload="metadata"
                 muted
                 tabIndex={-1}
                 aria-hidden="true"
