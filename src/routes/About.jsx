@@ -182,7 +182,9 @@ function Timeline() {
               <li
                 key={step.marker + step.title}
                 className={clsx(
-                  'relative pb-10 pl-16 last:pb-0 md:w-1/2 md:pl-0',
+                  // pl-24 (not pl-16) — the widest marker pill ("Today") renders
+                  // about 88px wide, so anything narrower let it overlap the card.
+                  'relative pb-10 pl-24 last:pb-0 md:w-1/2 md:pl-0',
                   left
                     ? 'md:self-start md:pr-16'
                     : 'md:self-end md:pl-16',
