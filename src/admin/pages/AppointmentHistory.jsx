@@ -50,7 +50,7 @@ export default function AppointmentHistoryPage() {
   const canSeeCatalogue = can('services.view')
 
   const [filters, setFilters] = useState(EMPTY)
-  const [sort, setSort] = useState('appointment_date:desc')
+  const [sort, setSort] = useState('created_at:desc')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
   const search = useDebounced(filters.search)
@@ -283,10 +283,10 @@ export default function AppointmentHistoryPage() {
         </Field>
         <Field label="Sort">
           <Select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="appointment_date:desc">Appointment · newest</option>
-            <option value="appointment_date:asc">Appointment · oldest</option>
             <option value="created_at:desc">Created · newest</option>
             <option value="created_at:asc">Created · oldest</option>
+            <option value="appointment_date:desc">Appointment · newest</option>
+            <option value="appointment_date:asc">Appointment · oldest</option>
           </Select>
         </Field>
 
