@@ -23,8 +23,8 @@ export default function Hero() {
     >
       {/* Art-directed per viewport: the browser fetches only the matching
           source. Desktop needs a landscape viewport ≥ lg, so large portrait
-          tablets (e.g. 1032×1376) get the portrait tablet crop. The photo is
-          shown untreated — no scrim/filter. */}
+          tablets (e.g. 1032×1376) get the portrait tablet crop. The photo
+          itself is shown untreated — no filter. */}
       <picture>
         <source
           media="(min-width: 64rem) and (orientation: landscape)"
@@ -40,6 +40,10 @@ export default function Hero() {
           className="absolute inset-0 h-full w-full object-cover"
         />
       </picture>
+
+      {/* Mobile-only scrim (below the md / 48rem tablet source breakpoint) so
+          the copy reads over the mobile crop. Tablet/desktop stay untreated. */}
+      <div aria-hidden="true" className="absolute inset-0 bg-scrim/35 md:hidden" />
 
       <Container className="relative flex flex-1 flex-col items-center justify-center py-28 text-center">
         <p className="text-eyebrow font-medium uppercase tracking-[0.2em] text-white/85 [text-shadow:0_1px_10px_rgb(0_0_0/0.45)] sm:tracking-[0.34em]">

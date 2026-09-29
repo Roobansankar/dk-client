@@ -33,15 +33,11 @@ const SERVICE_GENDER_ITEMS = [
 
 const BOOKING = '/booking'
 
-const SCROLL_THRESHOLD = 16
-
 export default function Navbar() {
   const location = useLocation()
-  const isHome = location.pathname === '/'
 
   const { status: authStatus, user } = useAuth()
   const { count: cartCount } = useCart()
-  const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
@@ -74,23 +70,6 @@ export default function Navbar() {
     if (menuOpen) setMenuOpen(false)
     if (servicesOpen) setServicesOpen(false)
   }
-
-  // Transparent (light text) only at the top of the homepage hero, and only
-  // from `lg` up (the tablet→desktop breakpoint where the nav links replace the
-  // hamburger): on mobile and tablet (< lg) the bar is ALWAYS a solid theme
-  // surface, so `onDark` styling is applied `lg:`-scoped below.
-  const onDark = isHome && !scrolled
-
-  useEffect(() => {
-    if (!isHome) return
-
-    const onScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD)
-
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [isHome])
 
   // Drawer: focus management, focus trap, Escape, scroll lock.
   useEffect(() => {
@@ -154,28 +133,15 @@ export default function Navbar() {
   const linkBase =
     'text-eyebrow font-semibold uppercase tracking-[0.14em] no-underline transition-colors'
 
-  const darkShadow = '[text-shadow:0_1px_10px_rgb(0_0_0/0.4)]'
+  const linkTone = 'text-ink-soft hover:text-ink'
 
-  const linkTone = onDark
-    ? clsx('text-white/85 hover:text-white', darkShadow)
-    : 'text-ink-soft hover:text-ink'
-
-  const activeTone = onDark
-    ? clsx('font-bold text-white', darkShadow)
-    : 'font-bold text-ink'
+  const activeTone = 'font-bold text-ink'
 
   return (
-    <header
-      className={clsx(
-        'fixed inset-x-0 top-0 z-50 border-b border-line bg-surface transition-colors duration-200',
-        // ≥lg keeps the existing desktop behaviour: transparent over the hero,
-        // else a translucent blurred surface. < lg (mobile + tablet) stays fully
-        // opaque `bg-surface`.
-        onDark
-          ? 'lg:border-white/15 lg:bg-transparent'
-          : 'lg:bg-surface/85 lg:backdrop-blur lg:supports-[backdrop-filter]:bg-surface/75',
-      )}
-    >
+    // Solid theme surface below `lg` (mobile + tablet). From `lg` up (where the
+    // nav links replace the hamburger) it's ~50% transparent with a soft glass
+    // blur, falling back to solid where backdrop-filter is unsupported.
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-surface transition-colors duration-200 lg:supports-[backdrop-filter]:bg-surface/50 lg:supports-[backdrop-filter]:backdrop-blur-md">
       <Container className="flex h-14 items-center justify-between gap-4 md:h-20">
 <Link
   to="/"
@@ -184,20 +150,20 @@ export default function Navbar() {
   // Hidden behind the open mobile drawer, which shows its own logo.
   className={clsx('flex shrink-0 items-center', menuOpen && 'max-lg:invisible')}
 >
-  {/* Black logo on light surfaces, white on dark theme / over the hero. */}
+  {/* Black logo on the light theme, white on the dark theme. */}
   <img
     src={logoDark}
     alt="DK StyleHub"
     width={384}
     height={256}
-    className={clsx('h-8 w-auto object-contain md:h-10 dark:hidden', onDark && 'lg:hidden')}
+    className="h-8 w-auto object-contain md:h-10 dark:hidden"
   />
   <img
     src={logoLight}
     alt="DK StyleHub"
     width={384}
     height={256}
-    className={clsx('hidden h-8 w-auto object-contain md:h-10 dark:block', onDark && 'lg:block')}
+    className="hidden h-8 w-auto object-contain md:h-10 dark:block"
   />
 </Link>
 
@@ -287,12 +253,7 @@ export default function Navbar() {
             onClick={openSearch}
             aria-label="Search"
             title="Search"
-            className={clsx(
-              '-mx-1 inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors',
-              'text-ink-soft hover:bg-surface-sunken hover:text-ink',
-              onDark &&
-                'lg:text-white lg:[text-shadow:0_1px_10px_rgb(0_0_0/0.4)] lg:hover:bg-white/10 lg:hover:text-white',
-            )}
+            className="-mx-1 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-surface-sunken hover:text-ink"
           >
             <Search size={18} aria-hidden="true" />
           </button>
@@ -301,12 +262,7 @@ export default function Navbar() {
             to="/cart"
             aria-label={cartCount > 0 ? `Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}` : 'Cart'}
             title="Cart"
-            className={clsx(
-              'relative -mx-1 inline-flex h-10 w-10 items-center justify-center rounded-full no-underline transition-colors',
-              'text-ink-soft hover:bg-surface-sunken hover:text-ink',
-              onDark &&
-                'lg:text-white lg:[text-shadow:0_1px_10px_rgb(0_0_0/0.4)] lg:hover:bg-white/10 lg:hover:text-white',
-            )}
+            className="relative -mx-1 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft no-underline transition-colors hover:bg-surface-sunken hover:text-ink"
           >
             <Handbag size={18} aria-hidden="true" />
             {cartCount > 0 && (
@@ -319,22 +275,15 @@ export default function Navbar() {
             )}
           </Link>
 
-          <ThemeToggle onDark={onDark} />
+          <ThemeToggle />
 
           <span className="hidden lg:inline-flex">
-            <AccountMenu onDark={onDark} />
+            <AccountMenu />
           </span>
 
           <Link
             to={BOOKING}
-            className={clsx(
-              // `btn-outline` is the base (mobile + tablet solid bar); the
-              // over-hero white outline (`btn-on-dark`) is layered on from `lg`
-              // up only, via utilities so the variant actually applies.
-              'btn hidden rounded-full btn-outline sm:inline-flex',
-              onDark &&
-                'lg:border-white/55 lg:text-white lg:hover:border-white lg:hover:bg-white/[0.14]',
-            )}
+            className="btn hidden rounded-full btn-outline sm:inline-flex"
           >
             Book Appointment
             <ArrowRight size={16} aria-hidden="true" />
