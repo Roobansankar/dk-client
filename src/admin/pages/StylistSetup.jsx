@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, Info, Plus, Search, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Eye, EyeOff, Info, Plus, Search, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
@@ -261,7 +261,17 @@ function ServicesEditor({ stylistId, categories, savedIds, savedTerms, canManage
   const [selected, setSelected] = useState(() => new Set(savedIds))
   const [terms, setTerms] = useState(savedInputs)
   const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState(() => new Set())
+  // First category open, rest closed — user can open any closed one.
+  const [collapsed, setCollapsed] = useState(() => {
+    const ids = categories.filter((c) => c.gender === tab).map((c) => c.id)
+    return new Set(ids.slice(1))
+  })
+
+  useEffect(() => {
+    const ids = categories.filter((c) => c.gender === tab).map((c) => c.id)
+    setCollapsed(new Set(ids.slice(1)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, categories.length])
 
   const genderOf = useMemo(() => {
     const map = new Map()
@@ -379,7 +389,8 @@ function ServicesEditor({ stylistId, categories, savedIds, savedTerms, canManage
           {visibleCategories.map((category) => {
             const ids = category.services.map((s) => s.id)
             const ticked = ids.filter((sid) => selected.has(sid)).length
-            const open = !collapsed.has(category.id)
+            // While searching, expand all matches so results are visible.
+            const open = query ? true : !collapsed.has(category.id)
 
             return (
               <li key={category.id} className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)]">
@@ -629,20 +640,33 @@ function RangeList({ ranges, onChange, label, errorFor, disabled }) {
 }
 
 function WorkingHours({ stylistId, dateHours, dateClosures, weeklyHours, studioHolidays, shop, canManage, onSaved }) {
+  const [showHelp, setShowHelp] = useState(false)
+  const helpText =
+    `Give this professional a standing weekly schedule, a specific calendar date, or both — a date's own hours (and an explicit day off) always come first, otherwise the weekly schedule applies. Nothing is available until you set something.${
+      shop
+        ? ` Studio hours are ${formatTime12h(shop.opens)} – ${formatTime12h(shop.closes)}, and hours must sit inside that.`
+        : ''
+    }${
+      studioHolidays.length > 0
+        ? ` Studio holidays (${studioHolidays.length}) close the whole studio on those dates — see Holidays in the sidebar.`
+        : ''
+    }`
   return (
     <SectionCard
       title="Working hours"
-      description={
-        `Give this professional a standing weekly schedule, a specific calendar date, or both — a date's own hours (and an explicit day off) always come first, otherwise the weekly schedule applies. Nothing is available until you set something.${
-          shop
-            ? ` Studio hours are ${formatTime12h(shop.opens)} – ${formatTime12h(shop.closes)}, and hours must sit inside that.`
-            : ''
-        }${
-          studioHolidays.length > 0
-            ? ` Studio holidays (${studioHolidays.length}) close the whole studio on those dates — see Holidays in the sidebar.`
-            : ''
-        }`
+      actions={
+        <button
+          type="button"
+          onClick={() => setShowHelp((v) => !v)}
+          aria-expanded={showHelp}
+          aria-label={showHelp ? 'Hide working hours help' : 'Show working hours help'}
+          title={showHelp ? 'Hide help' : 'Show help'}
+          className="rounded p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-ink)]"
+        >
+          {showHelp ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       }
+      description={showHelp ? helpText : undefined}
     >
       <CalendarEditor
         stylistId={stylistId}
