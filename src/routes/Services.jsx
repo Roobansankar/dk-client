@@ -318,7 +318,10 @@ export default function Services({ gender: pageGender }) {
       <div className="texture-lines">
         {/* Banner — one photograph (styling tools fanned across silk, with a
             deliberate blank column on the left) with the heading and intro
-            copy laid over it as real HTML, never baked into the image.
+            copy laid over it as real HTML, never baked into the image. The
+            photo is desktop-only (`hidden lg:block` on the `<img>`) — below
+            `lg` the banner is just the heading and button on the studio's
+            paper tone, no photo.
             `RootLayout` gives every non-home route (`<main>`) top padding to
             clear the fixed navbar; at `lg` and up this section cancels that
             padding (`lg:-mt-20` mirrors `main`'s `md:pt-20`) and grows to
@@ -328,9 +331,7 @@ export default function Services({ gender: pageGender }) {
             `object-right` crops surplus blank canvas from the left as the
             viewport's own ratio departs from the photo's, so the fanned
             tools — flush against the image's right edge — are never cropped;
-            the text column narrows to match. Below `lg` the photo sits under
-            the copy at its natural aspect ratio (`h-auto`), so the whole
-            image — fanned tools included — shows at every width. The photo's tones are fixed
+            the text column narrows to match. The photo's tones are fixed
             regardless of theme (a photograph, like the homepage Hero — see
             Hero.jsx), so the overlay copy is pinned to light-theme ink
             colours rather than the ink/paper tokens, which invert in dark
@@ -368,7 +369,7 @@ export default function Services({ gender: pageGender }) {
             height={906}
             loading="eager"
             fetchPriority="high"
-            className="block h-auto w-full object-cover object-right lg:absolute lg:inset-0 lg:z-0 lg:h-full lg:w-full lg:object-cover lg:object-right"
+            className="hidden lg:absolute lg:inset-0 lg:z-0 lg:block lg:h-full lg:w-full lg:object-cover lg:object-right"
           />
         </section>
 
