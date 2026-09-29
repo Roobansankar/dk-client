@@ -41,6 +41,6 @@ export const site = {
   /** @type {{ label: string, to: string }[]} */
   legal: [
     { label: 'Privacy Policy', to: '/privacy' },
-    { label: 'Terms', to: '/terms' },
+    { label: 'Terms and Conditions', to: '/terms' },
   ],
 }
