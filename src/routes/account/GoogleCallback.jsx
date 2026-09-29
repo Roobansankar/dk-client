@@ -8,7 +8,10 @@ import Seo from '../../components/Seo'
  * Lands here after the full-page round trip to Google and back
  * (see routes/api.php's account/google/callback). Reads the one-time token
  * from the query string, stores it, hydrates the session, then redirects —
- * to wherever GoogleButton stashed in sessionStorage before leaving the SPA.
+ * to wherever GoogleAuthController echoed back in `redirect_to` (round-tripped
+ * through Google's own `state`, so it survives even a www <-> non-www domain
+ * change mid-flow), falling back to whatever GoogleButton stashed in
+ * sessionStorage before leaving the SPA, then finally /account.
  */
 export default function GoogleCallback() {
   const [searchParams] = useSearchParams()
@@ -19,7 +22,7 @@ export default function GoogleCallback() {
   // would leave later renders with nothing and fall back to /account. It is
   // cleared below, once sign-in has finished.
   const [redirectTo] = useState(
-    () => sessionStorage.getItem('dk-post-login-redirect') || '/account',
+    () => searchParams.get('redirect_to') || sessionStorage.getItem('dk-post-login-redirect') || '/account',
   )
   const started = useRef(false)
 

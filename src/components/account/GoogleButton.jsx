@@ -39,10 +39,14 @@ export default function GoogleButton({ redirectTo = '/account' }) {
     setError(null)
     try {
       // The full OAuth round trip leaves the SPA entirely (redirect ->
-      // Google -> backend callback -> back to the SPA), so there's no React
-      // state left to carry a "return to" location — stash it here instead.
+      // Google -> backend callback -> back to the SPA) and can even change
+      // domain along the way (www vs non-www — both serve the same site), so
+      // sessionStorage alone can't carry a "return to" location: it's locked
+      // to one origin. The backend threads it through Google's own `state`
+      // instead (see GoogleAuthController); this sessionStorage copy is just
+      // a same-origin fallback in case `redirect_to` is ever stripped.
       sessionStorage.setItem('dk-post-login-redirect', redirectTo)
-      const { url } = await apiGet('/account/google/redirect')
+      const { url } = await apiGet('/account/google/redirect', { params: { redirect_to: redirectTo } })
       window.location.href = url
     } catch (err) {
       sessionStorage.removeItem('dk-post-login-redirect')
