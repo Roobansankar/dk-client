@@ -93,7 +93,7 @@ export function VideoInput({ currentUrl, posterUrl, onChange, error, label = 'Vi
             <p className="text-xs text-[var(--color-danger)]">{localError || error}</p>
           ) : (
             <p className="text-xs text-[var(--color-faint)]">
-              {hint || `MP4, MOV, WebM, MKV or AVI · up to ${MAX_MB} MB · stored as uploaded, not compressed`}
+              {hint || `MP4, MOV, WebM, MKV or AVI · up to ${MAX_MB} MB · compressed automatically`}
             </p>
           )}
         </div>

@@ -65,7 +65,7 @@ export default function VideosPage() {
     <div>
       <PageHeader
         title="Videos"
-        description="Clips shown in the homepage Video section, in this order. Uploads are stored exactly as given — compress large files yourself before uploading."
+        description="Clips shown in the homepage Video section, in this order. Uploads are compressed automatically."
       >
         {canManage && (
           <Button size="sm" onClick={() => setModal({ mode: 'create' })}>
@@ -212,7 +212,9 @@ function VideoFormModal({ mode, video, onClose, onSaved }) {
       fd.append('status', form.status ? '1' : '0')
       if (file.file) fd.append('video', file.file)
       // XHR upload so the bar below can track real byte progress —
-      // `fetch` (api.postForm/putForm) can't report it.
+      // `fetch` (api.postForm/putForm) can't report it. 100% means the
+      // bytes are sent; the server may still be compressing until the
+      // response arrives and the modal closes.
       const onProgress = file.file ? ({ percent }) => setProgress(percent ?? 0) : undefined
       setProgress(file.file ? 0 : null)
       const send = mode === 'create'
@@ -224,7 +226,10 @@ function VideoFormModal({ mode, video, onClose, onSaved }) {
       })
     },
     {
-      successMessage: mode === 'create' ? 'Video uploaded.' : 'Video updated.',
+      successMessage:
+        mode === 'create'
+          ? 'Video uploaded — compressing may take a moment before it appears on the homepage.'
+          : 'Video updated.',
       onSuccess: onSaved,
     },
   )
