@@ -926,7 +926,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
               />
             </Field>
 
-            <Field
+            {/* <Field
               label="Time needed (minutes)"
               htmlFor="combo-duration"
               error={fieldErrors.duration_minutes}
@@ -944,7 +944,7 @@ function ComboFormModal({ mode, combo, onClose, onSaved }) {
                   setForm((f) => ({ ...f, durationMinutes: e.target.value }))
                 }
               />
-            </Field>
+            </Field> */}
           </div>
 
           {pricesFilled && wholeSplit && (
