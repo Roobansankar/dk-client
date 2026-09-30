@@ -15,6 +15,7 @@ import ServicesPage from './pages/Services'
 import ProductsPage from './pages/Products'
 import CombosPage from './pages/Combos'
 import OrdersPage from './pages/Orders'
+import OfflineBillingPage from './pages/OfflineBilling'
 import StylistsPage from './pages/Stylists'
 import StylistSetupPage from './pages/StylistSetup'
 import HolidaysPage from './pages/Holidays'
@@ -162,6 +163,14 @@ function AdminRoutes() {
           element={
             <RequirePermission perm="orders.view">
               <OrdersPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="offline-billing"
+          element={
+            <RequirePermission perm="orders.manage">
+              <OfflineBillingPage />
             </RequirePermission>
           }
         />

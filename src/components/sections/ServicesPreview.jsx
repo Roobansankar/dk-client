@@ -5,7 +5,7 @@ import Container from '../layout/Container'
 import { useCatalogue } from '../../context/CatalogueContext'
 import { formatInr } from '../../data/services'
 import { Skeleton } from '../StateViews'
-import studioImage from '../../assets/images/new-design/opt/studio.jpg'
+import studioImage from '../../assets/images/5thestudio.webp'
 
 /**
  * Homepage "Our services" — photo-tiles grid.

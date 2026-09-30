@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Check, Download, Phone, ShoppingBag, Truck, PackageCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Download, Phone, ShoppingBag, ShoppingCart, PackageCheck } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
@@ -18,6 +19,7 @@ import {
   Pill,
   SearchInput,
   Select,
+  SourceBadge,
   Toolbar,
 } from '../components/ui'
 import { formatDate, formatDateTime } from '../lib/format'
@@ -34,11 +36,18 @@ const money = (value) =>
       }).format(Number(value))
 
 const FULFILMENT = {
-  pending: ['Awaiting confirmation', 'warn'],
   confirmed: ['Confirmed', 'info'],
-  dispatched: ['Dispatched', 'info'],
   delivered: ['Delivered', 'ok'],
 }
+
+// Legacy states from the old pending → confirmed → dispatched flow: shown on
+// older orders only, never offered as a filter or an action.
+const LEGACY_FULFILMENT = {
+  pending: ['Awaiting confirmation', 'warn'],
+  dispatched: ['Dispatched', 'info'],
+}
+
+const PAYMENT_METHOD = { upi: 'UPI', cash: 'Cash', card: 'Card' }
 
 const PAYMENT = {
   paid: ['Paid', 'ok'],
@@ -48,7 +57,7 @@ const PAYMENT = {
 }
 
 function FulfilmentBadge({ status }) {
-  const [label, tone] = FULFILMENT[status] ?? [status ?? '—', 'neutral']
+  const [label, tone] = FULFILMENT[status] ?? LEGACY_FULFILMENT[status] ?? [status ?? '—', 'neutral']
   return <Pill tone={tone}>{label}</Pill>
 }
 
@@ -58,37 +67,20 @@ function OrderPaymentBadge({ status }) {
 }
 
 /**
- * The only admin actions on an order — fulfilment, strictly in order.
- * Payment is never an admin action: orders only exist after a verified
- * Razorpay payment. The backend enforces the same sequence; the UI just
- * offers the one valid next step and disables the rest.
+ * The only admin action on an order: Confirmed → Delivered. Every paid order
+ * (online after a verified Razorpay payment, or an offline bill paid at the
+ * counter) starts Confirmed. Payment is never an admin action. The backend
+ * enforces the same rule; older pending / dispatched orders can also be
+ * delivered.
  */
-const STEPS = [
-  {
-    status: 'confirmed',
-    from: 'pending',
-    label: 'Confirmed',
-    icon: Check,
-    title: 'Mark as confirmed?',
-    message: 'Confirm only after you have called the customer and verified the order.',
-  },
-  {
-    status: 'dispatched',
-    from: 'confirmed',
-    label: 'Dispatched',
-    icon: Truck,
-    title: 'Mark as dispatched?',
-    message: 'Mark dispatched only after the products have been handed to the courier.',
-  },
-  {
-    status: 'delivered',
-    from: 'dispatched',
-    label: 'Delivered',
-    icon: PackageCheck,
-    title: 'Mark as delivered?',
-    message: 'Mark delivered only once the customer has received the products.',
-  },
-]
+const DELIVER = {
+  status: 'delivered',
+  from: ['confirmed', 'pending', 'dispatched'],
+  label: 'Delivered',
+  icon: PackageCheck,
+  title: 'Mark as delivered?',
+  message: 'Mark delivered only once the customer has received the products.',
+}
 
 const itemSummary = (order) =>
   (order.items ?? [])
@@ -178,7 +170,14 @@ export default function OrdersPage() {
       header: 'Customer',
       cell: (r) => (
         <div>
-          <p className="text-[var(--color-ink)]">{r.customer_name}</p>
+          <p className="text-[var(--color-ink)]">
+            {r.customer_name}
+            {r.source === 'offline' && (
+              <span className="ml-2 align-middle">
+                <SourceBadge source="offline" />
+              </span>
+            )}
+          </p>
           <PhoneLink phone={r.phone} onClick={(e) => e.stopPropagation()} />
         </div>
       ),
@@ -215,8 +214,13 @@ export default function OrdersPage() {
     <div>
       <PageHeader
         title="Orders"
-        description="Paid product orders from the website. Call the customer to confirm, then mark dispatched and delivered."
+        description="Paid product orders — from the website, and offline bills from the studio. Every order starts Confirmed; mark it Delivered once the customer has the products."
       >
+        {canManage && (
+          <Link to="/admin/offline-billing" className="btn btn-sm">
+            <ShoppingCart size={15} /> Offline bill
+          </Link>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -332,7 +336,7 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
     },
   )
 
-  const nextStep = order ? STEPS.find((s) => s.from === order.status) : null
+  const canDeliver = Boolean(order) && DELIVER.from.includes(order.status)
 
   return (
     <>
@@ -350,38 +354,21 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
                 role="group"
                 aria-label="Fulfilment"
               >
-                {STEPS.map((step) => {
-                  const Icon = step.icon
-
-                  const done =
-                    STEPS.findIndex((s) => s.status === order.status) >=
-                    STEPS.findIndex((s) => s.status === step.status)
-
-                  return (
-                    <Button
-                      key={step.status}
-                      size="sm"
-                      variant={
-                        nextStep?.status === step.status
-                          ? 'primary'
-                          : 'outline'
-                      }
-                      disabled={
-                        nextStep?.status !== step.status || statusMut.pending
-                      }
-                      onClick={() => setConfirmStep(step)}
-                      title={
-                        done
-                          ? `Already ${step.label.toLowerCase()}`
-                          : nextStep?.status === step.status
-                            ? undefined
-                            : 'Complete the previous step first'
-                      }
-                    >
-                      <Icon size={14} /> {step.label}
-                    </Button>
-                  )
-                })}
+                <Button
+                  size="sm"
+                  variant={canDeliver ? 'primary' : 'outline'}
+                  disabled={!canDeliver || statusMut.pending}
+                  onClick={() => setConfirmStep(DELIVER)}
+                  title={
+                    order.status === 'delivered'
+                      ? 'Already delivered'
+                      : canDeliver
+                        ? undefined
+                        : 'This order can’t be marked delivered'
+                  }
+                >
+                  <DELIVER.icon size={14} /> {DELIVER.label}
+                </Button>
               </div>
             ) : (
               <span />
@@ -406,6 +393,8 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
 
               <FulfilmentBadge status={order.status} />
 
+              <SourceBadge source={order.source} />
+
               {order.paid_at && (
                 <span className="text-xs text-[var(--color-faint)]">
                   Paid {formatDateTime(order.paid_at)}
@@ -426,6 +415,12 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
                 phone={order.phone}
                 className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-accent)] px-3 py-1.5 text-base font-semibold tabular-nums text-[var(--color-ink)] no-underline hover:bg-[var(--color-surface)]"
               />
+
+              {order.customer_address && (
+                <p className="w-full whitespace-pre-line text-sm text-[var(--color-ink-soft)]">
+                  {order.customer_address}
+                </p>
+              )}
             </div>
 
             <div>
@@ -497,14 +492,21 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
                 value={formatDate(order.created_at)}
               />
 
-              <Detail
-                label="Razorpay payment"
-                value={
-                  <span className="break-all text-xs">
-                    {order.razorpay_payment_id || '—'}
-                  </span>
-                }
-              />
+              {order.payment_method ? (
+                <Detail
+                  label="Payment method"
+                  value={PAYMENT_METHOD[order.payment_method] ?? order.payment_method}
+                />
+              ) : (
+                <Detail
+                  label="Razorpay payment"
+                  value={
+                    <span className="break-all text-xs">
+                      {order.razorpay_payment_id || '—'}
+                    </span>
+                  }
+                />
+              )}
             </DetailList>
 
             <div>

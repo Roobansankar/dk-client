@@ -24,6 +24,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   SlidersHorizontal,
   Sun,
   Tags,
@@ -59,6 +60,7 @@ const NAV = [
 
   { section: 'Shop' },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, perm: 'orders.view' },
+  { to: '/admin/offline-billing', label: 'Offline Billing', icon: ShoppingCart, perm: 'orders.manage' },
 
   { section: 'Catalogue' },
   { to: '/admin/services/female', label: 'Female Services', icon: Scissors, perm: 'services.view' },
