@@ -308,6 +308,18 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
   const { data: order, loading, error, refetch } = useQuery(`/admin/orders/${id}`)
   const [confirmStep, setConfirmStep] = useState(null)
 
+  // Bill / invoice PDF for this order — same file WhatsApp sends the customer.
+  // Mirrors AppointmentDetail's bill download.
+  const billMut = useMutation(
+    () =>
+      api.download(
+        `/admin/orders/${id}/bill`,
+        {},
+        `bill-${order?.order_number || id}.pdf`,
+      ),
+    { successMessage: 'Bill downloaded.' },
+  )
+
   const statusMut = useMutation(
     (status) => api.patch(`/admin/orders/${id}/status`, { status }),
     {
@@ -494,6 +506,17 @@ function OrderDetail({ id, canManage, onClose, onChanged }) {
                 }
               />
             </DetailList>
+
+            <div>
+              <Button
+                size="sm"
+                variant="outline"
+                loading={billMut.pending}
+                onClick={() => billMut.mutate()}
+              >
+                <Download size={15} /> Download Bill (PDF)
+              </Button>
+            </div>
           </div>
         )}
       </Modal>

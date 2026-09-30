@@ -50,13 +50,13 @@ const COMBO = 'combo'
 const dayFormat = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 const formatDay = (iso) => dayFormat.format(parseDateIso(iso))
 
-// Nothing is pre-selected: the stylist, service, date and time are all chosen.
+// Nothing is pre-selected: the stylist, services, date and time are all chosen.
 const EMPTY = {
   customer_name: '',
   phone: '',
   gender: '',
   category_id: '',
-  service_id: '',
+  service_ids: [],
   stylist_id: '',
   appointment_date: '',
   appointment_time: '',
@@ -76,7 +76,7 @@ function StylistCards({ stylists, loading, value, onPick }) {
   if (stylists.length === 0) return <p className={muted}>No stylists are visible yet. Add or show one under Stylists.</p>
 
   return (
-    <div role="radiogroup" aria-label="Stylist" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div role="radiogroup" aria-label="Stylist" className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
       {stylists.map((stylist) => {
         const selected = String(stylist.id) === String(value)
         const days = Object.keys(stylist.date_hours ?? {}).length
@@ -96,39 +96,43 @@ function StylistCards({ stylists, loading, value, onPick }) {
                 : 'border-[var(--color-line)] hover:border-[var(--color-line-strong)]',
             )}
           >
-            <div className="relative aspect-[4/3] w-full bg-[var(--color-surface-sunken)]">
+            <div className="relative aspect-square w-full shrink-0 overflow-hidden bg-[var(--color-surface-sunken)]">
               {stylist.image_url ? (
-                <Thumb src={stylist.image_url} alt="" className="h-full w-full object-top" />
+                <Thumb
+                  src={stylist.image_url}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover object-center"
+                />
               ) : (
                 <span
                   aria-hidden="true"
-                  className="flex h-full w-full items-center justify-center text-3xl font-semibold text-[var(--color-muted)]"
+                  className="absolute inset-0 flex items-center justify-center text-2xl font-semibold text-[var(--color-muted)]"
                 >
                   {stylist.name?.[0]?.toUpperCase() || '?'}
                 </span>
               )}
               {selected && (
-                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-ink)] text-[var(--color-paper)] shadow-sm">
-                  <Check size={13} aria-hidden="true" />
+                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-ink)] text-[var(--color-paper)] shadow-sm">
+                  <Check size={11} aria-hidden="true" />
                 </span>
               )}
             </div>
-            <div className="flex flex-1 flex-col gap-1 px-3 pb-3 pt-2.5">
-              <span className="text-sm font-semibold text-[var(--color-ink)]">{stylist.name}</span>
-              {stylist.bio && (
-                <span className="line-clamp-2 text-xs leading-snug text-[var(--color-muted)]">{stylist.bio}</span>
-              )}
+            <div className="flex flex-1 flex-col gap-0.5 px-2 pb-2 pt-2">
+              <span className="truncate text-xs font-semibold text-[var(--color-ink)]">{stylist.name}</span>
+              <span className="line-clamp-1 min-h-[1rem] text-[11px] leading-snug text-[var(--color-muted)]">
+                {stylist.bio || ' '}
+              </span>
               {hasWeeklySchedule ? (
-                <span className="text-xs text-[var(--color-faint)]">
-                  Weekly schedule set{days > 0 && ` · ${days} custom day${days === 1 ? '' : 's'}`}
+                <span className="text-[11px] text-[var(--color-faint)]">
+                  Weekly{days > 0 && ` · ${days} day${days === 1 ? '' : 's'}`}
                 </span>
               ) : days === 0 ? (
-                <Pill tone="warn" className="self-start">
+                <Pill tone="warn" className="self-start px-1.5 py-0 text-[11px]">
                   No dates set
                 </Pill>
               ) : (
-                <span className="text-xs text-[var(--color-faint)]">
-                  Available on {days} day{days === 1 ? '' : 's'}
+                <span className="text-[11px] text-[var(--color-faint)]">
+                  {days} day{days === 1 ? '' : 's'}
                 </span>
               )}
             </div>
@@ -251,20 +255,33 @@ export default function OfflineAppointmentNewPage() {
   )
   const categoryServices = offeredServices.filter((s) => String(s.category_id) === String(form.category_id))
   const isCombo = form.category_id === COMBO
-  const selectedPlan = isCombo ? planList.find((p) => String(p.id) === String(form.service_id)) : null
-  const selectedService = isCombo ? null : offeredServices.find((s) => String(s.id) === String(form.service_id))
-  const duration = selectedPlan ? selectedPlan.duration_minutes : selectedService?.duration_minutes
+  const selectedPlan = isCombo ? planList.find((p) => String(p.id) === String(form.service_ids?.[0] ?? '')) : null
+  // Multi-service: every picked id resolved against what the stylist offers.
+  // Durations add up into ONE combined slot; names join with commas (incl. WhatsApp).
+  const selectedIds = isCombo
+    ? []
+    : (Array.isArray(form.service_ids) ? form.service_ids : []).map(String)
+  const selectedServices = isCombo
+    ? []
+    : selectedIds.map((id) => offeredServices.find((s) => String(s.id) === id)).filter(Boolean)
+  const duration = selectedPlan
+    ? selectedPlan.duration_minutes
+    : selectedServices.reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0)
 
-  // The chosen stylist's own price / advance % for this service, if the admin set one
-  // (Stylists → Services & hours); otherwise the service's standard terms.
-  const ownTerms = selectedService ? chosenStylist?.service_terms?.[selectedService.id] : null
-  const price = ownTerms?.price != null ? ownTerms.price : selectedService?.price
-  const advancePercentage =
-    ownTerms?.advance_percentage != null ? ownTerms.advance_percentage : selectedService?.advance_percentage
-
-  const advanceAmount = selectedService
-    ? Math.round(Number(price || 0) * Number(advancePercentage || 0)) / 100
-    : 0
+  // The chosen stylist's own price / advance % per service, if the admin set
+  // one (Stylists → Services & hours); otherwise each service's standard
+  // terms. Totals are summed; advance % is re-derived like the server.
+  const price = selectedServices.reduce((sum, s) => {
+    const own = chosenStylist?.service_terms?.[s.id]
+    return sum + (own?.price != null ? Number(own.price) : Number(s.price) || 0)
+  }, 0)
+  const advanceAmount = selectedServices.reduce((sum, s) => {
+    const own = chosenStylist?.service_terms?.[s.id]
+    const p = own?.price != null ? Number(own.price) : Number(s.price) || 0
+    const pct = own?.advance_percentage != null ? Number(own.advance_percentage) : Number(s.advance_percentage) || 0
+    return sum + Math.round(p * pct) / 100
+  }, 0)
+  const advancePercentage = price > 0 ? Math.round((advanceAmount / price) * 100 * 100) / 100 : 0
 
   // 3. Only the dates this stylist actually works — a specific date, their standing
   // weekly schedule, or (once cleared) neither — and the free times that day: the
@@ -275,35 +292,53 @@ export default function OfflineAppointmentNewPage() {
         isStylistOpenOn(chosenStylist, iso, studioHolidays),
       )
     : []
-  const slotsReady = Boolean((selectedService || selectedPlan?.duration_minutes) && chosenStylist && form.appointment_date)
+  const slotsReady = Boolean(
+    (selectedServices.length > 0 || selectedPlan?.duration_minutes) && chosenStylist && form.appointment_date,
+  )
   const serviceSlots = useQuery('/booking/slots', {
-    params: { service_id: form.service_id, stylist_id: form.stylist_id, date: form.appointment_date },
+    params: { service_ids: selectedIds, stylist_id: form.stylist_id, date: form.appointment_date },
     enabled: slotsReady && !isCombo,
   })
   // A combo offer's times are sized by the plan's duration.
   const comboSlots = useQuery('/admin/appointments/combo-slots', {
-    params: { pricing_plan_id: form.service_id, stylist_id: form.stylist_id, date: form.appointment_date },
+    params: { pricing_plan_id: selectedPlan?.id, stylist_id: form.stylist_id, date: form.appointment_date },
     enabled: slotsReady && isCombo,
   })
   const slots = isCombo ? comboSlots : serviceSlots
 
-  // Picking a stylist keeps what still applies to them and drops what doesn't.
+  // Picking a stylist keeps the service picks they still offer and drops the rest.
   const pickStylist = (stylist) => {
     const offered = new Set(stylist.service_ids ?? [])
-    const services = catalogue.data ?? []
+    const kept = (Array.isArray(form.service_ids) ? form.service_ids : [])
+      .map(String)
+      .filter((id) => form.category_id === COMBO || offered.has(Number(id)))
     // A combo offer isn't tied to a stylist's services, so it stays selected.
-    const keepService = form.category_id === COMBO || offered.has(Number(form.service_id))
     const keepCategory =
       form.category_id === COMBO ||
-      services.some((s) => String(s.category_id) === String(form.category_id) && offered.has(s.id))
+      (catalogue.data ?? []).some(
+        (s) => String(s.category_id) === String(form.category_id) && offered.has(s.id),
+      )
     const keepDate = Boolean(form.appointment_date) && isStylistOpenOn(stylist, form.appointment_date, studioHolidays)
 
     set({
       stylist_id: String(stylist.id),
       appointment_time: '',
-      ...(keepService ? {} : { service_id: '' }),
-      ...(keepCategory ? {} : { category_id: '', service_id: '' }),
+      service_ids: kept,
+      ...(keepCategory ? {} : { category_id: '' }),
       ...(keepDate ? {} : { appointment_date: '' }),
+    })
+  }
+
+  // Toggle one service in the multi-select (category is only a browse lens —
+  // picks in other categories stay).
+  const toggleService = (id) => {
+    const idStr = String(id)
+    const current = (Array.isArray(form.service_ids) ? form.service_ids : []).map(String)
+    set({
+      appointment_time: '',
+      service_ids: current.includes(idStr)
+        ? current.filter((v) => v !== idStr)
+        : [...current, idStr],
     })
   }
 
@@ -314,10 +349,11 @@ export default function OfflineAppointmentNewPage() {
         phone: form.phone.trim(),
         gender: form.gender,
         ...(isCombo
-          ? { pricing_plan_id: form.service_id ? Number(form.service_id) : null }
+          ? { pricing_plan_id: selectedPlan ? Number(selectedPlan.id) : null }
           : {
-              category_id: form.category_id ? Number(form.category_id) : null,
-              service_id: form.service_id ? Number(form.service_id) : null,
+              category_id: selectedServices[0] ? Number(selectedServices[0].category_id) : form.category_id ? Number(form.category_id) : null,
+              service_id: selectedServices[0] ? Number(selectedServices[0].id) : null,
+              service_ids: selectedServices.map((s) => Number(s.id)),
             }),
         stylist_id: form.stylist_id ? Number(form.stylist_id) : null,
         appointment_date: form.appointment_date,
@@ -341,7 +377,9 @@ export default function OfflineAppointmentNewPage() {
       : form.payment_status === 'paid'
         ? 'Paid in full — the customer gets the payment receipt with the bill PDF.'
         : form.status === 'confirmed'
-          ? `${form.payment_status === 'unpaid' ? 'Unpaid' : 'Advance paid'} — the customer gets the booking confirmation.`
+          ? form.payment_status === 'unpaid'
+            ? 'Unpaid — the customer gets the just-booked message (no amount).'
+            : 'Advance paid — the customer gets the booking confirmation.'
           : 'No WhatsApp message is sent unless the appointment is Confirmed or Paid in full.'
 
   if (!canSeeCatalogue) {
@@ -368,7 +406,11 @@ export default function OfflineAppointmentNewPage() {
           const errors = {}
           if (!form.stylist_id) errors.stylist_id = 'Select a stylist.'
           if (!form.category_id) errors.category_id = 'Select a category.'
-          if (!form.service_id) errors.service_id = isCombo ? 'Select a combo offer.' : 'Select a service.'
+          if (isCombo) {
+            if (!selectedPlan) errors.service_ids = 'Select a combo offer.'
+          } else if (selectedServices.length === 0) {
+            errors.service_ids = 'Select at least one service.'
+          }
           if (!form.appointment_date) errors.appointment_date = 'Select a date.'
           if (!form.appointment_time) errors.appointment_time = 'Select a time.'
           if (form.payment_status !== 'unpaid' && !form.payment_method) errors.payment_method = 'Select a payment method.'
@@ -388,13 +430,13 @@ export default function OfflineAppointmentNewPage() {
           </Field>
         </SectionCard>
 
-        <SectionCard title="2 · Service">
+        <SectionCard title="2 · Services">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Category" required error={localErrors.category_id || fieldErrors.category_id} reserveMessage>
               <Select
                 value={form.category_id}
                 disabled={!chosenStylist}
-                onChange={(e) => set({ category_id: e.target.value, service_id: '', appointment_time: '' })}
+                onChange={(e) => set({ category_id: e.target.value, appointment_time: '' })}
               >
                 <option value="">{!chosenStylist ? 'Choose a stylist first' : 'Select'}</option>
                 {categoryOptions.map((c) => (
@@ -406,42 +448,79 @@ export default function OfflineAppointmentNewPage() {
               </Select>
             </Field>
             <Field
-              label="Service"
+              label={isCombo ? 'Combo offer' : `Services${selectedServices.length > 0 ? ` (${selectedServices.length} selected)` : ''}`}
               required
-              error={localErrors.service_id || fieldErrors.service_id || fieldErrors.pricing_plan_id}
+              error={localErrors.service_ids || fieldErrors.service_ids || fieldErrors.service_id || fieldErrors.pricing_plan_id}
               reserveMessage
             >
-              <Select
-                value={form.service_id}
-                disabled={!form.category_id}
-                onChange={(e) => set({ service_id: e.target.value, appointment_time: '' })}
-              >
-                <option value="">
-                  {!form.category_id
-                    ? 'Choose a category first'
-                    : isCombo
-                      ? plans.loading
-                        ? 'Loading combo offers…'
-                        : planList.length === 0
-                          ? 'No combo offers available'
-                          : 'Select a combo offer'
-                      : 'Select a service'}
-                </option>
-                {isCombo
-                  ? planList.map((p) => (
-                      <option key={p.id} value={p.id} disabled={!p.duration_minutes}>
-                        {p.name} — {formatPrice(p.price)} ·{' '}
-                        {p.duration_minutes ? formatDuration(p.duration_minutes) : 'no time set (edit the plan)'}
-                      </option>
-                    ))
-                  : categoryServices.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-              </Select>
+              {isCombo ? (
+                <Select
+                  value={selectedPlan ? String(selectedPlan.id) : ''}
+                  disabled={!form.category_id}
+                  onChange={(e) => set({ service_ids: e.target.value ? [e.target.value] : [], appointment_time: '' })}
+                >
+                  <option value="">
+                    {plans.loading
+                      ? 'Loading combo offers…'
+                      : planList.length === 0
+                        ? 'No combo offers available'
+                        : 'Select a combo offer'}
+                  </option>
+                  {planList.map((p) => (
+                    <option key={p.id} value={p.id} disabled={!p.duration_minutes}>
+                      {p.name} — {formatPrice(p.price)} ·{' '}
+                      {p.duration_minutes ? formatDuration(p.duration_minutes) : 'no time set (edit the plan)'}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <div
+                  role="group"
+                  aria-label="Services"
+                  className="max-h-56 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--color-line)]"
+                >
+                  {!form.category_id ? (
+                    <p className="px-3 py-2.5 text-sm text-[var(--color-muted)]">Choose a category first</p>
+                  ) : categoryServices.length === 0 ? (
+                    <p className="px-3 py-2.5 text-sm text-[var(--color-muted)]">No services in this category.</p>
+                  ) : (
+                    categoryServices.map((s) => {
+                      const checked = selectedIds.includes(String(s.id))
+                      return (
+                        <label
+                          key={s.id}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-2.5 border-b border-[var(--color-line)] px-3 py-2 text-sm last:border-b-0',
+                            checked ? 'bg-[var(--color-accent-soft)]' : 'hover:bg-[var(--color-surface-sunken)]',
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleService(s.id)}
+                            className="h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium text-[var(--color-ink)]">{s.name}</span>
+                            <span className="block text-xs text-[var(--color-muted)]">
+                              {formatDuration(s.duration_minutes)} · {formatPrice(s.price)}
+                            </span>
+                          </span>
+                          {checked && <Check size={14} aria-hidden="true" className="shrink-0 text-[var(--color-accent)]" />}
+                        </label>
+                      )
+                    })
+                  )}
+                </div>
+              )}
             </Field>
           </div>
+          {selectedServices.length > 0 && !isCombo && (
+            <p className="mt-2 text-xs text-[var(--color-muted)]">
+              {selectedServices.map((s) => s.name).join(', ')}
+              {duration > 0 && ` · ${formatDuration(duration)} total`}
+            </p>
+          )}
 
           {selectedPlan && (
             <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
@@ -457,17 +536,17 @@ export default function OfflineAppointmentNewPage() {
             </div>
           )}
 
-          {selectedService && (
+          {selectedServices.length > 0 && !isCombo && (
             <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] p-3.5">
               <DetailList columns={4} className="gap-y-2">
-                <Detail label="Duration" value={formatDuration(selectedService.duration_minutes)} />
+                <Detail label="Services" value={selectedServices.map((s) => s.name).join(', ')} />
+                <Detail label="Duration" value={formatDuration(duration)} />
                 <Detail label="Price" value={formatPrice(price)} />
                 <Detail label="Advance %" value={advancePercentage ? `${advancePercentage}%` : '—'} />
-                <Detail label="Advance amount" value={advancePercentage ? formatPrice(advanceAmount) : '—'} />
               </DetailList>
               <p className="mt-2 text-xs text-[var(--color-faint)]">
-                {ownTerms
-                  ? `Uses ${chosenStylist.name}'s own price and advance for this service. Recorded when the appointment is saved.`
+                {selectedServices.length > 1
+                  ? `Combined time for ${selectedServices.length} services in one slot. Recorded when the appointment is saved.`
                   : 'Recorded from the current service configuration when the appointment is saved.'}
               </p>
             </div>
@@ -523,8 +602,8 @@ export default function OfflineAppointmentNewPage() {
                 waitingFor={
                   !chosenStylist
                     ? 'Choose a stylist to see when they are free.'
-                    : !selectedService && !selectedPlan
-                      ? 'Choose a service to see the times.'
+                    : selectedServices.length === 0 && !selectedPlan
+                      ? 'Choose services to see the times.'
                       : 'Choose a date to see the free times.'
                 }
                 duration={duration}

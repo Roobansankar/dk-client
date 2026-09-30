@@ -89,17 +89,31 @@ export const setCustomerUnauthorizedHandler = (fn) => {
   onCustomerUnauthorized = fn
 }
 
+/** Serialise query params — arrays become Laravel-style `key[]=a&key[]=b`. */
+function appendParams(url, params) {
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '') continue
+    if (Array.isArray(v)) {
+      url.searchParams.delete(k)
+      url.searchParams.delete(`${k}[]`)
+      v.forEach((item) => {
+        if (item !== undefined && item !== null && item !== '') {
+          url.searchParams.append(`${k}[]`, item)
+        }
+      })
+    } else {
+      url.searchParams.set(k, v)
+    }
+  }
+}
+
 async function request(method, path, { body, params, signal } = {}) {
   const admin = isAdminPath(path)
   const url = new URL(
     `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`,
     window.location.origin,
   )
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
-    }
-  }
+  if (params) appendParams(url, params)
 
   const headers = { Accept: 'application/json' }
   const token = admin ? tokenStore.get() : customerTokenStore.get()
@@ -151,11 +165,7 @@ async function requestBlob(path, params) {
     `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`,
     window.location.origin,
   )
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
-    }
-  }
+  if (params) appendParams(url, params)
   const headers = {}
   const token = admin ? tokenStore.get() : customerTokenStore.get()
   if (token) headers.Authorization = `Bearer ${token}`

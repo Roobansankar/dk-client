@@ -4,11 +4,9 @@ import clsx from 'clsx'
 /**
  * The booking form's Service step — a compact, scannable vertical list of
  * service cards (name → duration → price → selected state), replacing a
- * native `<select>`. Same WAI-ARIA "Radio Group" keyboard pattern as
- * `OptionTiles` (one roving tab stop, ArrowUp/Down + Home/End to move it,
- * Space/Enter to choose) — kept as its own component rather than reusing
- * `OptionTiles` because a service's content (name + duration + price, each
- * independently aligned) doesn't fit that component's centred-tile layout.
+ * native `<select>`. Multi-select: several services can be chosen — their
+ * durations are added into ONE combined slot and WhatsApp lists the names
+ * comma-separated. Single-select stays available via `multi={false}`.
  *
  * `services` is the live catalogue's own service objects — this never
  * invents or duplicates a price; `priceFor`/`durationFor` just read the
@@ -17,7 +15,7 @@ import clsx from 'clsx'
  * `packages` (optional) are the active pricing plans already loaded for the
  * site (PricingPlansProvider). They render as extra rows in the same list,
  * styled like services, but as independent toggles (`packageValue` /
- * `onPackageChange`) — an appointment is still booked against a service.
+ * `onPackageChange`) — an appointment is still booked against services.
  */
 export default function ServiceOptionList({
   id,
@@ -28,22 +26,37 @@ export default function ServiceOptionList({
   formatPrice,
   disabled = false,
   invalid = false,
+  multi = false,
   packages = [],
   packageValue = '',
   onPackageChange,
 }) {
   const rootRef = useRef(null)
 
-  const selectedIndex = services.findIndex((s) => String(s.id) === String(value))
-  const tabbableIndex = selectedIndex >= 0 ? selectedIndex : 0
+  const values = multi
+    ? (Array.isArray(value) ? value.map(String) : [])
+    : null
+  const selectedIndex = multi
+    ? -1
+    : services.findIndex((s) => String(s.id) === String(value))
+  const tabbableIndex = multi ? 0 : selectedIndex >= 0 ? selectedIndex : 0
 
   const focusItem = (index) => {
-    rootRef.current?.querySelectorAll('[role="radio"]')[index]?.focus()
+    rootRef.current?.querySelectorAll('[role="checkbox"],[role="radio"]')[index]?.focus()
   }
 
   const choose = (index) => {
     const service = services[index]
     if (!service || disabled) return
+    if (multi) {
+      const idStr = String(service.id)
+      onChange(
+        values.includes(idStr)
+          ? values.filter((v) => v !== idStr)
+          : [...values, idStr],
+      )
+      return
+    }
     onChange(service.id)
   }
 
@@ -65,12 +78,23 @@ export default function ServiceOptionList({
       case 'End':
         next = services.length - 1
         break
+      case ' ':
+      case 'Enter':
+        // Multi: toggle the focused item; single keeps roving-choice.
+        if (multi) {
+          event.preventDefault()
+          choose(tabbableIndex)
+        }
+        return
       default:
         return
     }
     event.preventDefault()
-    choose(next)
-    focusItem(next)
+    if (multi) focusItem(next)
+    else {
+      choose(next)
+      focusItem(next)
+    }
   }
 
   return (
@@ -78,7 +102,7 @@ export default function ServiceOptionList({
       <div
         ref={rootRef}
         id={id}
-        role="radiogroup"
+        role={multi ? 'group' : 'radiogroup'}
         aria-labelledby={labelledBy}
         aria-invalid={invalid || undefined}
         aria-disabled={disabled || undefined}
@@ -86,14 +110,16 @@ export default function ServiceOptionList({
         className="flex flex-col divide-y divide-line"
       >
         {services.map((service, index) => {
-          const selected = String(service.id) === String(value)
+          const selected = multi
+            ? values.includes(String(service.id))
+            : String(service.id) === String(value)
           return (
             <button
               key={service.id}
               type="button"
-              role="radio"
+              role={multi ? 'checkbox' : 'radio'}
               aria-checked={selected}
-              tabIndex={index === tabbableIndex ? 0 : -1}
+              tabIndex={multi ? 0 : index === tabbableIndex ? 0 : -1}
               disabled={disabled}
               onClick={() => choose(index)}
               className={clsx(

@@ -297,6 +297,8 @@ export default function Products() {
   const { items, loading, error, reload } = useProductCatalogue()
   const [audience, setAudience] = useState('all')
   const [range, setRange] = useState('all')
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('featured')
 
   // The catalogue is fetched once at app scope and shared. Re-pull it whenever
   // the shelf is opened so a product just created in /admin/products shows up
@@ -313,29 +315,43 @@ export default function Products() {
     () => buildOptions(items, 'range', productRanges),
     [items],
   )
-  const hasFilters = audienceOptions.length > 0 || rangeOptions.length > 0
-  // Which filters are actually present decides styling, not just order: with
+  // Which catalogue filters are present decides styling, not just order: with
   // both present, "For" is the segmented pill and "Range" is a select (the
   // existing public-site dropdown look); if only one of them is present on a
-  // given catalogue, it's the page's only filter and gets the pill either way.
+  // given catalogue, it gets the pill either way.
   const activeFilterCount =
     (audienceOptions.length > 0 ? 1 : 0) + (rangeOptions.length > 0 ? 1 : 0)
-  const isFiltered = audience !== 'all' || range !== 'all'
+  const isFiltered = audience !== 'all' || range !== 'all' || query.trim() !== '' || sort !== 'featured'
 
-  const visible = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          (audience === 'all' || item.audience === audience) &&
-          (range === 'all' || item.range === range),
-      ),
-    [items, audience, range],
-  )
+  /** Effective shelf price (family cards show the cheapest variant). */
+  const priceOf = (p) => p.priceFrom ?? p.price
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return items.filter(
+      (item) =>
+        (audience === 'all' || item.audience === audience) &&
+        (range === 'all' || item.range === range) &&
+        (q === '' || (item.name ?? '').toLowerCase().includes(q)),
+    )
+  }, [items, audience, range, query])
 
   // One card per product family, then group by editorial range when the data
   // carries it (demo set); the API shelf has no range, so it shows as one run.
+  // Price sort applies to the final cards (family price = cheapest variant).
   const groups = useMemo(() => {
     const cards = collapseFamilies(visible)
+    if (sort === 'price-asc' || sort === 'price-desc') {
+      const dir = sort === 'price-asc' ? 1 : -1
+      cards.sort((a, b) => {
+        const pa = priceOf(a)
+        const pb = priceOf(b)
+        if (pa == null && pb == null) return 0
+        if (pa == null) return 1
+        if (pb == null) return -1
+        return (pa - pb) * dir
+      })
+    }
     const grouped = cards.some((p) => p.range)
     if (!grouped) {
       return cards.length ? [{ key: 'all', label: null, items: cards }] : []
@@ -347,7 +363,7 @@ export default function Products() {
         items: cards.filter((p) => p.range === r.value),
       }))
       .filter((g) => g.items.length)
-  }, [visible])
+  }, [visible, sort])
 
   // The "featured product moment" shows every product an admin has flagged
   // `is_featured` (at most 3 are enforced server-side) as a carousel. Nothing
@@ -363,6 +379,8 @@ export default function Products() {
   const clearFilters = () => {
     setAudience('all')
     setRange('all')
+    setQuery('')
+    setSort('featured')
   }
 
   return (
@@ -453,8 +471,29 @@ export default function Products() {
             </Notice>
           )}
 
-          {!loading && hasFilters && (
+          {!loading && (
             <div className="mt-10 flex flex-col gap-5 border-t border-line pt-6 sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-10 sm:gap-y-4">
+              <label className="flex flex-col items-start gap-2 sm:w-auto">
+                <span className="eyebrow shrink-0">Search</span>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Product name…"
+                  aria-label="Search products by name"
+                  className="h-9 rounded-sm border border-line-strong bg-paper px-3 text-sm text-ink transition-colors focus-visible:border-ink"
+                />
+              </label>
+              <FilterSelect
+                legend="Sort"
+                options={[
+                  { value: 'featured', label: 'Featured' },
+                  { value: 'price-asc', label: 'Price: Low to High' },
+                  { value: 'price-desc', label: 'Price: High to Low' },
+                ]}
+                value={sort}
+                onChange={setSort}
+              />
               {audienceOptions.length > 0 && (
                 <SegmentedFilter
                   legend="For"
@@ -484,6 +523,15 @@ export default function Products() {
                     className="sm:w-auto"
                   />
                 ))}
+              {isFiltered && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="self-start text-sm text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink sm:self-end"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           )}
 

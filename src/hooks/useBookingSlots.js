@@ -34,11 +34,16 @@ const REFRESH_MS = 60_000
  *   relation        — 'past' | 'today' | 'future' | null, for the date itself
  *   loading / error — request state
  *
- * @param {{ date: string, stylistId: string|number|null, serviceId: string|number|null, enabled?: boolean }} params
+ * @param {{ date: string, stylistId: string|number|null, serviceId: string|number|null, serviceIds?: Array<string|number>|null, enabled?: boolean }} params
  */
-export function useBookingSlots({ date, stylistId, serviceId, enabled = true }) {
-  const ready = Boolean(enabled && date && serviceId)
-  const key = ready ? `${serviceId}|${stylistId ?? ''}|${date}` : null
+export function useBookingSlots({ date, stylistId, serviceId, serviceIds = null, enabled = true }) {
+  const ids = serviceIds != null
+    ? [...new Set(serviceIds.map(String))].sort()
+    : serviceId != null && String(serviceId) !== ''
+      ? [String(serviceId)]
+      : []
+  const ready = Boolean(enabled && date && ids.length > 0)
+  const key = ready ? `${ids.join(',')}|${stylistId ?? ''}|${date}` : null
 
   const [state, setState] = useState({ key: null, data: null, error: null })
   // Bumped on a timer to re-fetch; only ever read as an effect dependency.
@@ -54,7 +59,10 @@ export function useBookingSlots({ date, stylistId, serviceId, enabled = true }) 
     if (!key) return undefined
 
     const ctrl = new AbortController()
-    const params = new URLSearchParams({ service_id: String(serviceId), date })
+    const params = new URLSearchParams({ date })
+    ids.forEach((id) => params.append('service_ids[]', id))
+    // Legacy single-id query for old cached backends/proxies.
+    if (ids.length === 1) params.set('service_id', ids[0])
     if (stylistId) params.set('stylist_id', String(stylistId))
 
     apiGet(`/booking/slots?${params}`, { signal: ctrl.signal })

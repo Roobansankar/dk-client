@@ -115,35 +115,19 @@ function narrowCatalogue(categories, offeredIds, terms) {
 }
 
 /**
- * After the professional changes, keep the visitor's gender / category /
- * service only where the new professional still offers them (and always clear
- * the time — it was picked from the previous person's calendar).
+ * After the professional changes, keep only the service picks they still
+ * offer (any category mix allowed — the category is just a browse lens).
+ * The picked time is always cleared — it came from someone else's calendar.
  */
 function pruneSelection(form, narrowed) {
-  const genderOk =
-    Boolean(form.gender) &&
-    narrowed.some((category) => category.services.some((s) => offersGender(s, form.gender)))
-  const gender = genderOk ? form.gender : ''
+  const ids = new Set(
+    narrowed.flatMap((c) => c.services.map((s) => String(s.id))),
+  )
+  const service = (Array.isArray(form.service) ? form.service : [])
+    .map(String)
+    .filter((id) => ids.has(id))
 
-  const category =
-    gender &&
-    narrowed.some(
-      (c) => c.id === form.category && c.services.some((s) => offersGender(s, gender)),
-    )
-      ? form.category
-      : ''
-
-  const serviceOk =
-    category &&
-    narrowed.some(
-      (c) =>
-        c.id === category &&
-        c.services.some(
-          (s) => String(s.id) === String(form.service) && offersGender(s, gender),
-        ),
-    )
-
-  return { ...form, gender, category, service: serviceOk ? form.service : '', time: '' }
+  return { ...form, service, time: '' }
 }
 
 const EMPTY = {
@@ -151,7 +135,7 @@ const EMPTY = {
   phone: '',
   gender: '',
   category: '',
-  service: '',
+  service: [],
   stylist: '',
   date: '',
   time: '',
@@ -200,8 +184,8 @@ const STEP_INTRO = {
     text: 'Choose which menu to browse.',
   },
   service: {
-    title: 'Choose your service',
-    text: 'Tell us who it is for, pick a category, then the service.',
+    title: 'Choose your services',
+    text: 'Tell us who it is for, pick a category, then tick every service you want — times add up into one slot.',
   },
   schedule: {
     title: 'Choose date & time',
@@ -243,6 +227,10 @@ function takeBookingDraft() {
     if (!raw) return null
     const { form, savedAt } = JSON.parse(raw)
     if (!form || Date.now() - savedAt > BOOKING_DRAFT_TTL_MS) return null
+    // Back-compat: drafts saved before multi-service stored a single id.
+    if (form.service != null && !Array.isArray(form.service)) {
+      form.service = form.service === '' ? [] : [String(form.service)]
+    }
     return form
   } catch {
     return null
@@ -318,9 +306,10 @@ function ProfessionalCard({ selected, onSelect, name, role, image }) {
 }
 
 /** The sticky "Your order" panel — fills in as the visitor makes each choice. */
-function OrderSummary({ salonName, stylist, service, genderLabel, date, time, price, advance, balance }) {
+function OrderSummary({ salonName, stylist, services, genderLabel, date, time, price, advance, balance }) {
   const hasStylist = Boolean(stylist)
-  const hasAnything = hasStylist || Boolean(service) || Boolean(date)
+  const serviceList = Array.isArray(services) ? services : services ? [services] : []
+  const hasAnything = hasStylist || serviceList.length > 0 || Boolean(date)
 
   return (
     <aside aria-label="Your order" className="lg:sticky lg:top-28 lg:self-start">
@@ -356,15 +345,22 @@ function OrderSummary({ salonName, stylist, service, genderLabel, date, time, pr
               </li>
             )}
 
-            {service && (
+            {serviceList.length > 0 && (
               <li className="flex items-center gap-4 px-6 py-4">
                 <span aria-hidden="true" className={ICON_WRAP}>
                   <Scissors size={20} strokeWidth={1.5} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium leading-snug text-ink">{service.name}</p>
+                  <p className="font-medium leading-snug text-ink">
+                    {serviceList.map((s) => s.name).join(', ')}
+                  </p>
                   <p className="text-sm text-muted">
-                    {[service.durationMin ? `${service.durationMin} min` : null, genderLabel]
+                    {[
+                      serviceList.reduce((sum, s) => sum + (Number(s.durationMin) || 0), 0)
+                        ? `${serviceList.reduce((sum, s) => sum + (Number(s.durationMin) || 0), 0)} min total`
+                        : null,
+                      genderLabel,
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>
@@ -452,7 +448,12 @@ export default function Booking() {
           ...EMPTY,
           gender: prefill.gender ?? '',
           category: prefill.category ?? '',
-          service: prefill.service != null ? String(prefill.service) : '',
+          service:
+            prefill.service != null
+              ? [String(prefill.service)]
+              : Array.isArray(prefill.services)
+                ? prefill.services.map(String)
+                : [],
         }
       : EMPTY
   })
@@ -520,10 +521,19 @@ export default function Booking() {
           picked ? narrowCatalogue(categories, offered, picked.service_terms) : categories,
         )
       }
-      if (key === 'gender' || key === 'category') {
-        next.service = ''
+      if (key === 'gender') {
+        // Gender narrows the menu — keep only picks that still suit it.
+        const ids = Array.isArray(next.service) ? next.service.map(String) : []
+        const all = categories.flatMap((c) => c.services)
+        next.service = ids.filter((id) => {
+          const s = all.find((x) => String(x.id) === id)
+          return s && offersGender(s, value)
+        })
         next.time = ''
       }
+      // Category is only a browse lens now (any mix allowed) — switching it
+      // never wipes picks made in another category. A new date/service
+      // selection invalidates the previously picked time.
       if (key === 'service' || key === 'date') next.time = ''
       return next
     })
@@ -582,7 +592,18 @@ export default function Booking() {
     () => getBookableServices(offeredCatalogue, form.gender, form.category),
     [offeredCatalogue, form.gender, form.category],
   )
-  const selectedService = services.find((s) => String(s.id) === String(form.service))
+  // Multi-service: everything picked, wherever it was browsed from. Durations
+  // add up into ONE combined slot; names join with commas (incl. WhatsApp).
+  const selectedIds = useMemo(
+    () => (Array.isArray(form.service) ? form.service.map(String) : []),
+    [form.service],
+  )
+  const selectedServices = useMemo(() => {
+    const all = offeredCatalogue.flatMap((c) => c.services)
+    return selectedIds
+      .map((id) => all.find((s) => String(s.id) === id))
+      .filter(Boolean)
+  }, [offeredCatalogue, selectedIds])
 
   // `{ value, label }` option list for the Category <OptionTiles> below —
   // same source data as `categoryOptions`, just reshaped once. `bookingGenders`
@@ -595,7 +616,7 @@ export default function Booking() {
   // stylist has no tile-based replacement, so it keeps the native
   // <select>/<MobileListbox> split the other fields moved off of.
 
-  const readyForSlots = Boolean(form.service && form.date && form.stylist)
+  const readyForSlots = Boolean(selectedServices.length > 0 && form.date && form.stylist)
   const {
     slots: timeSlots,
     relation: dateRelation,
@@ -605,7 +626,7 @@ export default function Booking() {
   } = useBookingSlots({
     date: form.date,
     stylistId: form.stylist || null,
-    serviceId: form.service || null,
+    serviceIds: selectedIds,
   })
 
   // Whether this professional works a given date, combining — in this order —
@@ -624,10 +645,20 @@ export default function Booking() {
     dateHours != null &&
     isoRange(todayIso(), maxDateIso()).some((iso) => isStylistOpenOn(dateHours, iso, studioHolidays))
   const selectedHolidayName = form.date ? studioHolidayName(form.date, studioHolidays) : null
-  const advanceAmount = Number(selectedService?.advanceAmount) || 0
-  const advancePct = Number(selectedService?.advancePercentage) || 0
+  const totalDuration = selectedServices.reduce(
+    (sum, s) => sum + (Number(s.durationMin) || 0),
+    0,
+  )
+  const advanceAmount = selectedServices.reduce(
+    (sum, s) => sum + (Number(s.advanceAmount) || 0),
+    0,
+  )
   const servicePrice =
-    selectedService?.priceInr != null ? Number(selectedService.priceInr) : null
+    selectedServices.length > 0
+      ? selectedServices.reduce((sum, s) => sum + (s.priceInr != null ? Number(s.priceInr) : 0), 0)
+      : null
+  const advancePct =
+    servicePrice > 0 ? Math.round((advanceAmount / servicePrice) * 100 * 100) / 100 : 0
   const balance =
     servicePrice != null && advanceAmount > 0
       ? Math.max(servicePrice - advanceAmount, 0)
@@ -705,10 +736,14 @@ export default function Booking() {
 
   // Validate a subset of fields. `time` reads the availability-checked
   // value — a stale selection that recomputed availability has since
-  // invalidated must not pass.
+  // invalidated must not pass. `service` is the multi-select array.
   const validateFields = (keys) => {
     const errs = {}
     for (const key of keys) {
+      if (key === 'service') {
+        if (selectedServices.length === 0) errs[key] = 'Service is required.'
+        continue
+      }
       const value = key === 'time' ? effectiveTime : form[key]
       if (!String(value ?? '').trim()) {
         errs[key] = `${REQUIRED_FIELDS[key]} is required.`
@@ -799,19 +834,29 @@ export default function Booking() {
 
   /** POST /appointments. Returns the created appointment, or null on a handled error. */
   const createBooking = async () => {
-    // `selectedService` is re-derived from the live catalogue on every render
-    // (`services.find(...)`). Under a fast gender/category/service change it
-    // can momentarily fail to resolve even though `form.service` still holds
-    // an id — sending then would POST null service_id/category_id and earn a
-    // confusing 422. Bail out before building the payload and send the user
-    // back to the form with the same highlighted-field pattern used for a
-    // real 422, instead of letting a bad request reach the API.
-    const serviceId = Number(selectedService?.id)
-    const categoryId = Number(selectedService?.categoryId)
-    if (!selectedService || !Number.isFinite(serviceId) || !Number.isFinite(categoryId)) {
+    // `selectedServices` is re-derived from the live catalogue on every
+    // render. Under a fast change it can momentarily fail to resolve even
+    // though ids are still held — sending then would POST bad service data
+    // and earn a confusing 422. Bail out with the highlighted-field pattern
+    // instead of letting a bad request reach the API.
+    if (
+      selectedServices.length === 0 ||
+      selectedServices.length !== selectedIds.length
+    ) {
       setFieldErrors((prev) => ({
         ...prev,
-        service: 'Please reselect a service — this one is no longer available.',
+        service: 'Please reselect your services — one is no longer available.',
+      }))
+      setFormError('Please check the highlighted fields and try again.')
+      setStatus('error')
+      return null
+    }
+    const ids = selectedServices.map((s) => Number(s.id))
+    const categoryId = Number(selectedServices[0]?.categoryId)
+    if (ids.some((id) => !Number.isFinite(id)) || !Number.isFinite(categoryId)) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        service: 'Please reselect your services — one is no longer available.',
       }))
       setFormError('Please check the highlighted fields and try again.')
       setStatus('error')
@@ -823,7 +868,8 @@ export default function Booking() {
       phone: form.phone.trim(),
       gender: genderForApi(form.gender),
       category_id: categoryId,
-      service_id: serviceId,
+      service_id: ids[0],
+      service_ids: ids,
       appointment_date: form.date,
       appointment_time: effectiveTime,
       // Required — a specific stylist must be chosen before this step is
@@ -844,7 +890,7 @@ export default function Booking() {
           phone: be.phone,
           gender: be.gender,
           category: be.category_id,
-          service: be.service_id,
+          service: be.service_ids || be.service_id,
           stylist: be.stylist_id,
           date: be.appointment_date,
           time: be.appointment_time,
@@ -1097,9 +1143,14 @@ export default function Booking() {
                 </ul>
 
                 <dl className="mt-8 border-t border-line">
-                  <SummaryRow label="Service">
-                    {selectedService?.name || '—'}
+                  <SummaryRow label="Services">
+                    {selectedServices.length > 0
+                      ? selectedServices.map((s) => s.name).join(', ')
+                      : '—'}
                   </SummaryRow>
+                  {totalDuration > 0 && (
+                    <SummaryRow label="Total time">{totalDuration} min</SummaryRow>
+                  )}
                   <SummaryRow label="Stylist">
                     {stylistName || '—'}
                   </SummaryRow>
@@ -1312,7 +1363,10 @@ export default function Booking() {
                   {currentStep === 'service' && (
                   <div className="sm:col-span-2">
                     <span id={`${uid}-service-label`} className={LABEL}>
-                      Service
+                      Services
+                      {selectedServices.length > 0 && (
+                        <span className="text-muted"> · {selectedServices.length} selected</span>
+                      )}
                     </span>
                     <div className="mt-2.5">
                       {!form.gender || !form.category ? (
@@ -1322,15 +1376,25 @@ export default function Booking() {
                           No services listed for this combination yet.
                         </p>
                       ) : (
-                        <ServiceOptionList
-                          id={`${uid}-service`}
-                          labelledBy={`${uid}-service-label`}
-                          value={form.service}
-                          onChange={updateValue('service')}
-                          services={services}
-                          formatPrice={formatInr}
-                          invalid={Boolean(fieldErrors.service)}
-                        />
+                        <>
+                          <ServiceOptionList
+                            id={`${uid}-service`}
+                            labelledBy={`${uid}-service-label`}
+                            multi
+                            value={selectedIds}
+                            onChange={updateValue('service')}
+                            services={services}
+                            formatPrice={formatInr}
+                            invalid={Boolean(fieldErrors.service)}
+                          />
+                          {selectedServices.length > 0 && (
+                            <p className="mt-2 text-sm text-muted">
+                              {selectedServices.map((s) => s.name).join(', ')}
+                              {totalDuration > 0 && ` · ${totalDuration} min total`}
+                              {servicePrice != null && ` · ${formatInr(servicePrice)}`}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                     {fieldErrors.service && (
@@ -1452,8 +1516,8 @@ export default function Booking() {
                     <div className="mt-2.5">
                       {!readyForSlots && (
                         <p className="text-sm text-muted">
-                          {!form.service
-                            ? 'Choose a service in the previous step to see available times.'
+                          {selectedServices.length === 0
+                            ? 'Choose services in the previous step to see available times.'
                             : 'Choose a date above to see available times.'}
                         </p>
                       )}
@@ -1641,7 +1705,7 @@ export default function Booking() {
             <OrderSummary
               salonName={site.name}
               stylist={chosenStylist}
-              service={selectedService}
+              services={selectedServices}
               genderLabel={bookingGenders.find((g) => g.value === form.gender)?.label}
               date={form.date}
               time={effectiveTime}
