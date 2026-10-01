@@ -6,8 +6,6 @@ import Container from '../layout/Container'
 import { useCatalogue } from '../../context/CatalogueContext'
 import { useSite } from '../../context/SiteContext'
 import { useStylists } from '../../context/StylistsContext'
-import { useAuth } from '../../context/AuthContext'
-import BookingAuthGate from '../account/BookingAuthGate'
 import {
   bookingGenders,
   bookingCategories,
@@ -200,42 +198,6 @@ const STEP_INTRO = {
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-// Booking now requires a signed-in customer to submit (see
-// Api\Public\AppointmentController::store's `auth:sanctum` requirement).
-// A guest who has already made every selection is sent through the
-// login/register/Google gate rather than losing them — the in-progress
-// form is stashed here (sessionStorage survives the full-page round trip
-// Google OAuth requires; plain component state would not) and restored once
-// they return authenticated. Expires after 30 minutes so a stale draft from
-// a long-abandoned session never surprises someone on an unrelated visit.
-const BOOKING_DRAFT_KEY = 'dk-booking-draft'
-const BOOKING_DRAFT_TTL_MS = 30 * 60 * 1000
-
-function saveBookingDraft(form) {
-  try {
-    sessionStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify({ form, savedAt: Date.now() }))
-  } catch {
-    /* private mode — the gate still works, selections just won't survive it */
-  }
-}
-
-function takeBookingDraft() {
-  try {
-    const raw = sessionStorage.getItem(BOOKING_DRAFT_KEY)
-    sessionStorage.removeItem(BOOKING_DRAFT_KEY)
-    if (!raw) return null
-    const { form, savedAt } = JSON.parse(raw)
-    if (!form || Date.now() - savedAt > BOOKING_DRAFT_TTL_MS) return null
-    // Back-compat: drafts saved before multi-service stored a single id.
-    if (form.service != null && !Array.isArray(form.service)) {
-      form.service = form.service === '' ? [] : [String(form.service)]
-    }
-    return form
-  } catch {
-    return null
-  }
-}
 
 /** One label / value line in the review summary. */
 function SummaryRow({ label, children }) {
@@ -439,7 +401,6 @@ export default function Booking() {
     [stylists],
   )
   const noRoster = !stylistsLoading && bookableStylists.length === 0
-  const { user: authUser, status: authStatus } = useAuth()
 
   const [form, setForm] = useState(() => {
     const prefill = state?.prefill
@@ -458,24 +419,6 @@ export default function Booking() {
       : EMPTY
   })
 
-  // Browsing/selecting stays fully guest-accessible — this only pre-fills
-  // name/phone for a signed-in customer, once their profile loads, and only
-  // into fields the visitor hasn't already typed something into. Ownership
-  // (user_id) is never a submitted field; it's attached server-side from the
-  // bearer token (see Api\Public\AppointmentController::store). "Adjust
-  // state during render" (guarded to fire once) rather than an effect — the
-  // session resolving is exactly the kind of one-time, prop-like transition
-  // that pattern is for, not an external-system sync.
-  const [appliedAuthPrefill, setAppliedAuthPrefill] = useState(false)
-  if (!appliedAuthPrefill && authStatus === 'authed' && authUser) {
-    setAppliedAuthPrefill(true)
-    setForm((prev) => ({
-      ...prev,
-      name: prev.name || authUser.name || '',
-      phone: prev.phone || authUser.phone || '',
-    }))
-  }
-
   // idle | review | submitting | success | error
   const [status, setStatus] = useState('idle')
   // Index into STEPS — which wizard step the form is showing.
@@ -484,25 +427,6 @@ export default function Booking() {
   const [formError, setFormError] = useState(null)
   const [result, setResult] = useState(null)
   const sectionRef = useRef(null)
-  // Actually submitting the appointment requires a signed-in customer (see
-  // routes/api.php's `auth:sanctum` on POST /appointments) — this gate is
-  // what a guest sees instead when they try to continue past the form.
-  const [showAuthGate, setShowAuthGate] = useState(false)
-
-  // On return from the login/register/Google detour: once the session
-  // resolves to authenticated, restore any saved in-progress booking and
-  // jump straight to the review step — the visitor already passed local
-  // validation before the gate appeared, so there's nothing left to re-check
-  // before showing them the same summary they were about to confirm.
-  const [restoredBookingDraft, setRestoredBookingDraft] = useState(false)
-  if (!restoredBookingDraft && authStatus === 'authed') {
-    setRestoredBookingDraft(true)
-    const draft = takeBookingDraft()
-    if (draft) {
-      setForm(draft)
-      setStatus('review')
-    }
-  }
   // The appointment created for the current review step, kept across a
   // failed/cancelled payment retry so "Continue" never creates a second
   // appointment — it just re-opens Checkout for the same one (see
@@ -758,8 +682,8 @@ export default function Booking() {
   }
 
   // Advance one wizard step after validating just that step's fields.
-  // From the last (details) step this runs the same gate as the old
-  // single-page submit: guests see the sign-in gate, customers go to review.
+  // From the last (details) step this re-validates everything, then goes
+  // to review — no account needed.
   const goNext = () => {
     const step = STEPS[stepIndex]
     const errs = validateFields(STEP_FIELDS[step.key] ?? [])
@@ -790,11 +714,6 @@ export default function Booking() {
       return false
     }
 
-    if (authStatus !== 'authed') {
-      saveBookingDraft({ ...form, time: effectiveTime })
-      setShowAuthGate(true)
-      return false
-    }
     setStatus('review')
     return true
   }
@@ -1716,8 +1635,6 @@ export default function Booking() {
           )}
         </div>
       </Container>
-
-      {showAuthGate && <BookingAuthGate onClose={() => setShowAuthGate(false)} />}
     </section>
   )
 }

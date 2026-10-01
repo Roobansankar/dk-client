@@ -5,7 +5,6 @@ import clsx from 'clsx'
 import Container from '../components/layout/Container'
 import CartLines from '../components/shop/CartLines'
 import CartTotals from '../components/shop/CartTotals'
-import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useCartPricing } from '../hooks/useCartPricing'
 import { api, ApiError } from '../lib/api'
@@ -46,15 +45,14 @@ function splitErrors(err, lines) {
 /** Message for a failed POST /api/checkout (422s are handled by the caller). */
 function checkoutErrorMessage(err) {
   if (!(err instanceof ApiError)) return err?.message || 'Something went wrong. Please try again.'
-  if (err.status === 401) return 'Your session has expired. Please sign in again.'
-  if (err.status === 403) return 'Orders can only be placed from a customer account.'
   if (err.status === 429) return 'Too many attempts. Please wait a minute and try again.'
   return err.message || 'We couldn’t start the payment. Please try again.'
 }
 
 /**
  * Checkout (/checkout for the cart, /checkout/now for a Buy Now selection).
- * Wrapped in RequireCustomer, so a guest is sent to sign in and returned here.
+ * Open to everyone — no account is needed; a guest just enters a name and
+ * phone number.
  *
  * 1. POST /api/checkout prices the lines server-side and opens a Razorpay
  *    order. Its response alone supplies the key, order id, amount, currency
@@ -70,7 +68,6 @@ function checkoutErrorMessage(err) {
  */
 export default function Checkout({ buyNowMode = false }) {
   const uid = useId()
-  const { user } = useAuth()
   const cart = useCart()
 
   const source = buyNowMode ? (cart.buyNow ? [cart.buyNow] : []) : cart.lines
@@ -78,7 +75,7 @@ export default function Checkout({ buyNowMode = false }) {
   const onQuantity = buyNowMode ? cart.setBuyNowQuantity : cart.setQuantity
   const onRemove = buyNowMode ? cart.clearBuyNow : cart.remove
 
-  const [form, setForm] = useState(() => ({ name: user?.name || '', phone: user?.phone || '' }))
+  const [form, setForm] = useState({ name: '', phone: '' })
   const [fieldErrors, setFieldErrors] = useState({})
   const [lineErrors, setLineErrors] = useState({})
   const [formError, setFormError] = useState(null)
@@ -136,9 +133,7 @@ export default function Checkout({ buyNowMode = false }) {
         // payment details so it can be verified again without paying twice.
         setUnverified({ checkoutId, response })
         setFormError(
-          err instanceof ApiError && err.status === 401
-            ? 'Your session has expired. Sign in again, then retry the confirmation — you won’t be charged twice.'
-            : 'Your payment went through, but we couldn’t confirm it just now. Please retry — you won’t be charged twice.',
+          'Your payment went through, but we couldn’t confirm it just now. Please retry — you won’t be charged twice.',
         )
       }
       setPhase('idle')
@@ -405,13 +400,19 @@ function OrderConfirmation({ order }) {
         </span>
       </div>
 
+      <p className="mt-6 text-sm text-ink-soft">
+        Please keep your order number{' '}
+        <span className="font-medium text-ink">{order.order_number}</span> for reference — quote
+        it if you need to contact the studio about this order.
+      </p>
+
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link to={`/account/orders/${order.id}`} className="btn no-underline">
-          View your order
+        <Link to="/products" className="btn no-underline">
+          Continue shopping
           <ArrowRight size={15} aria-hidden="true" />
         </Link>
-        <Link to="/products" className="btn btn-outline no-underline">
-          Continue shopping
+        <Link to="/" className="btn btn-outline no-underline">
+          Back to home
         </Link>
       </div>
     </div>

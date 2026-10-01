@@ -46,8 +46,8 @@ function validityLabel(days) {
 
 /**
  * "Book this package" doesn't start the online booking flow — packages are
- * booked by calling the studio, so this just shows the number. Same overlay
- * pattern as BookingAuthGate (backdrop click / Esc / X to close).
+ * booked by calling the studio, so this just shows the number. A simple
+ * overlay (backdrop click / Esc / X to close).
  */
 function BookPackageModal({ plan, onClose }) {
   useEffect(() => {

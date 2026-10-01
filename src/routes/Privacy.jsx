@@ -6,13 +6,12 @@ import { breadcrumbSchema } from '../lib/seo'
 
 // Bump by hand whenever this page's content changes — see Terms.jsx for the
 // same convention.
-const LAST_UPDATED = 'September 28, 2026'
+const LAST_UPDATED = 'October 1, 2026'
 
 const CONTENTS = [
   ['information-we-collect', 'Information We Collect'],
   ['how-we-use-information', 'How We Use Your Information'],
   ['payment-processing', 'Payment Processing & Razorpay'],
-  ['google-sign-in', 'Google Sign-In'],
   ['cookies-local-storage', 'Cookies & Local Storage'],
   ['third-parties', 'Service Providers & Third Parties'],
   ['data-retention', 'Data Retention'],
@@ -28,10 +27,9 @@ const CONTENTS = [
  * contents, LegalSection blocks) so the two documents read as one system.
  *
  * Every data point named below is one this codebase actually collects/uses
- * — see RegisterRequest, StoreAppointmentRequest, GoogleAuthController and
- * the razorpay_order_id/razorpay_payment_id columns on appointments — plus
- * the actual localStorage/sessionStorage keys the frontend writes (lib/api.js,
- * ThemeContext, Booking.jsx, GoogleButton.jsx), and the Google Analytics tag
+ * — see StoreAppointmentRequest and the razorpay_order_id/razorpay_payment_id
+ * columns on appointments — plus the actual localStorage/sessionStorage keys
+ * the public site writes (ThemeContext, CartContext), and the Google Analytics tag
  * (vite.config.js's googleAnalytics(), production builds only — see
  * VITE_GA_ID). Nothing about ad tracking or third parties beyond
  * Razorpay/Google is claimed, because none currently exists in this app.
@@ -68,11 +66,6 @@ export default function Privacy() {
           <p>We collect information you provide directly:</p>
           <ul>
             <li>
-              <strong>Account information</strong> — name, email address, and (optionally)
-              phone number when you register, or your name and email if you sign in with
-              Google
-            </li>
-            <li>
               <strong>Booking information</strong> — the name, phone number and gender you
               provide for an appointment, plus the service, category, stylist and date/time
               you select
@@ -91,10 +84,9 @@ export default function Privacy() {
         <LegalSection id="how-we-use-information" title="2. How We Use Your Information">
           <p>We use this information to:</p>
           <ul>
-            <li>Create and manage your account</li>
             <li>Create, confirm and manage your appointment bookings</li>
             <li>Contact you about a booking (for example, to confirm or follow up)</li>
-            <li>Keep a record of completed and upcoming appointments in your account</li>
+            <li>Keep a record of completed and upcoming appointments</li>
           </ul>
         </LegalSection>
 
@@ -109,16 +101,7 @@ export default function Privacy() {
           </p>
         </LegalSection>
 
-        <LegalSection id="google-sign-in" title="4. Google Sign-In">
-          <p>
-            If you choose &ldquo;Continue with Google&rdquo;, Google shares your name and email
-            address with us to create or sign in to your account. We don&rsquo;t receive your
-            Google password, and this is governed by Google&rsquo;s own privacy policy as well
-            as this one.
-          </p>
-        </LegalSection>
-
-        <LegalSection id="cookies-local-storage" title="5. Cookies & Local Storage">
+        <LegalSection id="cookies-local-storage" title="4. Cookies & Local Storage">
           <p>
             This website does not use advertising cookies. It uses Google Analytics to
             understand how the site is used (pages viewed, general location, device type), which
@@ -130,33 +113,26 @@ export default function Privacy() {
           </p>
           <ul>
             <li>
-              <strong>Local storage</strong> — keeps you signed in between visits, and remembers
-              your light/dark theme preference
+              <strong>Local storage</strong> — remembers your light/dark theme preference and
+              the items in your cart
             </li>
             <li>
-              <strong>Session storage</strong> — temporarily holds an in-progress booking form
-              (so it survives the sign-in step) and where to return you to after signing in
+              <strong>Session storage</strong> — temporarily holds a &ldquo;Buy Now&rdquo;
+              selection while you check out
             </li>
           </ul>
           <p>
-            This data stays in your browser and is cleared when you sign out or clear your
-            browser&rsquo;s site data.
+            This data stays in your browser and is cleared when you clear your browser&rsquo;s
+            site data.
           </p>
         </LegalSection>
 
-        <LegalSection id="third-parties" title="6. Service Providers & Third Parties">
+        <LegalSection id="third-parties" title="5. Service Providers & Third Parties">
           <p>We share information with third parties only where needed to run this website:</p>
           <ul>
             <li>
               <strong>Razorpay</strong> — to process advance payments (see{' '}
               <a href="#payment-processing" className="text-ink underline underline-offset-2">
-                above
-              </a>
-              )
-            </li>
-            <li>
-              <strong>Google Sign-In</strong> — if you choose to sign in with Google (see{' '}
-              <a href="#google-sign-in" className="text-ink underline underline-offset-2">
                 above
               </a>
               )
@@ -182,46 +158,44 @@ export default function Privacy() {
           </p>
         </LegalSection>
 
-        <LegalSection id="data-retention" title="7. Data Retention">
+        <LegalSection id="data-retention" title="6. Data Retention">
           <p>
-            We keep your account and booking information for as long as your account is active,
-            so you can view your appointment history. [Placeholder — add the business&rsquo;s
-            specific retention period for account/booking records after account closure, once
-            decided.]
+            We keep your booking information so the studio can manage your appointments.
+            [Placeholder — add the business&rsquo;s specific retention period for booking
+            records, once decided.]
           </p>
         </LegalSection>
 
-        <LegalSection id="security" title="8. Security">
+        <LegalSection id="security" title="7. Security">
           <p>
-            Passwords are stored using industry-standard hashing, and access to admin tools is
-            restricted by role-based permissions. No method of storing or transmitting data
+            Staff passwords are stored using industry-standard hashing, and access to admin
+            tools is restricted by role-based permissions. No method of storing or transmitting data
             online is completely secure, and we cannot guarantee absolute security.
           </p>
         </LegalSection>
 
-        <LegalSection id="your-rights" title="9. Your Rights & Requests">
+        <LegalSection id="your-rights" title="8. Your Rights & Requests">
           <p>
-            You can review and update your account details from your account page at any time.
             To request a copy of, correction to, or deletion of your personal information,
             contact us using the details below.
           </p>
         </LegalSection>
 
-        <LegalSection id="children" title="10. Children's Privacy">
+        <LegalSection id="children" title="9. Children's Privacy">
           <p>
             This website is intended for adults booking salon services and is not directed at
             children. We do not knowingly collect information from children.
           </p>
         </LegalSection>
 
-        <LegalSection id="changes" title="11. Changes to This Policy">
+        <LegalSection id="changes" title="10. Changes to This Policy">
           <p>
             We may update this policy from time to time. The &ldquo;Last updated&rdquo; date at
             the top of this page reflects the most recent revision.
           </p>
         </LegalSection>
 
-        <LegalSection id="contact" title="12. Contact Us">
+        <LegalSection id="contact" title="11. Contact Us">
           <p>For privacy questions or requests, contact:</p>
           <ul>
             <li>{site.name}, {site.address}</li>

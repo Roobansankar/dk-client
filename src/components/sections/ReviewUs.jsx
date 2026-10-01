@@ -1,12 +1,11 @@
 import { useId, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Star } from 'lucide-react'
 import Container from '../layout/Container'
-import { useAuth } from '../../context/AuthContext'
 import { api, ApiError } from '../../lib/api'
 
-const RETURN_TO = '/contact#review-us'
 const MAX_LENGTH = 2000
+const FIELD =
+  'mt-2 w-full rounded-sm border border-line-strong bg-paper px-3.5 py-2.5 text-ink transition-colors focus-visible:border-ink'
 
 /** Five clickable stars — `value` is the current rating (0 = none picked yet). */
 function StarPicker({ value, onChange, error }) {
@@ -42,34 +41,9 @@ function StarPicker({ value, onChange, error }) {
   )
 }
 
-/** The signed-out prompt — same "keep your place, come back" pattern as BookingAuthGate. */
-function SignInPrompt() {
-  const navigate = useNavigate()
-  return (
-    <div className="border border-dashed border-line-strong px-6 py-8 text-center">
-      <p className="text-ink-soft">Sign in to leave a review of your experience with us.</p>
-      <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-        <button
-          type="button"
-          className="btn"
-          onClick={() => navigate('/login', { state: { from: RETURN_TO } })}
-        >
-          Log in
-        </button>
-        <button
-          type="button"
-          className="btn btn-outline"
-          onClick={() => navigate('/register', { state: { from: RETURN_TO } })}
-        >
-          Create account
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ReviewForm({ userName }) {
+function ReviewForm() {
   const uid = useId()
+  const [name, setName] = useState('')
   const [rating, setRating] = useState(0)
   const [text, setText] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -90,14 +64,21 @@ function ReviewForm({ userName }) {
     setFormError(null)
     setFieldErrors({})
 
-    if (!rating) {
-      setFieldErrors({ rating: 'Please choose a star rating.' })
+    const errors = {}
+    if (!name.trim()) errors.reviewer_name = 'Please enter your name.'
+    if (!rating) errors.rating = 'Please choose a star rating.'
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors)
       return
     }
 
     setSubmitting(true)
     try {
-      const { message } = await api.post('/reviews', { rating, review_text: text.trim() })
+      const { message } = await api.post('/reviews', {
+        reviewer_name: name.trim(),
+        rating,
+        review_text: text.trim(),
+      })
       setSuccessMessage(message || 'Thanks for your review! It’ll appear on the site once approved.')
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
@@ -115,9 +96,29 @@ function ReviewForm({ userName }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <p className="text-sm text-muted">
-        Posting as <span className="text-ink-soft">{userName}</span>
-      </p>
+      <div>
+        <label htmlFor={`${uid}-name`} className="eyebrow block">
+          Your name
+        </label>
+        <input
+          id={`${uid}-name`}
+          maxLength={255}
+          required
+          autoComplete="name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            setFieldErrors((prev) =>
+              prev.reviewer_name ? { ...prev, reviewer_name: undefined } : prev,
+            )
+          }}
+          aria-invalid={Boolean(fieldErrors.reviewer_name)}
+          className={FIELD}
+        />
+        {fieldErrors.reviewer_name && (
+          <p className="mt-1.5 text-sm text-ink">{fieldErrors.reviewer_name}</p>
+        )}
+      </div>
 
       <div className="mt-5">
         <span className="eyebrow block">Your rating</span>
@@ -148,7 +149,7 @@ function ReviewForm({ userName }) {
             setFieldErrors((prev) => (prev.review_text ? { ...prev, review_text: undefined } : prev))
           }}
           placeholder="Tell us about your visit…"
-          className="mt-2 w-full rounded-sm border border-line-strong bg-paper px-3.5 py-2.5 text-ink transition-colors focus-visible:border-ink"
+          className={FIELD}
         />
         {fieldErrors.review_text && (
           <p className="mt-1.5 text-sm text-ink">{fieldErrors.review_text}</p>
@@ -169,15 +170,13 @@ function ReviewForm({ userName }) {
 }
 
 /**
- * "Review Us" — lets a signed-in customer submit their own review of the
- * studio (`POST /api/reviews`). A submission is never shown publicly right
+ * "Review Us" — lets a visitor submit their own review of the studio
+ * (`POST /api/reviews`), no account needed. A submission is never shown publicly right
  * away: it joins the same admin Reviews queue as a staff-entered Google
  * review, unpublished until approved (see admin/pages/Reviews.jsx) — this
  * form only ever confirms it was received, never that it's live.
  */
 export default function ReviewUs() {
-  const { user, status } = useAuth()
-
   return (
     <div id="review-us" className="scroll-mt-20 border-t border-line bg-paper">
       <Container className="section-y">
@@ -193,7 +192,7 @@ export default function ReviewUs() {
         </div>
 
         <div className="mx-auto mt-10 max-w-lg">
-          {status === 'authed' ? <ReviewForm userName={user?.name} /> : <SignInPrompt />}
+          <ReviewForm />
         </div>
       </Container>
     </div>

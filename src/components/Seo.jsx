@@ -12,7 +12,7 @@ import {
  *
  * - Indexable pages (default) get a canonical URL, robots "index", Open Graph
  *   and Twitter/X card tags.
- * - `noindex` pages (auth, account, cart, checkout, not-found) get robots
+ * - `noindex` pages (cart, checkout, not-found) get robots
  *   "noindex, follow" and no canonical.
  * - `jsonLd` (one object or an array of nodes) is emitted as a single
  *   application/ld+json @graph block.

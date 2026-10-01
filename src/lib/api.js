@@ -16,7 +16,6 @@
 import { API_BASE } from './env'
 
 const ADMIN_TOKEN_KEY = 'dk-admin-token'
-const CUSTOMER_TOKEN_KEY = 'dk-customer-token'
 
 function makeTokenStore(key) {
   return {
@@ -41,14 +40,7 @@ function makeTokenStore(key) {
 /** Staff/admin-panel session (unchanged key/shape — every existing import keeps working). */
 export const tokenStore = makeTokenStore(ADMIN_TOKEN_KEY)
 
-/**
- * Customer (public site) session — a separate token/localStorage slot so a
- * staff member and a customer signed in on the same browser never clobber
- * each other's session.
- */
-export const customerTokenStore = makeTokenStore(CUSTOMER_TOKEN_KEY)
-
-/** `/admin/*` and staff `/auth/*` use the admin token; everything else (incl. `/account/*`) uses the customer token. */
+/** `/admin/*` and staff `/auth/*` send the admin token; every other (public) request is anonymous. */
 function isAdminPath(path) {
   const p = path.startsWith('/') ? path : `/${path}`
   return p.startsWith('/admin') || p.startsWith('/auth')
@@ -79,14 +71,10 @@ export class ApiError extends Error {
 const NETWORK_MESSAGE =
   'We couldn’t reach the server. Please check your connection and try again.'
 
-/** Callbacks invoked on a 401 from the matching session, so the app can drop it. */
+/** Callback invoked on a 401 from an admin request, so the app can drop the session. */
 let onAdminUnauthorized = () => {}
-let onCustomerUnauthorized = () => {}
 export const setUnauthorizedHandler = (fn) => {
   onAdminUnauthorized = fn
-}
-export const setCustomerUnauthorizedHandler = (fn) => {
-  onCustomerUnauthorized = fn
 }
 
 /** Serialise query params — arrays become Laravel-style `key[]=a&key[]=b`. */
@@ -116,7 +104,7 @@ async function request(method, path, { body, params, signal } = {}) {
   if (params) appendParams(url, params)
 
   const headers = { Accept: 'application/json' }
-  const token = admin ? tokenStore.get() : customerTokenStore.get()
+  const token = admin ? tokenStore.get() : null
   if (token) headers.Authorization = `Bearer ${token}`
 
   let payload
@@ -148,7 +136,7 @@ async function request(method, path, { body, params, signal } = {}) {
   }
 
   if (!res.ok) {
-    if (res.status === 401) (admin ? onAdminUnauthorized : onCustomerUnauthorized)()
+    if (admin && res.status === 401) onAdminUnauthorized()
     throw new ApiError(json?.message || `Request failed (${res.status}).`, {
       status: res.status,
       errors: json?.errors ?? null,
@@ -167,7 +155,7 @@ async function requestBlob(path, params) {
   )
   if (params) appendParams(url, params)
   const headers = {}
-  const token = admin ? tokenStore.get() : customerTokenStore.get()
+  const token = admin ? tokenStore.get() : null
   if (token) headers.Authorization = `Bearer ${token}`
 
   let res
@@ -177,7 +165,7 @@ async function requestBlob(path, params) {
     throw new ApiError(NETWORK_MESSAGE, { network: true })
   }
   if (!res.ok) {
-    if (res.status === 401) (admin ? onAdminUnauthorized : onCustomerUnauthorized)()
+    if (admin && res.status === 401) onAdminUnauthorized()
     let body = null
     try {
       body = JSON.parse(await res.text())
@@ -210,7 +198,7 @@ function xhrUpload(path, formData, { onProgress, signal } = {}) {
     `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`,
     window.location.origin,
   ).toString()
-  const token = admin ? tokenStore.get() : customerTokenStore.get()
+  const token = admin ? tokenStore.get() : null
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -250,7 +238,7 @@ function xhrUpload(path, formData, { onProgress, signal } = {}) {
         /* non-JSON response — json stays null */
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        if (xhr.status === 401) (admin ? onAdminUnauthorized : onCustomerUnauthorized)()
+        if (admin && xhr.status === 401) onAdminUnauthorized()
         reject(
           new ApiError(json?.message || `Request failed (${xhr.status}).`, {
             status: xhr.status,

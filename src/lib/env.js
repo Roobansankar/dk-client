@@ -4,15 +4,6 @@
  * backend-supplied media path into a URL the browser can load. Nothing here
  * is a secret; only `VITE_*` build-time values and runtime `window` state
  * belong in this file.
- *
- * Google OAuth is deliberately NOT duplicated here: the full "continue with
- * Google" round trip (client id, redirect URI, and where to bounce back to
- * after the callback) is entirely backend-driven — see backend
- * `config/services.php` (`google.redirect`, from `GOOGLE_REDIRECT_URI`) and
- * `config/salon.php` (`frontend_url`, from `FRONTEND_URL`). The frontend only
- * ever calls `GET /account/google/redirect` (see GoogleButton.jsx) and
- * follows the URL it returns, then lands on the fixed `/auth/google/callback`
- * route — there is no environment-specific Google URL for this file to hold.
  */
 
 /**

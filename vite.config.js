@@ -39,7 +39,7 @@ async function fetchList(api, path) {
 /**
  * Build-time SEO files:
  *  - robots.txt — allows the public site, keeps crawlers out of the admin,
- *    account, cart/checkout and API areas, and points at the sitemap.
+ *    cart/checkout and API areas, and points at the sitemap.
  *  - sitemap.xml — the public canonical routes above, plus every active
  *    product and combo page from the live API (skipped with a warning if the
  *    API can't be reached during the build; re-run the build to refresh).
@@ -60,10 +60,8 @@ function seoFiles(siteUrl, apiUrl) {
           'User-agent: *',
           'Allow: /',
           'Disallow: /admin',
-          'Disallow: /account',
           'Disallow: /cart',
           'Disallow: /checkout',
-          'Disallow: /auth/',
           'Disallow: /api/',
           '',
           `Sitemap: ${siteUrl}/sitemap.xml`,
@@ -170,13 +168,8 @@ export default defineConfig(({ mode }) => {
   },
   server: {
     // Pinned (not `strictPort`, so it still auto-increments with a warning if
-    // 5175 is genuinely taken) rather than left to Vite's default 5173: the
-    // Google OAuth client's "Authorized JavaScript origin" and the backend's
-    // FRONTEND_URL (see backend/.env / config/salon.php) are both fixed at
-    // http://localhost:5175. Without pinning this, which port a fresh `npm
-    // run dev` lands on depends on how many other unrelated dev servers are
-    // already running, and the Google login redirect silently breaks
-    // (ERR_CONNECTION_REFUSED) whenever it lands anywhere else.
+    // 5175 is genuinely taken) rather than left to Vite's default 5173, so
+    // the dev URL doesn't depend on how many other dev servers are running.
     port: 5175,
     proxy: {
       // Dev only: proxy API calls to `php artisan serve` so the browser talks

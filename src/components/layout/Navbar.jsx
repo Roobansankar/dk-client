@@ -4,9 +4,7 @@ import { ArrowRight, ChevronDown, Handbag, Menu, Search, X } from 'lucide-react'
 import clsx from 'clsx'
 import Container from './Container'
 import ThemeToggle from '../ThemeToggle'
-import AccountMenu from './AccountMenu'
 import SearchOverlay from './SearchOverlay'
-import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { scrollTopInstant } from '../../lib/scroll'
 import logoDark from '../../assets/images/Black-logo-384.webp'
@@ -36,7 +34,6 @@ const BOOKING = '/booking'
 export default function Navbar() {
   const location = useLocation()
 
-  const { status: authStatus, user } = useAuth()
   const { count: cartCount } = useCart()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -277,10 +274,6 @@ export default function Navbar() {
 
           <ThemeToggle />
 
-          <span className="hidden lg:inline-flex">
-            <AccountMenu />
-          </span>
-
           <Link
             to={BOOKING}
             className="btn hidden rounded-full btn-outline sm:inline-flex"
@@ -432,28 +425,6 @@ export default function Navbar() {
             </nav>
 
             <div className="mt-auto px-6 pb-8 pt-4">
-              <div className="mb-3 flex items-center justify-between border-t border-line pt-4">
-                <span className="text-sm text-ink-soft">Account</span>
-
-                {authStatus === 'authed' ? (
-                  <span className="flex items-center gap-2">
-                    <Link
-                      to="/account"
-                      className="text-sm text-ink underline underline-offset-2"
-                    >
-                      {user?.name || 'My account'}
-                    </Link>
-                  </span>
-                ) : (
-                  <Link
-                    to="/login"
-                    className="btn btn-outline rounded-full no-underline"
-                  >
-                    Sign in
-                  </Link>
-                )}
-              </div>
-
               <div className="mb-3 flex items-center justify-between border-t border-line pt-4">
                 <span className="text-sm text-ink-soft">Theme</span>
                 <ThemeToggle />

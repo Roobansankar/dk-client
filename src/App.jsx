@@ -4,7 +4,7 @@ import RootLayout from './routes/RootLayout'
 import Home from './routes/Home'
 // Route-split: Home (+ shell) is the initial bundle. Every other route is
 // lazy so a first-time visitor never downloads Booking/Cart/Checkout/
-// account/admin code until they actually navigate there. This is the
+// admin code until they actually navigate there. This is the
 // single biggest initial-JS win (~60%+ smaller first load).
 const About = lazy(() => import('./routes/About'))
 const Services = lazy(() => import('./routes/Services'))
@@ -19,17 +19,8 @@ const Booking = lazy(() => import('./routes/Booking'))
 const Terms = lazy(() => import('./routes/Terms'))
 const Privacy = lazy(() => import('./routes/Privacy'))
 const NotFound = lazy(() => import('./routes/NotFound'))
-const Login = lazy(() => import('./routes/account/Login'))
-const Register = lazy(() => import('./routes/account/Register'))
-const ForgotPassword = lazy(() => import('./routes/account/ForgotPassword'))
-const ResetPassword = lazy(() => import('./routes/account/ResetPassword'))
-const GoogleCallback = lazy(() => import('./routes/account/GoogleCallback'))
-const Account = lazy(() => import('./routes/account/Account'))
-const OrderDetail = lazy(() => import('./routes/account/OrderDetail'))
-import RequireCustomer from './routes/account/RequireCustomer'
 import { ThemeProvider } from './context/ThemeContext'
 import { SiteProvider } from './context/SiteContext'
-import { AuthProvider } from './context/AuthContext'
 import { CatalogueProvider } from './context/CatalogueContext'
 import { StylistsProvider } from './context/StylistsContext'
 import { ProductsProvider } from './context/ProductsContext'
@@ -45,91 +36,54 @@ const AdminApp = lazy(() => import('./admin/App'))
 
 function PublicShell() {
   return (
-    <AuthProvider>
-      <SiteProvider>
-        <CatalogueProvider>
-          <StylistsProvider>
-            <ProductsProvider>
-              <CartProvider>
-              <VideoProvider>
-                <PricingPlansProvider>
-                  <ReviewsProvider>
-                    {/* Lazy routes need a boundary: instant (null) fallback so
-                        navigation feels immediate, no spinner flash. */}
-                    <Suspense fallback={null}>
-                    <Routes>
-                      <Route element={<RootLayout />}>
-                        <Route index element={<Home />} />
-                        <Route path="services" element={<Services />} />
-                        <Route path="services/men" element={<Services key="men" gender="men" />} />
-                        <Route path="services/women" element={<Services key="women" gender="women" />} />
-                        <Route path="products" element={<Products />} />
-                        <Route path="products/:slug" element={<ProductDetail />} />
-                        <Route path="combos/:slug" element={<ComboDetail />} />
-                        <Route path="cart" element={<Cart />} />
-                        <Route
-                          path="checkout"
-                          element={
-                            <RequireCustomer>
-                              <Checkout />
-                            </RequireCustomer>
-                          }
-                        />
-                        <Route
-                          path="checkout/now"
-                          element={
-                            <RequireCustomer>
-                              <Checkout buyNowMode />
-                            </RequireCustomer>
-                          }
-                        />
-                        <Route
-                          path="gallery"
-                          element={
-                            <GalleryProvider>
-                              <Gallery />
-                            </GalleryProvider>
-                          }
-                        />
-                        <Route path="contact" element={<Contact />} />
-                        <Route path="booking" element={<Booking />} />
-                        <Route path="terms" element={<Terms />} />
-                        <Route path="privacy" element={<Privacy />} />
-                        <Route path="login" element={<Login />} />
-                        <Route path="register" element={<Register />} />
-                        <Route path="forgot-password" element={<ForgotPassword />} />
-                        <Route path="reset-password" element={<ResetPassword />} />
-                        <Route path="auth/google/callback" element={<GoogleCallback />} />
-                        <Route
-                          path="account"
-                          element={
-                            <RequireCustomer>
-                              <Account />
-                            </RequireCustomer>
-                          }
-                        />
-                        <Route
-                          path="account/orders/:id"
-                          element={
-                            <RequireCustomer>
-                              <OrderDetail />
-                            </RequireCustomer>
-                          }
-                        />
-                        <Route path="about" element={<About />} />
-                        <Route path="*" element={<NotFound />} />
-                      </Route>
-                    </Routes>
-                    </Suspense>
-                  </ReviewsProvider>
-                </PricingPlansProvider>
-              </VideoProvider>
-              </CartProvider>
-            </ProductsProvider>
-          </StylistsProvider>
-        </CatalogueProvider>
-      </SiteProvider>
-    </AuthProvider>
+    <SiteProvider>
+      <CatalogueProvider>
+        <StylistsProvider>
+          <ProductsProvider>
+            <CartProvider>
+            <VideoProvider>
+              <PricingPlansProvider>
+                <ReviewsProvider>
+                  {/* Lazy routes need a boundary: instant (null) fallback so
+                      navigation feels immediate, no spinner flash. */}
+                  <Suspense fallback={null}>
+                  <Routes>
+                    <Route element={<RootLayout />}>
+                      <Route index element={<Home />} />
+                      <Route path="services" element={<Services />} />
+                      <Route path="services/men" element={<Services key="men" gender="men" />} />
+                      <Route path="services/women" element={<Services key="women" gender="women" />} />
+                      <Route path="products" element={<Products />} />
+                      <Route path="products/:slug" element={<ProductDetail />} />
+                      <Route path="combos/:slug" element={<ComboDetail />} />
+                      <Route path="cart" element={<Cart />} />
+                      <Route path="checkout" element={<Checkout />} />
+                      <Route path="checkout/now" element={<Checkout buyNowMode />} />
+                      <Route
+                        path="gallery"
+                        element={
+                          <GalleryProvider>
+                            <Gallery />
+                          </GalleryProvider>
+                        }
+                      />
+                      <Route path="contact" element={<Contact />} />
+                      <Route path="booking" element={<Booking />} />
+                      <Route path="terms" element={<Terms />} />
+                      <Route path="privacy" element={<Privacy />} />
+                      <Route path="about" element={<About />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Route>
+                  </Routes>
+                  </Suspense>
+                </ReviewsProvider>
+              </PricingPlansProvider>
+            </VideoProvider>
+            </CartProvider>
+          </ProductsProvider>
+        </StylistsProvider>
+      </CatalogueProvider>
+    </SiteProvider>
   )
 }
 

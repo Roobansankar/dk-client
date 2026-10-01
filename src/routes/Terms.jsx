@@ -6,11 +6,10 @@ import { breadcrumbSchema } from '../lib/seo'
 
 // Kept as a single readable constant rather than computed from `new Date()`
 // on every render — bump it by hand whenever this page's content changes.
-const LAST_UPDATED = 'September 17, 2026'
+const LAST_UPDATED = 'October 1, 2026'
 
 const CONTENTS = [
   ['website-usage', 'Website Usage'],
-  ['accounts', 'Account Registration'],
   ['booking', 'Appointment Booking'],
   ['confirmation', 'Appointment Confirmation'],
   ['rescheduling-cancellation', 'Rescheduling & Cancellation'],
@@ -31,7 +30,7 @@ const CONTENTS = [
  * document reads better as quiet body copy than as a campaign section.
  *
  * Content is scoped to what this codebase actually does (see StoreAppointment
- * Request, RazorpayPaymentTest, GoogleAuthController) — nothing about
+ * Request, RazorpayPaymentTest) — nothing about
  * registration numbers, GST, or a specific legal entity is invented; those
  * are left as bracketed placeholders for the business to fill in.
  */
@@ -64,24 +63,14 @@ export default function Terms() {
       >
         <LegalSection id="website-usage" title="1. Website Usage">
           <p>
-            By browsing this website or creating an account, you agree to use it only for
-            lawful purposes — to learn about {site.name}&rsquo;s services, products and pricing,
-            and to book appointments. You agree not to misuse the site: attempting to
-            disrupt it, access accounts that aren&rsquo;t yours, or submit false information.
+            By browsing this website, you agree to use it only for lawful purposes — to learn
+            about {site.name}&rsquo;s services, products and pricing, and to book appointments.
+            You agree not to misuse the site: attempting to disrupt it or submit false
+            information.
           </p>
         </LegalSection>
 
-        <LegalSection id="accounts" title="2. Account Registration">
-          <p>
-            Booking an appointment online requires a customer account. You can register with
-            your name, email and (optionally) phone number, or sign in with Google. You are
-            responsible for keeping your login credentials confidential and for all activity
-            under your account. Please provide accurate, current information when
-            registering or booking.
-          </p>
-        </LegalSection>
-
-        <LegalSection id="booking" title="3. Appointment Booking">
+        <LegalSection id="booking" title="2. Appointment Booking">
           <p>To book an appointment you&rsquo;ll be asked for:</p>
           <ul>
             <li>Your name and phone number</li>
@@ -94,7 +83,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="confirmation" title="4. Appointment Confirmation">
+        <LegalSection id="confirmation" title="3. Appointment Confirmation">
           <p>
             An appointment is confirmed only once it has been successfully submitted and, where
             an advance payment is required, that payment has been received (see{' '}
@@ -106,7 +95,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="rescheduling-cancellation" title="5. Rescheduling & Cancellation">
+        <LegalSection id="rescheduling-cancellation" title="4. Rescheduling & Cancellation">
           <p>
             If you need to reschedule or cancel an appointment, please contact the studio
             directly (see{' '}
@@ -119,7 +108,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="payments" title="6. Advance Payments & Payment Processing">
+        <LegalSection id="payments" title="5. Advance Payments & Payment Processing">
           <p>
             Certain bookings require an advance payment (a confirmation fee) to secure the
             appointment. This payment is processed through Razorpay, a third-party payment
@@ -130,7 +119,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="no-show" title="7. No-Shows & Late Arrivals">
+        <LegalSection id="no-show" title="6. No-Shows & Late Arrivals">
           <p>
             Please arrive on time for your appointment. [Placeholder — add the business&rsquo;s
             specific policy for no-shows and late arrivals, including whether any advance
@@ -138,7 +127,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="availability-pricing" title="8. Service Availability & Pricing">
+        <LegalSection id="availability-pricing" title="7. Service Availability & Pricing">
           <p>
             Services, stylists and pricing shown on this website reflect current offerings and
             may change without prior notice. We aim to keep this information accurate, but the
@@ -146,7 +135,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="responsibilities" title="9. Your Responsibilities">
+        <LegalSection id="responsibilities" title="8. Your Responsibilities">
           <p>
             You agree to provide accurate booking and contact details, to inform us in advance
             of any allergies, sensitivities or conditions relevant to the service you&rsquo;ve
@@ -154,7 +143,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="ownership" title="10. Website & Content Ownership">
+        <LegalSection id="ownership" title="9. Website & Content Ownership">
           <p>
             The {site.name} name, logo, photography and written content on this website belong
             to {site.name} unless otherwise credited, and may not be copied or reused without
@@ -162,7 +151,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="liability" title="11. Limitation of Liability">
+        <LegalSection id="liability" title="10. Limitation of Liability">
           <p>
             This website and its content are provided on an &ldquo;as is&rdquo; basis. To the
             extent permitted by law, {site.name} is not liable for indirect or consequential
@@ -172,7 +161,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="changes" title="12. Changes to Services or These Terms">
+        <LegalSection id="changes" title="11. Changes to Services or These Terms">
           <p>
             We may update these terms, our services or our pricing from time to time. The
             &ldquo;Last updated&rdquo; date at the top of this page reflects the most recent
@@ -181,7 +170,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="governing-law" title="13. Governing Law">
+        <LegalSection id="governing-law" title="12. Governing Law">
           <p>
             These terms are governed by the laws of India, and any disputes will be subject to
             the exclusive jurisdiction of the courts of Coimbatore, Tamil Nadu — the studio&rsquo;s
@@ -189,7 +178,7 @@ export default function Terms() {
           </p>
         </LegalSection>
 
-        <LegalSection id="contact" title="14. Contact Us">
+        <LegalSection id="contact" title="13. Contact Us">
           <p>Questions about these terms can be sent to:</p>
           <ul>
             <li>{site.name}, {site.address}</li>
