@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { DataTable, Pagination } from '../components/DataTable'
 import { AppointmentDetail } from '../components/AppointmentDetail'
 import { DeleteAppointmentAction } from '../components/DeleteAppointmentAction'
+import { DeleteAllAction } from '../components/DeleteAllAction'
 import {
   Button,
   EmptyState,
@@ -70,6 +71,13 @@ export default function AppointmentsPage() {
   const onDeleted = (appt) => {
     refetch()
     setSelectedId((cur) => (cur === appt?.id ? null : cur))
+  }
+
+  // "Delete All" emptied the whole table: back to page 1, nothing selected.
+  const onDeletedAll = () => {
+    setSelectedId(null)
+    setPage(1)
+    refetch()
   }
 
   const columns = [
@@ -166,6 +174,22 @@ export default function AppointmentsPage() {
         >
           <RotateCw size={14} /> Refresh
         </Button>
+        <DeleteAllAction
+          endpoint="/admin/appointments"
+          permissions={['appointments.manage']}
+          subject="all appointments"
+          onDeleted={onDeletedAll}
+        >
+          <p>
+            Every appointment is permanently removed — pending, confirmed, completed, cancelled
+            and rejected, online and offline, past and upcoming — together with its payment
+            record. Appointment History and the Payment Report show the same records, so they are emptied too.
+          </p>
+          <p>
+            Services, stylists, working hours, holidays and settings are not touched, and new
+            bookings keep working.
+          </p>
+        </DeleteAllAction>
       </PageHeader>
 
       <Toolbar>

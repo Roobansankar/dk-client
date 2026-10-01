@@ -7,6 +7,7 @@ import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
 import { useDebounced } from '../hooks/useDebounced'
 import { Modal, ConfirmDialog } from '../components/Modal'
+import { DeleteAllAction } from '../components/DeleteAllAction'
 import { DataTable, Pagination } from '../components/DataTable'
 import {
   Button,
@@ -154,6 +155,13 @@ export default function OrdersPage() {
     { successMessage: 'Orders exported.' },
   )
 
+  // "Delete All" emptied the whole table: back to page 1, nothing selected.
+  const onDeletedAll = () => {
+    setSelectedId(null)
+    setPage(1)
+    refetch()
+  }
+
   const columns = [
     {
       key: 'order',
@@ -230,6 +238,21 @@ export default function OrdersPage() {
         >
           <Download size={15} /> Download Excel
         </Button>
+        <DeleteAllAction
+          endpoint="/admin/orders"
+          permissions={['orders.manage']}
+          subject="all orders"
+          onDeleted={onDeletedAll}
+        >
+          <p>
+            Every product order is permanently removed — website orders and offline bills alike —
+            together with its items and bill.
+          </p>
+          <p>
+            Products, combos and stock are not touched: stock that was sold stays sold, and the
+            stock history keeps its sale entries.
+          </p>
+        </DeleteAllAction>
       </PageHeader>
 
       <Toolbar>

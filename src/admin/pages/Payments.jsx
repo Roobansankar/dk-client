@@ -7,6 +7,7 @@ import { useMutation } from '../hooks/useMutation'
 import { useAuth } from '../lib/auth'
 import { DataTable, Pagination } from '../components/DataTable'
 import { AppointmentDetail } from '../components/AppointmentDetail'
+import { DeleteAllAction } from '../components/DeleteAllAction'
 import {
   Button,
   EmptyState,
@@ -112,6 +113,13 @@ export default function PaymentsPage() {
     { successMessage: 'Report downloaded.' },
   )
 
+  // "Delete All" emptied the whole table: back to page 1, nothing selected.
+  const onDeletedAll = () => {
+    setSelectedId(null)
+    setPage(1)
+    refetch()
+  }
+
   const cards = summary
     ? [
         { label: 'Completed appointments', value: summary.completed_appointments },
@@ -201,6 +209,23 @@ export default function PaymentsPage() {
             <Download size={15} /> Download Excel
           </Button>
         )}
+        <DeleteAllAction
+          endpoint="/admin/payments"
+          permissions={['payments.view', 'appointments.manage']}
+          subject="all payment records"
+          onDeleted={onDeletedAll}
+        >
+          <p>
+            This report has no records of its own — each row is an appointment. Deleting
+            everything here permanently removes every appointment the report lists: all with an
+            advance or full payment recorded (including upcoming, confirmed bookings) and all
+            completed ones. They disappear from Appointments and Appointment History too.
+          </p>
+          <p>
+            Unpaid appointments that are still pending or confirmed, and cancelled or rejected
+            ones, are kept. Services, stylists and settings are not touched.
+          </p>
+        </DeleteAllAction>
       </PageHeader>
 
       {summary && <StatGrid items={cards} size="md" className="mb-5" />}
