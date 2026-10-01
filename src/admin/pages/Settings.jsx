@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
-import { api } from '../lib/api'
+import { useMemo, useRef, useState } from 'react'
+import { Download, QrCode } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
+import { API_BASE, api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
@@ -46,8 +48,67 @@ const GROUP_BLURB = {
   social: 'Links to the studio’s public profiles.',
   branding: 'Relative storage paths for brand assets.',
 }
-const LABELS = {
-  salon_name: 'Salon name',
+/**
+ * Studio brochure downloads — the same live PDF behind the QR code on the
+ * public Contact/Home pages. Staff can grab the PDF itself and the QR image
+ * (for print: flex boards, tent cards) straight from Settings.
+ */
+function BrochureCard() {
+  // Absolute PDF URL, same rule as the public QR (see BrochureQr): an
+  // absolute API base is used verbatim (production), otherwise this page's
+  // own origin + the proxied path (local dev).
+  const brochureUrl = API_BASE.startsWith('http')
+    ? `${API_BASE}/brochure`
+    : `${typeof window !== 'undefined' ? window.location.origin : ''}${API_BASE}/brochure`
+  const qrRef = useRef(null)
+
+  const pdfMut = useMutation(() => api.download('/brochure', {}, 'dk-stylehub-studio-brochure.pdf'), {
+    successMessage: 'Brochure downloaded.',
+  })
+
+  const downloadQr = () => {
+    const canvas = qrRef.current
+    if (!canvas) return
+    const a = document.createElement('a')
+    a.href = canvas.toDataURL('image/png')
+    a.download = 'dk-stylehub-brochure-qr.png'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  return (
+    <SectionCard
+      title="Studio brochure"
+      description="Live stylists + services PDF and its QR code — the same pair the public site shows."
+      bodyClassName="flex flex-col gap-4 sm:flex-row sm:items-center"
+    >
+      <div className="w-fit rounded-[var(--radius-md)] border border-[var(--color-line)] bg-white p-3">
+        <QRCodeCanvas
+          ref={qrRef}
+          value={brochureUrl}
+          size={132}
+          aria-label="QR code linking to the studio brochure PDF"
+        />
+      </div>
+      <div className="flex flex-1 flex-col gap-2">
+        <p className="text-sm text-[var(--color-muted)]">
+          Scan goes to the brochure PDF, regenerated live on every open — no reprint needed when prices change.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" loading={pdfMut.pending} onClick={() => pdfMut.mutate()}>
+            <Download size={15} /> Download PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={downloadQr}>
+            <QrCode size={15} /> Download QR
+          </Button>
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+const LABELS = {  salon_name: 'Salon name',
   description: 'Description',
   phone: 'Phone (display)',
   phone_href: 'Phone link (tel:)',
@@ -132,6 +193,7 @@ export default function SettingsPage() {
       )}
 
       <div className="flex flex-col gap-5">
+        <BrochureCard />
         {groups.map((group) => (
           <SectionCard
             key={group}

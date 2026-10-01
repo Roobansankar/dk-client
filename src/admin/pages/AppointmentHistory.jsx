@@ -111,8 +111,15 @@ export default function AppointmentHistoryPage() {
   const anyFilter = Object.values(filters).some(Boolean)
 
   const exportMut = useMutation(
-    () =>
-      api.download(
+    () => {
+      // The filename mirrors the active filters, so a downloaded file tells
+      // you what it holds: the filtered range when set, else the full record.
+      const stamp = new Date().toISOString().slice(0, 10)
+      const range =
+        params.date_from || params.date_to
+          ? `-${params.date_from || 'start'}-to-${params.date_to || 'today'}`
+          : ''
+      return api.download(
         '/admin/appointments/export',
         {
           search: params.search,
@@ -125,9 +132,14 @@ export default function AppointmentHistoryPage() {
           date_from: params.date_from,
           date_to: params.date_to,
         },
-        `dk-stylehub-appointments-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      ),
-    { successMessage: 'Appointments exported.' },
+        `dk-stylehub-appointments${range}-${stamp}.xlsx`,
+      )
+    },
+    {
+      successMessage: anyFilter
+        ? 'Filtered appointments exported — the file holds only the rows you see.'
+        : 'Appointments exported.',
+    },
   )
 
   // After a delete anywhere in this view: revalidate the list and, if the
@@ -244,8 +256,10 @@ export default function AppointmentHistoryPage() {
           onClick={() => exportMut.mutate()}
           loading={exportMut.pending}
           disabled={!data?.length}
+          title={anyFilter ? 'Downloads only the filtered rows' : 'Downloads everything'}
         >
-          <Download size={14} /> Export Excel
+          <Download size={14} />{' '}
+          {anyFilter && meta?.total != null ? `Export filtered (${meta.total})` : 'Export Excel'}
         </Button>
       </PageHeader>
 

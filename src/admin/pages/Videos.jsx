@@ -28,6 +28,9 @@ export default function VideosPage() {
   const { data, loading, error, refetch, refetching } = useQuery('/admin/videos', {
     params: { per_page: 100 },
   })
+  // How this server handles uploads: ffmpeg compression, or store-as-is on
+  // hosts without ffmpeg (see VIDEO_DRIVER). Drives the notice below.
+  const uploadStatus = useQuery('/admin/videos/status')
 
   const [ordered, setOrdered] = useEditableCopy(data)
 
@@ -65,7 +68,11 @@ export default function VideosPage() {
     <div>
       <PageHeader
         title="Videos"
-        description="Clips shown in the homepage Video section, in this order. Uploads are compressed automatically."
+        description={
+          uploadStatus.data?.driver === 'direct'
+            ? 'Clips shown in the homepage Video section, in this order. Uploads are stored as-is (no compression on this server).'
+            : 'Clips shown in the homepage Video section, in this order. Uploads are compressed automatically.'
+        }
       >
         {canManage && (
           <Button size="sm" onClick={() => setModal({ mode: 'create' })}>
@@ -73,6 +80,14 @@ export default function VideosPage() {
           </Button>
         )}
       </PageHeader>
+
+      {uploadStatus.data?.driver === 'direct' && (
+        <p className="mb-5 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface-sunken)] px-3 py-2 text-sm text-[var(--color-muted)]">
+          Direct upload mode — this server has no ffmpeg, so videos are stored
+          exactly as uploaded with no compression or poster. Keep files small
+          (phone exports under 25&nbsp;MB work best).
+        </p>
+      )}
 
       {loading ? (
         <LoadingBlock />
