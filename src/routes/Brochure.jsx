@@ -69,12 +69,12 @@ function StylistSection({ stylist }) {
 }
 
 /**
- * /brochure — what the QR code on the admin Settings print QR points at.
- * A plain scrollable webpage (every stylist, one after another, services
- * grouped underneath), not a PDF: phones vary wildly in how well they
- * render a multi-page PDF opened directly, but a normal webpage just works
- * everywhere the same way. The actual PDF stays one tap away for anyone who
- * wants the file itself.
+ * /brochure — a plain scrollable webpage (every stylist, one after another,
+ * services grouped underneath), linked from the public site. Not a PDF:
+ * phones vary wildly in how well they render a multi-page PDF opened
+ * directly, but a normal webpage just works everywhere the same way. The
+ * actual PDF stays one tap away for anyone who wants the file itself (the
+ * admin Settings print QR points straight at the inline PDF endpoint).
  */
 export default function Brochure() {
   const { data, loading, error, reload } = useApiResource('/brochure-data')
