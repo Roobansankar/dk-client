@@ -16,7 +16,6 @@ const Checkout = lazy(() => import('./routes/Checkout'))
 const Gallery = lazy(() => import('./routes/Gallery'))
 const Contact = lazy(() => import('./routes/Contact'))
 const Booking = lazy(() => import('./routes/Booking'))
-const Brochure = lazy(() => import('./routes/Brochure'))
 const Terms = lazy(() => import('./routes/Terms'))
 const Privacy = lazy(() => import('./routes/Privacy'))
 const NotFound = lazy(() => import('./routes/NotFound'))
@@ -70,7 +69,6 @@ function PublicShell() {
                       />
                       <Route path="contact" element={<Contact />} />
                       <Route path="booking" element={<Booking />} />
-                      <Route path="brochure" element={<Brochure />} />
                       <Route path="terms" element={<Terms />} />
                       <Route path="privacy" element={<Privacy />} />
                       <Route path="about" element={<About />} />
