@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Download, QrCode } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { API_BASE, api } from '../lib/api'
+import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
@@ -54,12 +54,10 @@ const GROUP_BLURB = {
  * (for print: flex boards, tent cards) straight from Settings.
  */
 function BrochureCard() {
-  // Absolute PDF URL, same rule as the public QR (see BrochureQr): an
-  // absolute API base is used verbatim (production), otherwise this page's
-  // own origin + the proxied path (local dev).
-  const brochureUrl = API_BASE.startsWith('http')
-    ? `${API_BASE}/brochure`
-    : `${typeof window !== 'undefined' ? window.location.origin : ''}${API_BASE}/brochure`
+  // Same /brochure page the public QR (see BrochureQr) points at, not the
+  // raw PDF endpoint directly — some phones' own inline PDF viewer only
+  // renders the first page of a large PDF opened straight from a link.
+  const brochurePageUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/brochure`
   const qrRef = useRef(null)
 
   const pdfMut = useMutation(() => api.download('/brochure', {}, 'dk-stylehub-studio-brochure.pdf'), {
@@ -86,14 +84,14 @@ function BrochureCard() {
       <div className="w-fit rounded-[var(--radius-md)] border border-[var(--color-line)] bg-white p-3">
         <QRCodeCanvas
           ref={qrRef}
-          value={brochureUrl}
+          value={brochurePageUrl}
           size={132}
-          aria-label="QR code linking to the studio brochure PDF"
+          aria-label="QR code linking to the studio brochure page"
         />
       </div>
       <div className="flex flex-1 flex-col gap-2">
         <p className="text-sm text-[var(--color-muted)]">
-          Scan goes to the brochure PDF, regenerated live on every open — no reprint needed when prices change.
+          Scan opens a page with View/Download PDF — regenerated live, no reprint needed when prices change.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" loading={pdfMut.pending} onClick={() => pdfMut.mutate()}>
