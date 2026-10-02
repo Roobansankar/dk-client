@@ -4,9 +4,10 @@ import Container from '../layout/Container'
 import { API_BASE } from '../../lib/api'
 
 export default function BrochureQr() {
-  // The QR opens the /brochure page (PDF shown inline, with its own Download
-  // button) rather than the raw PDF endpoint — scanning it used to trigger
-  // an immediate, unannounced file download, which is what this split fixes.
+  // The QR opens the /brochure page (PDF shown inline, with its own
+  // always-visible Download button) rather than the raw PDF endpoint —
+  // a bare browser PDF viewer's own download control varies by phone and
+  // isn't always obvious, so this page guarantees one.
   const brochurePageUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/brochure`
   const brochurePdfUrl = API_BASE.startsWith('http')
     ? `${API_BASE}/brochure`

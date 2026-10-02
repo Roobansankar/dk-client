@@ -13,11 +13,10 @@ const brochureBase = API_BASE.startsWith('http')
   : `${typeof window !== 'undefined' ? window.location.origin : ''}${API_BASE}/brochure`
 
 /**
- * /brochure — what the QR code on /contact actually points at. Opens as a
- * normal webpage with the studio brochure PDF shown in place, plus an
- * explicit Download button, so scanning the code no longer silently starts
- * a file download (the previous behaviour, when the QR pointed straight at
- * the PDF endpoint).
+ * /brochure — what the QR code on /contact and /home actually points at.
+ * Shows the studio brochure PDF in place, with an always-visible Download
+ * button: scanning the QR opens this page rather than the bare PDF, whose
+ * own viewer chrome (and its download control) varies by phone/browser.
  */
 export default function Brochure() {
   return (
