@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react'
 import Container from '../components/layout/Container'
 import FooterCta from '../components/sections/FooterCta'
-import BrochureQr from '../components/sections/BrochureQr'
+import BrochureDownload from '../components/sections/BrochureDownload'
 import ReviewUs from '../components/sections/ReviewUs'
 import { useSite } from '../context/SiteContext'
 import { formatTime12h } from '../lib/time'
@@ -223,7 +223,7 @@ export default function Contact() {
         </Container>
       </div>
 
-      <BrochureQr />
+      <BrochureDownload />
 
       <ReviewUs />
 

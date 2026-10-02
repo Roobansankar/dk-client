@@ -49,14 +49,14 @@ const GROUP_BLURB = {
   branding: 'Relative storage paths for brand assets.',
 }
 /**
- * Studio brochure downloads — the same live PDF behind the QR code on the
- * public Contact/Home pages. Staff can grab the PDF itself and the QR image
- * (for print: flex boards, tent cards) straight from Settings.
+ * Studio brochure: the same live PDF the public Home/Contact pages link to
+ * for download. Staff can also grab a QR image here (for print: flex
+ * boards, tent cards) — the public pages themselves no longer show one.
  */
 function BrochureCard() {
-  // Same /brochure page the public QR (see BrochureQr) points at, not the
-  // raw PDF endpoint directly — some phones' own inline PDF viewer only
-  // renders the first page of a large PDF opened straight from a link.
+  // The /brochure page (View/Download PDF), not the raw PDF endpoint
+  // directly — some phones' own inline PDF viewer only renders the first
+  // page of a large PDF opened straight from a link.
   const brochurePageUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/brochure`
   const qrRef = useRef(null)
 

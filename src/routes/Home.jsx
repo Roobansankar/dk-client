@@ -5,7 +5,7 @@ import ComboOffers from '../components/sections/ComboOffers'
 import ProductShowcase from '../components/sections/ProductShowcase'
 import VideoMarquee from '../components/sections/VideoMarquee'
 import CustomerReviews from '../components/sections/CustomerReviews'
-import BrochureQr from '../components/sections/BrochureQr'
+import BrochureDownload from '../components/sections/BrochureDownload'
 import FooterCta from '../components/sections/FooterCta'
 import Seo from '../components/Seo'
 import { useSite } from '../context/SiteContext'
@@ -57,7 +57,7 @@ export default function Home() {
       <ProductShowcase />
       <VideoMarquee />
       <CustomerReviews />
-      <BrochureQr />
+      <BrochureDownload />
       <FooterCta />
     </div>
   )
