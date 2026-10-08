@@ -22,7 +22,7 @@ import {
 import { Check, ShieldAlert } from 'lucide-react'
 import { formatDuration, formatPrice } from '../lib/format'
 import { addDaysIso, formatTimeRange12h, isoRange, parseDateIso, studioNow } from '../../lib/time'
-import { isStylistOpenOn } from '../../lib/stylistAvailability'
+import { isStylistOpenOn, stylistHoursOn } from '../../lib/stylistAvailability'
 
 /** How far ahead the date dropdown offers — comfortably past a typical walk-in booking. */
 const OFFLINE_DATE_WINDOW_DAYS = 120
@@ -270,15 +270,19 @@ export default function OfflineAppointmentNewPage() {
 
   // The chosen stylist's own price / advance % per service, if the admin set
   // one (Stylists → Services & hours); otherwise each service's standard
-  // terms. Totals are summed; advance % is re-derived like the server.
-  const price = selectedServices.reduce((sum, s) => {
+  // terms (mirrors Service::termsFor). Totals are summed; advance % is
+  // re-derived like the server.
+  const termsFor = (s) => {
     const own = chosenStylist?.service_terms?.[s.id]
-    return sum + (own?.price != null ? Number(own.price) : Number(s.price) || 0)
-  }, 0)
+    return {
+      price: own?.price != null ? Number(own.price) : Number(s.price) || 0,
+      percentage: own?.advance_percentage != null ? Number(own.advance_percentage) : Number(s.advance_percentage) || 0,
+      ownPrice: own?.price != null,
+    }
+  }
+  const price = selectedServices.reduce((sum, s) => sum + termsFor(s).price, 0)
   const advanceAmount = selectedServices.reduce((sum, s) => {
-    const own = chosenStylist?.service_terms?.[s.id]
-    const p = own?.price != null ? Number(own.price) : Number(s.price) || 0
-    const pct = own?.advance_percentage != null ? Number(own.advance_percentage) : Number(s.advance_percentage) || 0
+    const { price: p, percentage: pct } = termsFor(s)
     return sum + Math.round(p * pct) / 100
   }, 0)
   const advancePercentage = price > 0 ? Math.round((advanceAmount / price) * 100 * 100) / 100 : 0
@@ -292,6 +296,9 @@ export default function OfflineAppointmentNewPage() {
         isStylistOpenOn(chosenStylist, iso, studioHolidays),
       )
     : []
+  // The chosen stylist's working hours on the chosen date (same precedence as the server).
+  const dateHours =
+    chosenStylist && form.appointment_date ? stylistHoursOn(chosenStylist, form.appointment_date, studioHolidays) : []
   const slotsReady = Boolean(
     (selectedServices.length > 0 || selectedPlan?.duration_minutes) && chosenStylist && form.appointment_date,
   )
@@ -486,6 +493,7 @@ export default function OfflineAppointmentNewPage() {
                   ) : (
                     categoryServices.map((s) => {
                       const checked = selectedIds.includes(String(s.id))
+                      const terms = termsFor(s)
                       return (
                         <label
                           key={s.id}
@@ -503,7 +511,8 @@ export default function OfflineAppointmentNewPage() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate font-medium text-[var(--color-ink)]">{s.name}</span>
                             <span className="block text-xs text-[var(--color-muted)]">
-                              {formatDuration(s.duration_minutes)} · {formatPrice(s.price)}
+                              {formatDuration(s.duration_minutes)} · {formatPrice(terms.price)}
+                              {terms.ownPrice && ` (${chosenStylist.name}'s price · standard ${formatPrice(s.price)})`}
                             </span>
                           </span>
                           {checked && <Check size={14} aria-hidden="true" className="shrink-0 text-[var(--color-accent)]" />}
@@ -583,6 +592,11 @@ export default function OfflineAppointmentNewPage() {
                     Set their hours
                   </Link>
                   .
+                </p>
+              )}
+              {chosenStylist && dateHours.length > 0 && (
+                <p className="mt-1.5 text-xs text-[var(--color-muted)]" data-testid="stylist-hours">
+                  {chosenStylist.name} works {dateHours.map((h) => formatTimeRange12h(h.start, h.end)).join(', ')} on this date.
                 </p>
               )}
             </Field>
